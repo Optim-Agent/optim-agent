@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "optim-agent"
-version = "0.1.1"
+version = "0.2.0"
 description = "Agentic system optimization: coding agents reason over parameter meaning and trial history."
 readme = "README.md"
 license = "MIT"

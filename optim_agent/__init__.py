@@ -4,6 +4,6 @@ from .pruners import AgentPruner
 from .samplers import AgentSampler, RandomSampler
 from .study import Study, Trial, TrialPruned, create_study
 
-__version__ = "0.1.1"
+__version__ = "0.2.0"
 __all__ = ["AgentPruner", "AgentSampler", "RandomSampler", "Study", "Trial",
            "TrialPruned", "create_study", "__version__"]

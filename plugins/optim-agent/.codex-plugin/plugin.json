@@ -1,6 +1,6 @@
 {
   "name": "optim-agent",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Optimize configurable systems against measurable objectives.",
   "author": {
     "name": "Optim-Agent",

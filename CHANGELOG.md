@@ -6,6 +6,18 @@ All notable changes to optim-agent are documented here. The format follows
 
 ## Unreleased
 
+## 0.2.0 - 2026-07-27
+
+### Added
+
+- Optional summary agent: `create_study(..., summarize=True)` runs an agent once
+  after `optimize()` finishes, printing and persisting a structured summary with
+  the best configuration, search-space insights, trajectory highlights, and
+  suggested next steps.
+- Table logging: `Study.optimize(verbose="table")` renders a terminal-friendly
+  table with one column per search-space parameter, width-aware truncation, and
+  automatic fallback to the classic line format on non-TTY output.
+
 ## 0.1.1 - 2026-07-13
 
 ### Added

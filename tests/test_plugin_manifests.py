@@ -15,7 +15,7 @@ def test_plugin_manifests_share_public_metadata():
     codex = _json("plugins/optim-agent/.codex-plugin/plugin.json")
 
     assert claude["name"] == codex["name"] == "optim-agent"
-    assert claude["version"] == codex["version"] == "0.1.1"
+    assert claude["version"] == codex["version"] == "0.2.0"
     assert claude["author"]["name"] == codex["author"]["name"] == "Optim-Agent"
     assert claude["repository"] == codex["repository"] == (
         "https://github.com/Optim-Agent/optim-agent"

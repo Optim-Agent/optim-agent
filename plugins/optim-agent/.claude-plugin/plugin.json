@@ -1,7 +1,7 @@
 {
   "name": "optim-agent",
   "description": "Optimize configurable systems against measurable objectives.",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "author": {
     "name": "Optim-Agent",
     "url": "https://github.com/Optim-Agent"
