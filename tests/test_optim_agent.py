@@ -2,6 +2,8 @@
 
 import json
 import copy
+import contextlib
+import io
 import sys
 import tempfile
 from pathlib import Path
@@ -11,7 +13,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import optim_agent as oa
-from optim_agent import agent, samplers, space
+from optim_agent import agent, samplers, space, summarizer
 
 
 def test_packaging_declares_development_and_vision_extras():
@@ -1200,6 +1202,170 @@ def test_concurrency_and_sqlite():
         assert len(nums) == len(set(nums)) == 21  # AUTOINCREMENT keeps numbers unique
 
 
+def test_summary_mock_prints_and_persists():
+    # R13/A4: backend="mock" needs no real CLI; R4/A5: JSON and SQLite round-trip.
+    for suffix in (".json", ".db"):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / f"study{suffix}"
+            study = oa.create_study(storage=path, seed=0, summarize=True,
+                                    summary_backend="mock")
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                study.optimize(quadratic, n_trials=5, verbose=False)
+            assert study.summary is not None
+            assert study.summary in buf.getvalue()  # printed AND persisted (R4)
+            assert "[optim-agent] study summary" in study.summary
+            for title in ("Best configuration", "Search space insights",
+                          "Trajectory highlights", "Suggested next steps"):
+                assert title in study.summary
+            if suffix == ".json":
+                assert json.loads(path.read_text())["summary"] == study.summary
+            resumed = oa.create_study(storage=path, seed=1)
+            assert resumed.summary == study.summary
+            assert len(resumed.trials) == 5
+
+
+def test_summary_off_by_default_and_old_storages_load_none():
+    for suffix in (".json", ".db"):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / f"study{suffix}"
+            study = oa.create_study(storage=path, seed=0)
+            study.optimize(quadratic, n_trials=3, verbose=False)
+            assert study.summary is None  # opt-in: off unless summarize=True (R1)
+            assert oa.create_study(storage=path).summary is None
+    # a pre-feature JSON storage without the additive key still loads (R4/A5)
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "old.json"
+        study = oa.create_study(storage=path, seed=0)
+        study.optimize(quadratic, n_trials=2, verbose=False)
+        data = json.loads(path.read_text())
+        data.pop("summary")
+        path.write_text(json.dumps(data))
+        assert oa.create_study(storage=path).summary is None
+
+
+def test_summary_backend_resolution():
+    # unresolvable/invalid backends fail fast at create_study, naming the fix (R2)
+    with pytest.raises(ValueError, match="summary_backend"):
+        oa.create_study(summarize=True)
+    with pytest.raises(ValueError, match="summary_backend"):
+        oa.create_study(summarize=True, summary_backend="not-a-backend")
+    # an AgentSampler donates its backend/model/effort
+    sampler = oa.AgentSampler(backend="mock", model="m1", effort="low")
+    study = oa.create_study(sampler=sampler, summarize=True)
+    assert (study._summary_backend, study._summary_model, study._summary_effort) == (
+        ("mock", "m1", "low"))
+    # explicit overrides win over the sampler's config
+    study = oa.create_study(sampler=sampler, summarize=True,
+                            summary_model="m2", summary_effort="medium")
+    assert (study._summary_model, study._summary_effort) == ("m2", "medium")
+    # non-AgentSampler: model None (backend CLI default), effort "high" (R2)
+    study = oa.create_study(summarize=True, summary_backend="mock")
+    assert (study._summary_backend, study._summary_model, study._summary_effort) == (
+        ("mock", None, "high"))
+
+
+def test_summary_skipped_without_complete_trials():
+    # R14: zero complete trials → one-line notice, no agent call, nothing persisted
+    study = oa.create_study(seed=0, summarize=True, summary_backend="mock")
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        study.optimize(quadratic, n_trials=0, verbose=False)
+    assert study.summary is None
+    assert "summary skipped: no complete trials" in buf.getvalue()
+    study = oa.create_study(seed=0, summarize=True, summary_backend="mock")
+
+    def boom(trial):
+        raise RuntimeError("boom")
+
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        study.optimize(boom, n_trials=2, catch=(RuntimeError,), verbose=False)
+    assert study.summary is None
+    assert "summary skipped: no complete trials" in buf.getvalue()
+
+
+def test_summary_prompt_carries_context_and_space():
+    sampler = oa.AgentSampler(backend="mock", context="knobs of a parabola")
+    study = oa.create_study(sampler=sampler, seed=0)
+    study.optimize(quadratic, n_trials=3, verbose=False)
+    prompt = summarizer.build_summary_prompt(study)
+    assert "knobs of a parabola" in prompt  # context via getattr(sampler, "context")
+    assert "MINIMIZE" in prompt
+    assert '"best_config"' in prompt and '"next_steps"' in prompt
+    # samplers without a context (e.g. RandomSampler) work too (R2)
+    plain = oa.create_study(seed=0)
+    plain.optimize(quadratic, n_trials=2, verbose=False)
+    plain_prompt = summarizer.build_summary_prompt(plain)
+    assert "Search space:" in plain_prompt and "Best trial:" in plain_prompt
+
+
+def test_summary_fallback_on_garbage_reply(monkeypatch):
+    # R3: an unparseable reply falls back to the raw text and never fails the study
+    monkeypatch.setattr(summarizer._agent, "call_agent", lambda *a, **k: "not json at all")
+    study = oa.create_study(seed=0, summarize=True, summary_backend="claude")
+    study.optimize(quadratic, n_trials=3, verbose=False)
+    assert study.summary == "not json at all"
+    assert len(study.trials) == 3
+
+
+def test_summary_fallback_on_partial_sections(monkeypatch):
+    # R15: parsed JSON missing a required section is a parse failure — this closes
+    # the "last fenced block wins" partial-summary hole in extract_json.
+    partial = json.dumps({"best_config": {"x": 2}, "space_insights": "..."})
+    reply = f"Here you go:\n```json\n{partial}\n```\nHope that helps!"
+    monkeypatch.setattr(summarizer._agent, "call_agent", lambda *a, **k: reply)
+    study = oa.create_study(seed=0, summarize=True, summary_backend="claude")
+    study.optimize(quadratic, n_trials=3, verbose=False)
+    assert study.summary == reply.strip()
+
+
+def test_summary_structured_reply_is_formatted_and_printed(monkeypatch, capsys):
+    reply = ("Some narration first.\n```json\n" + json.dumps({
+        "best_config": {"x": 2.0, "value": 0.0},
+        "space_insights": "x wants to be near 2",
+        "trajectory_highlights": "steady improvement",
+        "next_steps": "narrow the range",
+    }) + "\n```")
+    monkeypatch.setattr(summarizer._agent, "call_agent", lambda *a, **k: reply)
+    study = oa.create_study(seed=0, summarize=True, summary_backend="claude")
+    study.optimize(quadratic, n_trials=3, verbose=False)
+    out = capsys.readouterr().out
+    assert "[optim-agent] study summary" in out
+    for title in ("Best configuration", "Search space insights",
+                  "Trajectory highlights", "Suggested next steps"):
+        assert title in out
+    assert "x wants to be near 2" in study.summary
+
+
+def test_summary_agent_call_failure_never_fails_study(monkeypatch):
+    def boom(*a, **k):
+        raise RuntimeError("cli missing")
+
+    monkeypatch.setattr(summarizer._agent, "call_agent", boom)
+    study = oa.create_study(seed=0, summarize=True, summary_backend="claude")
+    with pytest.warns(UserWarning, match="summary agent call failed"):
+        study.optimize(quadratic, n_trials=3, verbose=False)
+    assert study.summary is None
+    assert len(study.trials) == 3
+
+
+def test_summary_uses_resolved_backend_model_effort(monkeypatch):
+    calls = {}
+
+    def fake_call(backend, model, prompt, timeout=300, effort=None, cwd=None):
+        calls.update(backend=backend, model=model, effort=effort)
+        return "raw reply"
+
+    monkeypatch.setattr(summarizer._agent, "call_agent", fake_call)
+    sampler = oa.AgentSampler(backend="mock", model="m1", effort="low")
+    study = oa.create_study(sampler=sampler, seed=0, summarize=True,
+                            summary_backend="claude", summary_model="m2")
+    study.optimize(quadratic, n_trials=3, verbose=False)
+    assert calls == {"backend": "claude", "model": "m2", "effort": "low"}
+    assert study.summary == "raw reply"
+
+
 def test_skill_mode_ask_tell():
     study = oa.create_study()
     trial = study.ask({"lr": 3e-4, "batch": 64})  # session agent picks the point
@@ -1748,6 +1914,11 @@ if __name__ == "__main__":
                test_cumulative_error_metric_joint_startup_portfolio,
                test_anchor_proposals_seed_warmup,
                test_pruner, test_mock_backend_and_storage, test_concurrency_and_sqlite,
+               test_summary_mock_prints_and_persists,
+               test_summary_off_by_default_and_old_storages_load_none,
+               test_summary_backend_resolution,
+               test_summary_skipped_without_complete_trials,
+               test_summary_prompt_carries_context_and_space,
                test_skill_mode_ask_tell, test_hostile_agent_values, test_guardrails,
                test_resume_no_replay, test_mnist_helper_curves_and_labels,
                test_mnist_optuna_trial_adapter_ignores_context,
