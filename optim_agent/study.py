@@ -4,12 +4,16 @@ import json
 import os
 import random
 import sqlite3
+import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+from . import agent as _agent
 from . import space as _space
-from .samplers import RandomSampler
+from . import summarizer as _summarizer
+from .reporting import TableReporter, format_line
+from .samplers import AgentSampler, RandomSampler
 
 
 class TrialPruned(Exception):
@@ -52,6 +56,22 @@ class _SQLiteStore:
         c.execute("PRAGMA journal_mode=WAL")    # readers don't block the one writer
         c.execute("PRAGMA busy_timeout=30000")  # wait out a peer's write, don't error
         return c
+
+    def set_meta(self, key, value):
+        c = self._conn()
+        try:
+            c.execute("INSERT OR REPLACE INTO meta VALUES(?,?)", (key, value))
+            c.commit()
+        finally:
+            c.close()
+
+    def get_meta(self, key):
+        c = self._conn()
+        try:
+            row = c.execute("SELECT v FROM meta WHERE k=?", (key,)).fetchone()
+            return row[0] if row else None
+        finally:
+            c.close()
 
     def add_trial(self, params, value, state, intermediate) -> int:
         c = self._conn()
@@ -139,7 +159,8 @@ class Trial:
 
 class Study:
     def __init__(self, direction="minimize", sampler=None, pruner=None,
-                 storage=None, seed=None, max_concurrency=1):
+                 storage=None, seed=None, max_concurrency=1, summarize=False,
+                 summary_backend=None, summary_model=None, summary_effort=None):
         if direction not in ("minimize", "maximize"):
             raise ValueError("direction must be 'minimize' or 'maximize'")
         if max_concurrency < 1:
@@ -148,19 +169,55 @@ class Study:
         self.sampler = sampler or RandomSampler()
         self.pruner = pruner
         self.max_concurrency = max_concurrency
+        # fail fast: an unresolvable summary config raises here, not post-optimize
+        self._resolve_summary_agent(summarize, summary_backend,
+                                    summary_model, summary_effort)
         self.storage = Path(storage) if storage else None
         self._store = None
         self._rng = random.Random(seed)
         self.trials = []
         self.space = {}
+        self.summary = None  # LLM-authored narration of the finished run (opt-in)
         if self.storage and str(self.storage).endswith(_SQLiteStore.SUFFIXES):
             self._store = _SQLiteStore(self.storage, direction)
             self.space = self._store.load_space()
             self._refresh_from_store()
+            self.summary = self._store.get_meta("summary")  # additive; None when absent
         elif self.storage and self.storage.exists():
             self._load(direction)
         if seed is not None and self.trials:  # don't replay the pre-resume random sequence
             self._rng = random.Random(f"{seed}-{len(self.trials)}")  # str seed: valid on 3.11+, tuple isn't
+
+    def _resolve_summary_agent(self, summarize, backend, model, effort):
+        """Resolve the summary-agent config once, at construction (R2).
+
+        Backend: explicit `summary_backend` → the sampler's backend when it is an
+        `AgentSampler` → clear ValueError. `summary_model`/`summary_effort`
+        override the sampler's model/effort; without an AgentSampler they default
+        to None (backend CLI default) and "high" (AgentSampler's default).
+        """
+        self.summarize = bool(summarize)
+        self._summary_backend = self._summary_model = self._summary_effort = None
+        if not self.summarize:
+            return
+        if backend is None:
+            if isinstance(self.sampler, AgentSampler):
+                backend = self.sampler.backend
+            else:
+                raise ValueError(
+                    "summarize=True needs an agent backend but the sampler is not an "
+                    "AgentSampler; pass summary_backend=... "
+                    f"(one of {_agent.BACKENDS + ('mock',)})")
+        elif backend != "mock" and backend not in _agent.BACKENDS:
+            raise ValueError(f"summary_backend must be one of {_agent.BACKENDS + ('mock',)}")
+        if model is None and isinstance(self.sampler, AgentSampler):
+            model = self.sampler.model
+        if effort is None:
+            effort = (self.sampler.effort if isinstance(self.sampler, AgentSampler)
+                      else "high")
+        self._summary_backend = backend
+        self._summary_model = model
+        self._summary_effort = effort
 
     # -- ask / tell ----------------------------------------------------------
 
@@ -208,6 +265,8 @@ class Study:
         # ponytail: threads, not processes — the objective is an arbitrary (unpicklable)
         # closure whose heavy work (agent subprocess, model training) releases the GIL.
         # For true multi-process, run several processes against one SQLite `storage`.
+        mode = self._resolve_verbose(verbose)
+        reporter = TableReporter() if mode == "table" else None
         lock = threading.Lock()  # serializes ask/tell; agent queries queue on this lock
 
         def run_one(_):
@@ -224,9 +283,12 @@ class Study:
             else:
                 with lock:
                     self.tell(trial, value)
-            if verbose:
-                with lock:
-                    self._log(trial)
+            if mode is not None:
+                with lock:  # row printing + reporter bookkeeping share this lock (C3)
+                    if reporter is not None:
+                        reporter.report(trial, self.best_value)
+                    else:
+                        self._log(trial)
             return trial
 
         if self.max_concurrency == 1:
@@ -237,13 +299,37 @@ class Study:
                 list(ex.map(run_one, range(n_trials)))  # list() re-raises worker errors
         if self._store is not None:
             self._refresh_from_store()
+        if self.summarize:
+            self._run_summary()
         return self
 
+    @staticmethod
+    def _resolve_verbose(verbose):
+        """Map `verbose` to "table" | "line" | None (D7): True → "table"; a non-TTY
+        stdout (piped/CI) falls back to the greppable line format (R8)."""
+        if verbose is True:
+            verbose = "table"
+        if verbose in (None, False):
+            return None
+        if verbose == "table":
+            return "table" if sys.stdout.isatty() else "line"
+        if verbose == "line":
+            return "line"
+        raise ValueError("verbose must be True, False, 'table' or 'line'")
+
+    def _run_summary(self):
+        text = _summarizer.run_summary(self, self._summary_backend,
+                                       self._summary_model, self._summary_effort)
+        if text is None:  # no complete trials or the agent call failed (R14)
+            return
+        self.summary = text
+        if self._store is not None:
+            self._store.set_meta("summary", text)
+        elif self.storage:
+            self._save()
+
     def _log(self, trial):
-        best = self.best_value
-        print(f"[optim-agent] trial {trial.number}: value={trial.value} "
-              f"state={trial.state} best={best:.6g}" if best is not None else
-              f"[optim-agent] trial {trial.number}: state={trial.state}")
+        print(format_line(trial, self.best_value))
 
     # -- results ---------------------------------------------------------
 
@@ -270,6 +356,7 @@ class Study:
     def _save(self):
         data = {
             "direction": self.direction,
+            "summary": self.summary,  # additive key; old readers ignore it
             "space": {n: _space.to_dict(d) for n, d in self.space.items()},
             "trials": [{"number": t.number, "params": t.params, "value": t.value,
                         "state": t.state, "intermediate": t.intermediate}
@@ -284,6 +371,7 @@ class Study:
         if data["direction"] != direction:
             raise ValueError(f"study at {self.storage} was created with "
                              f"direction={data['direction']!r}, got {direction!r}")
+        self.summary = data.get("summary")  # additive key: old studies load as None
         self.space = {n: _space.from_dict(d) for n, d in data["space"].items()}
         for rec in data["trials"]:
             t = Trial(self, rec["number"], params=rec["params"])
@@ -293,5 +381,18 @@ class Study:
 
 
 def create_study(direction="minimize", sampler=None, pruner=None,
-                 storage=None, seed=None, max_concurrency=1) -> Study:
-    return Study(direction, sampler, pruner, storage, seed, max_concurrency)
+                 storage=None, seed=None, max_concurrency=1, summarize=False,
+                 summary_backend=None, summary_model=None, summary_effort=None) -> Study:
+    """Create a Study.
+
+    summarize: opt-in; when truthy, optimize() runs the summary agent once after
+               the last trial, prints the summary and persists it on the study
+    summary_backend: agent backend for the summary; defaults to the sampler's
+               backend when the sampler is an AgentSampler, else a ValueError
+               names this argument as the fix (resolution happens here, R2)
+    summary_model / summary_effort: override the sampler's model/effort for the
+               summary agent when given
+    """
+    return Study(direction, sampler, pruner, storage, seed, max_concurrency,
+                 summarize=summarize, summary_backend=summary_backend,
+                 summary_model=summary_model, summary_effort=summary_effort)
