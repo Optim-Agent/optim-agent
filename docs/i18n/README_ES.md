@@ -115,9 +115,11 @@ study = oa.create_study(
         qualitative_notes=True,
     ),
     storage="study.json",  # optional: persist and resume
+    summarize=True,  # optional: agent-written result summary after the last trial
 )
 study.optimize(objective, n_trials=20)
 print(study.best_value, study.best_params)
+print(study.summary)  # the summary agent's narration of the finished study
 ```
 
 El `context` opcional aporta significado de dominio al study y a los parámetros. Puedes pasarlo
@@ -336,6 +338,56 @@ oa.AgentSampler(
 
 Usa `history=None` para mostrar todos los trials completados/pruned. Usa
 `explicit_reasoning=False` o `qualitative_notes=False` para respuestas más cortas del agente.
+
+### Registro de trials
+
+`study.optimize(..., verbose=...)` controla la salida por trial:
+
+- `verbose=True` (por defecto) muestra una tabla en un terminal interactivo: una fila por
+  trial con las columnas `trial`, `value`, `best`, `state`, más una columna por parámetro
+  del espacio de búsqueda en orden de primera aparición. Las filas largas se truncan con
+  una elipsis para ajustarse al ancho del terminal; los valores ausentes (p. ej. trials
+  fallidos) se muestran como `-`.
+- Cuando stdout no es un TTY (salida redirigida, logs de CI), `verbose=True` / `"table"`
+  recurre automáticamente al formato de una línea, apto para grep
+  (`[optim-agent] trial 3: value=0.91 state=complete best=0.91`).
+- `verbose="line"` usa siempre el formato de una línea, incluso en un TTY.
+- `verbose="table"` usa la tabla en un TTY y el formato de una línea al redirigir.
+- `verbose=False` silencia la salida por trial.
+
+Con espacios define-by-run, un trial que introduce una nueva clave de parámetro reimprime
+el encabezado con el superconjunto de columnas.
+
+### Agente de resumen
+
+Pasa `summarize=True` a `create_study` para que el agente narre el study terminado una
+vez, después del último trial:
+
+```python
+study = oa.create_study(
+    sampler=oa.AgentSampler(backend="claude"),
+    storage="study.json",
+    summarize=True,
+)
+study.optimize(objective, n_trials=20)
+print(study.summary)  # también se persiste en el almacenamiento JSON / SQLite
+```
+
+El resumen se estructura en cuatro secciones: mejor configuración, hallazgos del espacio
+de búsqueda, aspectos destacados de la trayectoria y siguientes pasos sugeridos. Se
+imprime en el terminal y se persiste en `study.summary` (clave aditiva en el
+almacenamiento JSON y en la tabla `meta` de SQLite; los studies antiguos se cargan con
+`summary=None`).
+
+Resolución del backend: un `summary_backend=` explícito tiene prioridad; si no, se
+reutiliza el backend del sampler cuando el sampler es un `AgentSampler`. Con cualquier
+otro sampler, pasa `summary_backend=` o `create_study` lanzará un `ValueError` que indica
+la solución. `summary_model=` / `summary_effort=` sobrescriben el model/effort del
+sampler para el resumen. Las respuestas del agente que no se puedan parsear en las cuatro
+secciones recurren a imprimir el texto en bruto: un resumen nunca hace fallar el study, y
+los studies sin trials completados lo omiten con un aviso de una línea. `backend="mock"`
+también funciona para el summarizer, de modo que demos y tests se ejecutan sin un CLI de
+agente real.
 
 ### Pruning
 

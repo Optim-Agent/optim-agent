@@ -113,9 +113,11 @@ study = oa.create_study(
         qualitative_notes=True,
     ),
     storage="study.json",  # optional: persist and resume
+    summarize=True,  # optional: agent-written result summary after the last trial
 )
 study.optimize(objective, n_trials=20)
 print(study.best_value, study.best_params)
+print(study.summary)  # the summary agent's narration of the finished study
 ```
 
 可选的 `context` 为 study 和参数提供领域含义。可以在
@@ -334,6 +336,47 @@ oa.AgentSampler(
 
 设置 `history=None` 可展示所有已完成/已剪枝 trial。使用
 `explicit_reasoning=False` 或 `qualitative_notes=False` 可缩短智能体回复。
+
+### Trial 日志
+
+`study.optimize(..., verbose=...)` 控制每个 trial 的输出：
+
+- `verbose=True`（默认）在交互式终端渲染表格：每个 trial 一行，列为 `trial`、
+  `value`、`best`、`state`，外加搜索空间中每个参数一列（按首次出现顺序）。过长的行
+  会用省略号截断以适配终端宽度；缺失值（如失败的 trial）显示为 `-`。
+- 当 stdout 不是 TTY（管道输出、CI 日志）时，`verbose=True` / `"table"` 会自动回退到
+  便于 grep 的单行格式（`[optim-agent] trial 3: value=0.91 state=complete best=0.91`）。
+- `verbose="line"` 始终使用单行格式，即使在 TTY 上。
+- `verbose="table"` 在 TTY 上使用表格，管道输出时使用单行格式。
+- `verbose=False` 关闭每个 trial 的输出。
+
+在 define-by-run 搜索空间中，当某个 trial 引入新的参数键时，会以列的超集重新打印表头。
+
+### Summary Agent
+
+向 `create_study` 传入 `summarize=True`，可让智能体在最后一个 trial 完成后对已结束的
+study 做一次总结：
+
+```python
+study = oa.create_study(
+    sampler=oa.AgentSampler(backend="claude"),
+    storage="study.json",
+    summarize=True,
+)
+study.optimize(objective, n_trials=20)
+print(study.summary)  # 也会持久化到 JSON / SQLite 存储中
+```
+
+总结固定为四个部分——最佳配置、搜索空间洞察、轨迹亮点和建议的后续步骤。它会打印到终端
+并持久化在 `study.summary` 上（JSON 存储中的附加键以及 SQLite 的 `meta` 表；旧的已存
+study 加载时 `summary=None`）。
+
+后端解析顺序：显式的 `summary_backend=` 优先；否则当 sampler 是 `AgentSampler` 时复用其
+backend。使用其他 sampler 时，请传入 `summary_backend=`，否则 `create_study` 会抛出指明
+修复方法的 `ValueError`。`summary_model=` / `summary_effort=` 会覆盖 sampler 的
+model/effort 用于总结。无法解析出全部四个部分的智能体回复会回退为打印原始文本——总结
+永远不会导致 study 失败，没有已完成 trial 的 study 会以一行提示跳过总结。`backend="mock"`
+同样适用于 summarizer，因此演示和测试无需真实的 agent CLI 即可运行。
 
 ### 剪枝
 

@@ -114,9 +114,11 @@ study = oa.create_study(
         qualitative_notes=True,
     ),
     storage="study.json",  # optional: persist and resume
+    summarize=True,  # optional: agent-written result summary after the last trial
 )
 study.optimize(objective, n_trials=20)
 print(study.best_value, study.best_params)
+print(study.summary)  # the summary agent's narration of the finished study
 ```
 
 선택적 `context`는 study와 파라미터에 도메인 의미를 제공합니다.
@@ -329,6 +331,52 @@ oa.AgentSampler(
 
 `history=None`은 완료/pruned trials를 모두 보여줍니다.
 `explicit_reasoning=False` 또는 `qualitative_notes=False`로 에이전트 응답을 줄일 수 있습니다.
+
+### Trial 로깅
+
+`study.optimize(..., verbose=...)`는 trial별 출력을 제어합니다:
+
+- `verbose=True`(기본값)는 대화형 터미널에서 표를 렌더링합니다: trial당 한 행에
+  `trial`, `value`, `best`, `state` 열과 탐색 공간의 각 파라미터가 최초 등장 순서로
+  한 열씩 표시됩니다. 긴 행은 터미널 너비에 맞게 말줄임표로 잘리고, 누락된 값
+  (실패한 trial 등)은 `-`로 표시됩니다.
+- stdout이 TTY가 아닐 때(파이프 출력, CI 로그) `verbose=True` / `"table"`은 자동으로
+  grep 가능한 한 줄 형식으로 폴백합니다
+  (`[optim-agent] trial 3: value=0.91 state=complete best=0.91`).
+- `verbose="line"`은 TTY에서도 항상 한 줄 형식을 사용합니다.
+- `verbose="table"`은 TTY에서는 표를, 파이프 시에는 한 줄 형식을 사용합니다.
+- `verbose=False`는 trial별 출력을 끕니다.
+
+define-by-run 공간에서는 새 파라미터 키를 도입하는 trial이 나타나면 열의 상위 집합으로
+헤더 행을 다시 출력합니다.
+
+### Summary Agent
+
+`create_study`에 `summarize=True`를 전달하면 마지막 trial이 완료된 후 에이전트가
+끝난 study를 한 번 서술합니다:
+
+```python
+study = oa.create_study(
+    sampler=oa.AgentSampler(backend="claude"),
+    storage="study.json",
+    summarize=True,
+)
+study.optimize(objective, n_trials=20)
+print(study.summary)  # JSON / SQLite 스토리지에도 저장됩니다
+```
+
+요약은 네 개의 섹션(최적 구성, 탐색 공간 인사이트, 궤적 하이라이트, 제안하는 다음 단계)으로
+구조화됩니다. 터미널에 출력되고 `study.summary`에 저장됩니다(JSON 스토리지의 추가 키와
+SQLite `meta` 테이블; 기존에 저장된 study는 `summary=None`으로 로드됩니다).
+
+백엔드 해석: 명시적인 `summary_backend=`가 우선하고, 그렇지 않으면 sampler가
+`AgentSampler`일 때 sampler의 backend를 재사용합니다. 다른 sampler에서는
+`summary_backend=`를 전달하세요. 전달하지 않으면 `create_study`가 해결 방법을 알려주는
+`ValueError`를 발생시킵니다. `summary_model=` / `summary_effort=`는 요약용으로
+sampler의 model/effort를 재정의합니다. 네 섹션 모두로 파싱할 수 없는 에이전트 응답은
+원문 텍스트 출력으로 폴백합니다. 요약은 study를 절대 실패시키지 않으며, 완료된
+trial이 없는 study는 한 줄 안내와 함께 건너뜁니다. `backend="mock"`도 summarizer에서
+동작하므로 데모와 테스트를 실제 agent CLI 없이 실행할 수 있습니다.
 
 ### Pruning
 

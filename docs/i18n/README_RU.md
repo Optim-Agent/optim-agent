@@ -115,9 +115,11 @@ study = oa.create_study(
         qualitative_notes=True,
     ),
     storage="study.json",  # optional: persist and resume
+    summarize=True,  # optional: agent-written result summary after the last trial
 )
 study.optimize(objective, n_trials=20)
 print(study.best_value, study.best_params)
+print(study.summary)  # the summary agent's narration of the finished study
 ```
 
 Опциональный `context` дает study и параметрам доменный смысл. Его можно задать на уровне
@@ -335,6 +337,54 @@ oa.AgentSampler(
 
 Задайте `history=None`, чтобы показать все completed/pruned trials. Используйте
 `explicit_reasoning=False` или `qualitative_notes=False` для более коротких ответов агента.
+
+### Логирование trials
+
+`study.optimize(..., verbose=...)` управляет выводом по каждому trial:
+
+- `verbose=True` (по умолчанию) отображает таблицу в интерактивном терминале: одна строка
+  на trial с колонками `trial`, `value`, `best`, `state` плюс по колонке на каждый
+  параметр пространства поиска в порядке первого появления. Длинные строки обрезаются
+  многоточием под ширину терминала; отсутствующие значения (например, у failed trials)
+  отображаются как `-`.
+- Когда stdout не является TTY (перенаправленный вывод, логи CI), `verbose=True` / `"table"`
+  автоматически переключается на однострочный формат, удобный для grep
+  (`[optim-agent] trial 3: value=0.91 state=complete best=0.91`).
+- `verbose="line"` всегда использует однострочный формат, даже на TTY.
+- `verbose="table"` использует таблицу на TTY и однострочный формат при перенаправлении.
+- `verbose=False` отключает вывод по trials.
+
+В define-by-run пространствах trial, вводящий новый ключ параметра, повторно печатает
+заголовок с надмножеством колонок.
+
+### Агент-суммаризатор
+
+Передайте `summarize=True` в `create_study`, чтобы агент один раз описал завершенную
+study после последнего trial:
+
+```python
+study = oa.create_study(
+    sampler=oa.AgentSampler(backend="claude"),
+    storage="study.json",
+    summarize=True,
+)
+study.optimize(objective, n_trials=20)
+print(study.summary)  # также сохраняется в JSON / SQLite хранилище
+```
+
+Сводка структурирована в четыре раздела — лучшая конфигурация, выводы о пространстве
+поиска, основные моменты траектории и предлагаемые следующие шаги. Она печатается в
+терминал и сохраняется в `study.summary` (аддитивный ключ в JSON-хранилище и в таблице
+`meta` SQLite; старые сохраненные studies загружаются с `summary=None`).
+
+Разрешение backend: явный `summary_backend=` имеет приоритет; иначе используется backend
+sampler'а, если sampler является `AgentSampler`. С любым другим sampler передайте
+`summary_backend=`, иначе `create_study` выбросит `ValueError` с указанием решения.
+`summary_model=` / `summary_effort=` переопределяют model/effort sampler'а для сводки.
+Ответы агента, которые не удается распарсить во все четыре раздела, откатываются к выводу
+сырого текста — сводка никогда не приводит к сбою study, а studies без завершенных trials
+пропускают ее с однострочным уведомлением. `backend="mock"` также работает для
+суммаризатора, поэтому демо и тесты запускаются без реального agent CLI.
 
 ### Pruning
 

@@ -114,9 +114,11 @@ study = oa.create_study(
         qualitative_notes=True,
     ),
     storage="study.json",  # optional: persist and resume
+    summarize=True,  # optional: agent-written result summary after the last trial
 )
 study.optimize(objective, n_trials=20)
 print(study.best_value, study.best_params)
+print(study.summary)  # the summary agent's narration of the finished study
 ```
 
 任意の `context` は study とパラメータにドメイン上の意味を与えます。
@@ -333,6 +335,54 @@ oa.AgentSampler(
 
 `history=None` で完了/剪定済み trial をすべて表示します。
 `explicit_reasoning=False` または `qualitative_notes=False` で応答を短くできます。
+
+### Trial ロギング
+
+`study.optimize(..., verbose=...)` で trial ごとの出力を制御します:
+
+- `verbose=True`(デフォルト)は対話ターミナルで表を表示します: trial ごとに 1 行で、
+  列は `trial`、`value`、`best`、`state` に加え、探索空間の各パラメータが初出順に
+  1 列ずつ並びます。長い行はターミナル幅に収まるよう省略記号で切り詰められ、
+  欠損値(失敗した trial など)は `-` と表示されます。
+- stdout が TTY でない場合(パイプ出力や CI ログ)、`verbose=True` / `"table"` は
+  自動的に grep しやすい 1 行形式にフォールバックします
+  (`[optim-agent] trial 3: value=0.91 state=complete best=0.91`)。
+- `verbose="line"` は TTY でも常に 1 行形式を使います。
+- `verbose="table"` は TTY では表、パイプ時は 1 行形式を使います。
+- `verbose=False` は trial ごとの出力を無効にします。
+
+define-by-run の探索空間では、新しいパラメータキーを持つ trial が現れると、
+列の上位集合でヘッダー行が再表示されます。
+
+### Summary Agent
+
+`create_study` に `summarize=True` を渡すと、最後の trial の完了後にエージェントが
+終了した study を一度だけ物語ります:
+
+```python
+study = oa.create_study(
+    sampler=oa.AgentSampler(backend="claude"),
+    storage="study.json",
+    summarize=True,
+)
+study.optimize(objective, n_trials=20)
+print(study.summary)  # JSON / SQLite ストレージにも永続化されます
+```
+
+サマリーは 4 つのセクション(最良構成、探索空間の洞察、軌跡のハイライト、推奨される
+次のステップ)に構造化されます。ターミナルに表示され、`study.summary` に永続化されます
+(JSON ストレージでは追加キー、SQLite では `meta` テーブル。古い保存済み study は
+`summary=None` として読み込まれます)。
+
+バックエンド解決: 明示的な `summary_backend=` が優先され、それ以外では sampler が
+`AgentSampler` の場合にその backend が再利用されます。それ以外の sampler では
+`summary_backend=` を渡してください。渡さないと `create_study` が修正方法を示す
+`ValueError` を送出します。`summary_model=` / `summary_effort=` はサマリー用に
+sampler の model/effort を上書きします。4 セクションすべてにパースできない
+エージェント応答は生テキストの表示にフォールバックします。サマリーが study を
+失敗させることはなく、完了 trial がゼロの study では 1 行の通知とともにスキップされます。
+`backend="mock"` は summarizer でも使えるため、デモやテストは実際の agent CLI なしで
+実行できます。
 
 ### Pruning
 

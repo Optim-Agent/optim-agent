@@ -124,9 +124,11 @@ study = oa.create_study(
         qualitative_notes=True,
     ),
     storage="study.json",  # optional: persist and resume
+    summarize=True,  # optional: agent-written result summary after the last trial
 )
 study.optimize(objective, n_trials=20)
 print(study.best_value, study.best_params)
+print(study.summary)  # the summary agent's narration of the finished study
 ```
 
 Optional `context` gives domain meaning to the study and parameters. Provide it
@@ -358,6 +360,55 @@ oa.AgentSampler(
 Set `history=None` to show all completed/pruned trials. Use
 `explicit_reasoning=False` or `qualitative_notes=False` for shorter agent
 replies.
+
+### Trial Logging
+
+`study.optimize(..., verbose=...)` controls per-trial output:
+
+- `verbose=True` (default) renders a table on an interactive terminal: one row
+  per trial with columns `trial`, `value`, `best`, `state`, plus one column per
+  search-space parameter in first-seen order. Long rows are truncated with an
+  ellipsis to fit the terminal width; missing values (e.g. failed trials)
+  render as `-`.
+- When stdout is not a TTY (piped output, CI logs), `verbose=True` / `"table"`
+  automatically falls back to the greppable one-line format
+  (`[optim-agent] trial 3: value=0.91 state=complete best=0.91`).
+- `verbose="line"` always uses the one-line format, even on a TTY.
+- `verbose="table"` uses the table on a TTY and the line format when piped.
+- `verbose=False` silences per-trial output.
+
+With define-by-run spaces, a trial that introduces a new parameter key reprints
+the header with the superset of columns.
+
+### Summary Agent
+
+Pass `summarize=True` to `create_study` to have the agent narrate the finished
+study once, after the last trial completes:
+
+```python
+study = oa.create_study(
+    sampler=oa.AgentSampler(backend="claude"),
+    storage="study.json",
+    summarize=True,
+)
+study.optimize(objective, n_trials=20)
+print(study.summary)  # also persisted in JSON / SQLite storage
+```
+
+The summary is structured into four sections — best configuration, search-space
+insights, trajectory highlights, and suggested next steps. It is printed to the
+terminal and persisted on `study.summary` (additive key in JSON storage and the
+SQLite `meta` table; old stored studies load with `summary=None`).
+
+Backend resolution: an explicit `summary_backend=` wins; otherwise the
+sampler's backend is reused when the sampler is an `AgentSampler`. With any
+other sampler, pass `summary_backend=` or `create_study` raises a `ValueError`
+naming the fix. `summary_model=` / `summary_effort=` override the sampler's
+model/effort for the summary. Agent replies that cannot be parsed into all four
+sections fall back to printing the raw text — a summary never fails the study,
+and studies with zero complete trials skip it with a one-line notice.
+`backend="mock"` works for the summarizer too, so demos and tests run without a
+real agent CLI.
 
 ### Pruning
 
