@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "optim-agent"
+version = "0.1.0"
+description = "Agent-driven hyperparameter optimization: LLM agents (claude / codex / opencode) as samplers and pruners."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+authors = [{ name = "Optim-Agent", email = "admin@optim-agent.com" }]
+keywords = ["hyperparameter-optimization", "llm", "agent", "hpo", "machine-learning"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+[project.optional-dependencies]
+examples = ["numpy", "matplotlib", "optuna"]  # optuna only for the TPE benchmark baseline
+
+[tool.setuptools]
+packages = ["optim_agent"]

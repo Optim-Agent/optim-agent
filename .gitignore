@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+.venv/
+paper/*.aux
+paper/*.log
+paper/*.out
+paper/*.bbl
+paper/*.blg
+.pytest_cache/
+.DS_Store
+.claude/
+next_point.json
