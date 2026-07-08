@@ -10,6 +10,7 @@ paper/*.out
 paper/*.bbl
 paper/*.blg
 paper/src/
+docs/autoresearch/
 .pytest_cache/
 .DS_Store
 .claude/
