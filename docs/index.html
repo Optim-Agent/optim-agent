@@ -217,7 +217,11 @@ back to random sampling.</li>
 <h3 id="sampler-levels">Effort</h3>
 
 <p>Effort controls how rich the harness prompt is — how much the agent sees
-and how hard it is asked to think. Higher effort costs more tokens per trial.</p>
+and how hard it is asked to think — and is also forwarded to the CLI's own
+reasoning-effort flag (<code>claude --effort</code>,
+<code>codex -c model_reasoning_effort=</code>, <code>opencode --variant</code>),
+so higher effort makes the model deliberate harder too. Higher effort costs
+more tokens per trial.</p>
 
 <table>
 <tr><th>Effort</th><th>History shown</th><th>Explicit reasoning</th><th>Qualitative notes</th><th>Candidates</th></tr>

@@ -108,6 +108,9 @@ curves sit inside one seed-noise band. On low-dimensional problems with a
 extra history, notes, and ranked candidates that higher effort buys have little
 to bite on. Effort is expected to earn its tokens on harder, longer-budget tasks
 (the paper's MNIST/ARIMA studies); for cheap objectives, `low` is often enough.
+(These curves predate wiring effort to each CLI's reasoning-effort flag
+`--effort` / `model_reasoning_effort` / `--variant`, which now also makes higher
+effort deliberate harder — a re-run may separate more.)
 
 ### Pruner tightness
 

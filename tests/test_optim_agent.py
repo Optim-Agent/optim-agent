@@ -34,8 +34,8 @@ def test_extract_json():
 def test_agent_sampler(monkeypatch=None):
     calls = []
 
-    def fake_call(backend, model, prompt, timeout):
-        calls.append(prompt)
+    def fake_call(backend, model, prompt, timeout, effort=None):
+        calls.append((prompt, effort))
         return 'reasoning... ```json\n{"x": 2.01, "_note": "min near x=2"}\n```'
 
     original = samplers._agent.call_agent
@@ -47,10 +47,16 @@ def test_agent_sampler(monkeypatch=None):
     finally:
         samplers._agent.call_agent = original
     assert calls, "agent was never consulted"
-    assert "Search space" in calls[0] and "Trial history" in calls[0]
-    assert "centers a parabola" in calls[0], "per-param context not shown to agent"
-    assert "min near x=2" in calls[-1], "note not carried forward"
+    assert "Search space" in calls[0][0] and "Trial history" in calls[0][0]
+    assert "centers a parabola" in calls[0][0], "per-param context not shown to agent"
+    assert "min near x=2" in calls[-1][0], "note not carried forward"
+    assert calls[0][1] == "max", "effort not forwarded to the CLI call"
     assert abs(study.best_trial.params["x"] - 2.01) < 1e-9
+    # effort maps to each CLI's reasoning-effort flag
+    assert agent._cmd("claude", None, "p", "high")[-3:-1] == ["--effort", "high"]
+    assert "model_reasoning_effort=xhigh" in agent._cmd("codex", None, "p", "xhigh")
+    assert "--variant" in agent._cmd("opencode", None, "p", "low")
+    assert "--effort" not in agent._cmd("claude", None, "p")  # None effort adds no flag
     # out-of-range and garbage replies fall back gracefully
     samplers._agent.call_agent = lambda *a, **k: '{"x": 999}'
     try:

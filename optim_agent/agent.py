@@ -7,7 +7,16 @@ import subprocess
 BACKENDS = ("claude", "codex", "opencode")
 
 
-def _cmd(backend: str, model, prompt: str) -> list:
+# each CLI's own reasoning-effort flag; our effort strings (low..max) pass through
+# as-is — all three accept them, and a rejected value just triggers the random
+# fallback in the sampler. ponytail: pass-through, add a value map if a CLI errors.
+def _effort_flag(backend: str, effort: str) -> list:
+    return {"claude": ["--effort", effort],
+            "codex": ["-c", f"model_reasoning_effort={effort}"],
+            "opencode": ["--variant", effort]}[backend]
+
+
+def _cmd(backend: str, model, prompt: str, effort=None) -> list:
     if backend == "claude":
         cmd = ["claude", "-p"]
         if model:
@@ -22,12 +31,14 @@ def _cmd(backend: str, model, prompt: str) -> list:
             cmd += ["-m", model]
     else:
         raise ValueError(f"unknown backend {backend!r}, expected one of {BACKENDS}")
+    if effort:
+        cmd += _effort_flag(backend, effort)
     return cmd + [prompt]
 
 
-def call_agent(backend: str, model, prompt: str, timeout: float = 300) -> str:
+def call_agent(backend: str, model, prompt: str, timeout: float = 300, effort=None) -> str:
     proc = subprocess.run(
-        _cmd(backend, model, prompt),
+        _cmd(backend, model, prompt, effort),
         capture_output=True, text=True, timeout=timeout,
         stdin=subprocess.DEVNULL,
     )

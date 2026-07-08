@@ -59,7 +59,8 @@ class AgentSampler:
         prompt = self._prompt(study, done, cfg)
         for attempt in range(2):
             try:
-                reply = _agent.call_agent(self.backend, self.model, prompt, self.timeout)
+                reply = _agent.call_agent(self.backend, self.model, prompt,
+                                          self.timeout, effort=self.effort)
             except Exception as e:
                 warnings.warn(f"agent call failed ({e}); falling back to random sampling")
                 return {}
