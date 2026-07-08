@@ -7,13 +7,12 @@ import subprocess
 BACKENDS = ("claude", "codex", "opencode")
 
 
-# each CLI's own reasoning-effort flag; our effort strings (low..max) pass through
-# as-is — all three accept them, and a rejected value just triggers the random
-# fallback in the sampler. ponytail: pass-through, add a value map if a CLI errors.
+# each CLI's own reasoning-effort flag. claude/opencode accept our full low..max
+# set; codex tops out at "xhigh" (no "max"), so clamp there.
 def _effort_flag(backend: str, effort: str) -> list:
-    return {"claude": ["--effort", effort],
-            "codex": ["-c", f"model_reasoning_effort={effort}"],
-            "opencode": ["--variant", effort]}[backend]
+    if backend == "codex":
+        return ["-c", f"model_reasoning_effort={'xhigh' if effort == 'max' else effort}"]
+    return {"claude": ["--effort", effort], "opencode": ["--variant", effort]}[backend]
 
 
 def _cmd(backend: str, model, prompt: str, effort=None) -> list:

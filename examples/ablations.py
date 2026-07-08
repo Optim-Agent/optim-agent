@@ -1,8 +1,8 @@
 """Two ablations, both on Branin (2D) and Ackley (5D), reusing the main-benchmark
-GLM-5.2 / Random / TPE curves where valid:
+Random / TPE curves (non-agent, so unaffected by the sampler model) where valid:
 
-  (1) effort  — GLM-5.2 sampler at all five efforts (low..max) vs Random & TPE.
-  (2) prune   — GLM-5.2 sampler with each AgentPruner tightness (none/loose/
+  (1) effort  — GPT-5.5 sampler at all five efforts (low..max) vs Random & TPE.
+  (2) prune   — GPT-5.5 sampler with each AgentPruner tightness (none/loose/
                 medium/tight) vs Random & TPE.
 
 Pruning needs an intermediate learning curve, but Branin/Ackley are scalar. So
@@ -28,7 +28,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import optim_agent as oa
 from hard_functions import ASSETS, FUNCTIONS, _context, make_objective
 
-GLM = dict(backend="opencode", model=None)     # GLM-5.2 = opencode default
+MODEL = dict(backend="codex", model=None)      # GPT-5.5 = codex default; reliable, not throttled
+MODEL_LABEL = "GPT-5.5"
 EFFORTS = ["low", "medium", "high", "xhigh", "max"]
 PRUNES = ["none", "loose", "medium", "tight"]
 S = 4                                            # synthetic curve length (steps/trial)
@@ -36,7 +37,10 @@ N_TRIALS = 10
 REF = {"branin": 40.0, "ackley5": 12.0}          # rough value span, sets curve height
 
 # reuse map: which method's main-benchmark curve stands in for an ablation series
-REUSE = {"high": "GLM-5.2", "Random": "Random", "TPE": "TPE", "none": "GLM-5.2"}
+# Random/TPE are non-agent — identical under old/new code, so reuse the main
+# benchmark. The agent curves (efforts + pruner "none") are run fresh here so the
+# CLI reasoning-effort flag is in play throughout; prune "none" == effort "high".
+REUSE = {"Random", "TPE"}
 
 
 # -- ablation 1: sampler effort -------------------------------------------
@@ -45,7 +49,7 @@ def run_effort(variant, seeds, timeout):
     for seed in seeds:
         out = {"label": variant, "functions": {}}
         for name, spec in FUNCTIONS.items():
-            sampler = oa.AgentSampler(backend=GLM["backend"], model=GLM["model"],
+            sampler = oa.AgentSampler(backend=MODEL["backend"], model=MODEL["model"],
                                       effort=variant, context=_context(spec),
                                       n_init=3, timeout=timeout, seed=seed)
             study = oa.create_study(sampler=sampler, seed=seed)
@@ -74,8 +78,8 @@ def run_prune(variant, seeds, timeout):
         out = {"label": variant, "functions": {}}
         for name, spec in FUNCTIONS.items():
             pruner = None if variant == "none" else \
-                oa.AgentPruner(backend=GLM["backend"], model=GLM["model"], level=variant, timeout=120)
-            sampler = oa.AgentSampler(backend=GLM["backend"], model=GLM["model"],
+                oa.AgentPruner(backend=MODEL["backend"], model=MODEL["model"], level=variant, timeout=120)
+            sampler = oa.AgentSampler(backend=MODEL["backend"], model=MODEL["model"],
                                       effort="high", context=_context(spec),
                                       n_init=3, timeout=timeout, seed=seed)
             study = oa.create_study(sampler=sampler, pruner=pruner, seed=seed)
@@ -105,10 +109,13 @@ def run_prune(variant, seeds, timeout):
 # -- plotting --------------------------------------------------------------
 
 def _load_best_values(label, name, seed):
-    """Best-value-per-trial for a reused main-benchmark method, or an effort file."""
-    src = REUSE.get(label, label)
-    p = ASSETS / (f"hard_curves_{src}_s{seed}.json" if label in REUSE
-                  else f"abl_effort_{label}_s{seed}.json")
+    """Best-value-per-trial: Random/TPE from the main benchmark, everything else
+    (efforts, and the pruner's 'none' == effort 'high') from the fresh effort runs."""
+    if label in REUSE:
+        p = ASSETS / f"hard_curves_{label}_s{seed}.json"
+    else:
+        eff = "high" if label == "none" else label
+        p = ASSETS / f"abl_effort_{eff}_s{seed}.json"
     if not p.exists():
         return None
     return json.loads(p.read_text())["functions"][name]["values"]
@@ -179,7 +186,7 @@ def plot():
         ax.set_title("Branin 2D" if name == "branin" else "Ackley 5D", fontsize=11)
         ax.xaxis.set_major_locator(MaxNLocator(integer=True))
         ax.legend(fontsize=8, ncol=2)
-    fig.suptitle("Ablation 1 — GLM-5.2 sampler effort (low→max) vs Random & TPE", fontsize=12)
+    fig.suptitle("Ablation 1 — GPT-5.5 sampler effort (low→max) vs Random & TPE", fontsize=12)
     fig.tight_layout(); fig.savefig(ASSETS / "abl_effort.png", dpi=130)
     print("wrote abl_effort.png")
 
@@ -196,7 +203,7 @@ def plot():
         ax.set_xlabel("compute (reported steps)"), ax.set_ylabel("best value so far (mean of 2 seeds)")
         ax.set_title("Branin 2D" if name == "branin" else "Ackley 5D", fontsize=11)
         ax.legend(fontsize=8, ncol=2)
-    fig.suptitle("Ablation 2 — AgentPruner tightness with GLM-5.2, best value vs compute", fontsize=12)
+    fig.suptitle("Ablation 2 — AgentPruner tightness with GPT-5.5, best value vs compute", fontsize=12)
     fig.tight_layout(); fig.savefig(ASSETS / "abl_prune.png", dpi=130)
     print("wrote abl_prune.png")
 
@@ -207,9 +214,9 @@ def selfcheck():
     assert len(steps) == S and steps[-1][1] == 2.5, steps          # curve ends exactly at f
     assert all(v >= 2.5 for _, v in steps)                          # never below final
     assert steps[0][1] > 2.5                                        # starts above final
-    # reuse wiring resolves to real files
-    assert _load_best_values("high", "branin", 0) is not None       # -> hard_curves_GLM-5.2
+    # Random/TPE reuse resolves to the main-benchmark files (always present)
     assert _load_best_values("Random", "ackley5", 0) is not None
+    assert _load_best_values("TPE", "branin", 0) is not None
     print("selfcheck ok: synthetic curve ends at f, descends, and reuse map resolves")
 
 

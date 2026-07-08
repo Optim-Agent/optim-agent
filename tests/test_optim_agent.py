@@ -55,6 +55,7 @@ def test_agent_sampler(monkeypatch=None):
     # effort maps to each CLI's reasoning-effort flag
     assert agent._cmd("claude", None, "p", "high")[-3:-1] == ["--effort", "high"]
     assert "model_reasoning_effort=xhigh" in agent._cmd("codex", None, "p", "xhigh")
+    assert "model_reasoning_effort=xhigh" in agent._cmd("codex", None, "p", "max")  # codex has no 'max'
     assert "--variant" in agent._cmd("opencode", None, "p", "low")
     assert "--effort" not in agent._cmd("claude", None, "p")  # None effort adds no flag
     # out-of-range and garbage replies fall back gracefully
