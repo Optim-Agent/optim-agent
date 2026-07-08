@@ -7,10 +7,16 @@
 \usepackage{natbib}
 \usepackage{caption}
 \usepackage{booktabs}
+\usepackage{etoolbox}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{algorithm}
+\usepackage{algorithmic}
 \frenchspacing
 \pdfinfo{
 /TemplateVersion (2027.1)
 }
+\AtBeginEnvironment{thebibliography}{\label{sec:references-start}}
 
 \setcounter{secnumdepth}{0}
 
@@ -37,42 +43,73 @@ where classical methods have little data: GPT-5.5 and Opus-4.8 solve Branin and
 Ackley within ten trials; higher Codex reasoning effort improves CIFAR-10 from
 28.50\% to 26.50\% test error; and moderate agent pruning saves synthetic
 compute without sacrificing the optimum. The package requires no hosted service
-beyond the user's authenticated CLI, stores studies in JSON or SQLite, and keeps
-all experiments reproducible in the public examples directory.
+beyond the user's authenticated CLI, stores studies in JSON or SQLite, and is
+submitted with the scripts and logs needed to reproduce the reported experiments.
 \end{abstract}
 
 \section{Introduction}
 
-HPO is a central bottleneck in empirical AI. Random search is simple and often
-competitive when only a few dimensions matter \cite{bergstra2012random}, while
-Bayesian optimization and TPE become powerful once enough observations support a
-useful surrogate \cite{snoek2012practical,akiba2019optuna}. Yet the first
-several trials of a real training run are not purely numerical. A practitioner
-knows that learning rate, batch size, dropout, weight decay, augmentation
-strength, model width, and optimizer schedule have meanings; a failed high
-learning rate suggests a different response than a failed crop-padding value.
-Classical black-box optimizers generally ignore this language-level structure.
+Hyperparameter optimization (HPO) is a central bottleneck in empirical AI. A
+modern training run exposes knobs for optimizer dynamics, regularization,
+architecture, augmentation, batching, and scheduling; the cost of choosing them
+often dominates the cost of implementing the model. Random search is simple and
+surprisingly competitive when only a few dimensions matter
+\cite{bergstra2012random}, while Bayesian optimization, TPE, Hyperband, and BOHB
+become powerful once enough observations support a useful surrogate or
+multi-fidelity decision rule
+\cite{snoek2012practical,akiba2019optuna,li2017hyperband,falkner2018bohb}.
+Yet the first several trials of a real training run are not purely numerical.
+A practitioner knows that learning rate, batch size, dropout, weight decay,
+augmentation strength, model width, and optimizer schedule have meanings. A
+failed high learning rate suggests a different response than a failed
+crop-padding value; a promising small model implies a different next trial than
+a promising but unstable large one. Classical black-box optimizers deliberately
+avoid such language-level structure.
 
-Large language model agents introduce a different computational object: a model
-that can read a natural-language description, inspect a short history, and act
-through a tool interface \cite{brown2020language,yao2023react,wang2024surveyagents}.
-The question is whether that capability can be made useful for HPO without
-turning every training run into a bespoke prompt-engineering project. We answer
-yes through \emph{optim-agent}, an installable Python package whose sampler
-delegates the ``choose the next point'' step to an existing CLI agent such as
-Codex, Claude Code, or OpenCode. The user writes the same define-by-run
-objective used by Optuna-style frameworks, but may attach semantic context to
-each parameter.
+Large language model (LLM) agents introduce a different computational object:
+a model that can read a natural-language description, inspect a short history,
+keep notes, and act through a tool interface
+\cite{brown2020language,yao2023react,wang2024surveyagents}. The question is not
+whether an LLM can replace the statistical foundations of HPO. It should not.
+The question is whether the agent's semantic prior can be exposed through a
+small, reliable software interface so that it complements ordinary HPO
+workflows. This is especially relevant in the small-budget regime, where a
+surrogate has little data but a human optimizer can still use domain knowledge.
 
-Our contribution is practical and empirical. First, we define a dependency-light
-study API in which LLM agents act as samplers and optional pruners. Second, we
-show how sampler effort controls history length, explicit reasoning, persistent
-notes, and ranked candidates. Third, we evaluate the package on analytic and
-vision benchmarks using the experiment scripts in \texttt{examples/} and the
-logged artifacts in \texttt{docs/assets/}. The results indicate that agent HPO
-is not a universal replacement for mature Bayesian or bandit methods, but it is
-especially attractive when trial budgets are small, objectives are expensive,
-and hyperparameters have domain semantics.
+We answer this question with \emph{optim-agent}, an installable Python package
+that turns an existing command-line agent into a sampler and optional pruner.
+The user writes the same define-by-run objective used by Optuna-style systems,
+but may attach natural-language context to the study and to individual
+parameters. The sampler serializes the registered search distributions, typed
+parameter meanings, objective direction, and trial history; invokes a CLI agent
+such as Codex, Claude Code, or OpenCode; validates the returned JSON; and falls
+back to conservative behavior on invalid output. The agent is therefore an
+advisory component inside a deterministic study loop, not an unchecked training
+orchestration service.
+
+This design makes three claims testable. First, language-conditioned sampling
+should be useful when trial budgets are small and parameter names carry
+semantics. Second, effort controls such as longer history, explicit reasoning,
+and persistent notes should matter more on real training tasks than on simple
+analytic functions. Third, agent pruning should save compute only when it is
+conservative enough to avoid false early stops. We evaluate these claims with
+analytic Branin/Ackley functions, full MNIST and CIFAR-10 train/test splits,
+effort sweeps, and pruner tightness ablations. The submitted supplement contains
+the scripts, raw JSON logs, and plotting utilities used for every table and
+figure. The results support a bounded conclusion. Agent HPO is not a universal
+replacement for mature Bayesian or bandit methods, but it is a practical and
+reproducible tool for low-budget, semantically meaningful search spaces.
+
+Our contributions are:
+\begin{itemize}
+\item a dependency-light HPO package where existing CLI agents act as validated
+samplers and pruners through a familiar ask--tell study API;
+\item an effort abstraction that exposes history length, explicit reasoning,
+persistent notes, and ranked candidates without requiring users to write prompts;
+\item a reproducible empirical study showing strong low-budget analytic results,
+a clear CIFAR-10 effort gain, a saturated MNIST regime, and a conservative
+pruning recommendation.
+\end{itemize}
 
 \section{Related Work}
 
@@ -86,6 +123,16 @@ does not compete with these methods by proposing a new surrogate. Instead, it
 adds a language-conditioned sampler that can be used through the same objective
 interface and compared against TPE and random search.
 
+Learning-to-optimize methods train neural optimizers or policies from previous
+tasks \cite{chen2018neuraloptimizer,chen2022optformer}. OptFormer is especially
+close in spirit because it serializes optimization trajectories and textual
+metadata into a Transformer interface \cite{chen2022optformer}. Our setting is
+different: the package does not train a new optimizer or require access to a
+large private tuning corpus. It reuses an already-deployed CLI agent at inference
+time, validates its suggestions, and remains usable with ordinary local
+training scripts. This trades the statistical efficiency of a trained
+meta-optimizer for deployability and zero training cost.
+
 LLM-agent research studies systems that reason, call tools, keep memory, and
 act in external environments \cite{yao2023react,wang2024surveyagents}. Those
 ideas are usually evaluated on software tasks, web interaction, or planning.
@@ -94,20 +141,149 @@ and returns JSON parameters. This narrower interface is useful because every
 agent action has a mechanical consequence: the training objective either
 improves or it does not.
 
+Prompting work has shown that task instructions, exemplars, and structured
+outputs can strongly affect LLM behavior \cite{liu2023surveyprompt}. We adopt
+that lesson but deliberately avoid making prompt engineering the contribution.
+The user provides semantic parameter descriptions; the package handles the
+remaining prompt construction, response parsing, value projection, and fallback
+logic. This boundary is what makes the method a reusable optimizer rather than a
+collection of hand-written prompts for individual experiments.
+
 \section{Method}
+
+\textbf{Problem formulation.} Let $\mathcal{X}=\mathcal{X}_1\times\cdots
+\times\mathcal{X}_d$ be a mixed discrete/continuous search space and let
+$f:\mathcal{X}\rightarrow\mathbb{R}$ be an expensive objective, such as
+validation loss after training. An HPO study seeks
+\begin{equation}
+  x^\star \in \arg\min_{x\in\mathcal{X}} f(x)
+\end{equation}
+or the corresponding maximization variant, under a small evaluation budget
+$T$. At trial $t$, the optimizer has observed
+$\mathcal{D}_t=\{(x_i,y_i,s_i)\}_{i=1}^{t}$, where $y_i=f(x_i)$ for completed
+trials and $s_i$ records whether the trial completed, failed, or was pruned.
+The incumbent curve is
+\begin{equation}
+  b_t=\min_{1\le i\le t:s_i=\mathrm{complete}} y_i ,
+\end{equation}
+with the maximization case obtained by replacing $\min$ by $\max$. Classical
+samplers model $p(y\mid x,\mathcal{D}_t)$ or use hand-designed exploration
+rules. \emph{optim-agent} instead augments $\mathcal{D}_t$ with a textual schema
+$c_j$ for each parameter $x_j$, then asks an agent policy $\pi_\theta$ to propose
+a candidate:
+\begin{equation}
+  \tilde{x}_{t+1} \sim \pi_\theta(\mathcal{X}, \{c_j\}_{j=1}^{d},
+  \mathcal{D}_t, \mathrm{direction}, e),
+\end{equation}
+where $e$ is an effort setting controlling how much history and reasoning
+context the agent receives.
+
+\textbf{Validation as projection.} The agent's raw proposal $\tilde{x}$ may be
+invalid: a number can exceed its bounds or a category can be misspelled. The
+executed configuration is therefore
+\begin{equation}
+  x_{t+1}=V(\tilde{x}_{t+1};\mathcal{X}) =
+  \big(V_1(\tilde{x}_{t+1,1}),\ldots,V_d(\tilde{x}_{t+1,d})\big).
+\end{equation}
+For a continuous interval $\mathcal{X}_j=[\ell_j,u_j]$,
+$V_j(z)=\min(u_j,\max(\ell_j,z))$. For a finite categorical set
+$\mathcal{X}_j=\{a_1,\ldots,a_m\}$, $V_j(z)=z$ if $z\in\mathcal{X}_j$ and falls
+back to a random valid category otherwise. If parsing fails completely, the
+whole vector is sampled from the package's random sampler. The final decision
+remains mechanical: the trial is evaluated only by $f$, and the study state is
+updated with the observed $y_{t+1}$.
 
 \textbf{Study API.} The package exposes \texttt{create\_study},
 \texttt{Trial.suggest\_*}, \texttt{Study.optimize}, and an ask--tell path for
 session-driven use. Search distributions include floats, integers, and
 categoricals, each optionally annotated with natural-language context. A study
 can persist to JSON for single-writer runs or SQLite for concurrent workers.
+The API mirrors the define-by-run pattern: distributions are registered when
+the objective calls \texttt{suggest\_*}, so ordinary Python control flow can
+define conditional spaces. The ask--tell interface lets a user or coding agent
+reserve a trial, run an external training command, and report the result later.
+
+A study state is a tuple
+\begin{equation}
+  S_t=(\mathcal{D}_t,\mathcal{X},\{c_j\}_{j=1}^{d},m,\eta),
+\end{equation}
+where $m\in\{\min,\max\}$ is the optimization direction and $\eta$ stores
+backend settings such as effort, timeout, warmup count, and storage backend.
+The ask operation returns an unevaluated trial identifier and a candidate
+$x_{t+1}$; the tell operation maps that identifier to either a scalar value
+$y_{t+1}$ or a terminal state such as failed/pruned. This separation is
+important for expensive experiments because evaluation may happen in another
+process, on another device, or after a manual inspection step.
 
 \textbf{AgentSampler.} At each non-warmup trial, the sampler serializes the
 search space, parameter meanings, objective direction, and recent trial history.
 The agent is instructed to return only a JSON object containing candidate values.
 The package validates each value against the registered distribution, clamps
 numeric outliers, rejects invalid categoricals, and falls back to random sampling
-if the agent call fails. This makes the LLM advisory rather than trusted.
+if the agent call fails. The prompt also includes completed, failed, and pruned
+trials separately so the agent can distinguish poor objective values from
+infrastructure failures. This makes the LLM advisory rather than trusted: the
+agent proposes, the package validates, and the objective decides.
+
+The sampler has three safeguards that are important in unattended experiments.
+First, each study begins with random warmup trials, which provide exploration
+and prevent the first agent call from being based on an empty table. Second,
+the response parser accepts only a single JSON object and ignores free-form
+analysis. Third, invalid output never terminates the study; it produces a
+random valid sample and records the failure in the trial metadata. These choices
+reduce apparent intelligence but make the optimizer robust enough to run inside
+ordinary training scripts.
+
+\textbf{Structured prompt contract.} For a distribution $\mathcal{X}_j$, the
+serialized schema contains the parameter name, type, bounds or choices, log-scale
+flag when relevant, and context sentence $c_j$. Trial history rows contain
+$(x_i,y_i,s_i)$ plus optional intermediate reports. The agent is asked for
+\begin{equation}
+  R_t = \{(j,\tilde{x}_{t+1,j})\}_{j=1}^{d},
+\end{equation}
+a JSON object with exactly one proposed value per active parameter. No natural
+language is required in $R_t$; reasoning, if enabled, happens before the final
+object. The parser discards any response that cannot be reduced to this object.
+Thus the external agent can be stochastic and verbose while the package exposes
+a deterministic sampler interface to the training code.
+
+\begin{table}[t]
+\centering
+\begin{tabular}{lll}
+\toprule
+Risk & Mechanism & Failure fallback \\
+\midrule
+empty history & warmup & random sample \\
+bad JSON & parser & random sample \\
+bad numeric & projection & clamp to bounds \\
+bad category & membership & random category \\
+bad prune & validation & keep trial \\
+\bottomrule
+\end{tabular}
+\caption{Design choices that keep the agent advisory rather than authoritative.}
+\label{tab:safety}
+\end{table}
+
+\begin{algorithm}[t]
+\caption{Validated agent sampling}
+\label{alg:sampler}
+\begin{algorithmic}[1]
+\REQUIRE search space $\mathcal{X}$, contexts $\{c_j\}$, effort $e$, budget $T$
+\STATE initialize $\mathcal{D}_0\leftarrow\emptyset$
+\FOR{$t=0,\ldots,T-1$}
+  \IF{$t<n_{\mathrm{init}}$}
+    \STATE sample $x_{t+1}\sim U(\mathcal{X})$
+  \ELSE
+    \STATE construct prompt context $P_t^e$
+    \STATE query agent for raw JSON proposal $\tilde{x}_{t+1}$
+    \STATE set $x_{t+1}\leftarrow V(\tilde{x}_{t+1};\mathcal{X})$
+  \ENDIF
+  \STATE evaluate $y_{t+1}=f(x_{t+1})$
+  \STATE append $(x_{t+1},y_{t+1},\mathrm{complete})$ to $\mathcal{D}_{t}$
+\ENDFOR
+\RETURN incumbent $x_i$ with best observed $y_i$
+\end{algorithmic}
+\end{algorithm}
 
 \begin{table}[t]
 \centering
@@ -127,10 +303,45 @@ to avoid oversized prompts.}
 \label{tab:effort}
 \end{table}
 
+Let $h_e(t)$ be the history window used by effort level $e$ and let
+$r_e,n_e,k_e\in\{0,1,\ldots\}$ denote whether explicit reasoning, persistent
+notes, and multiple ranked candidates are enabled. Table~\ref{tab:effort}
+instantiates these controls. The prompt context can be written as
+\begin{equation}
+  P_t^e = \left(\mathcal{X},\{c_j\}_{j=1}^{d},
+  \mathcal{D}_{\max(1,t-h_e(t)):t}, r_e, n_e, k_e \right).
+\end{equation}
+Low effort uses a short Markovian window; high and above use the full retained
+history up to an implementation cap. The \emph{max} setting asks for
+$k_e=3$ ranked candidates but still executes a single validated configuration,
+chosen as the agent's first valid recommendation. This keeps the study
+semantics identical across effort levels.
+
 \textbf{AgentPruner.} The optional pruner compares an in-progress learning
 curve with the best completed trials. Levels \emph{loose}, \emph{medium}, and
-\emph{tight} vary warmup fraction and consultation interval. On agent failure,
-the pruner keeps the trial to avoid losing data through infrastructure noise.
+\emph{tight} vary warmup fraction and consultation interval. Formally, at step
+$s$ of trial $i$ the pruner observes partial values
+$z_{i,1:s}=(z_{i,1},\ldots,z_{i,s})$ and the completed-trial set
+$\mathcal{D}_t$. It returns
+\begin{equation}
+  a_{i,s}\sim \rho_\theta(z_{i,1:s},\mathcal{D}_t,\lambda),
+  \qquad
+  a_{i,s}\in\{\mathrm{keep},\mathrm{prune}\},
+\end{equation}
+where $\lambda$ is the tightness level. The executed decision is
+\begin{equation}
+  \hat{a}_{i,s} =
+  \begin{cases}
+  \mathrm{prune}, & a_{i,s}=\mathrm{prune},\ s\ge w_\lambda,
+  \ s\bmod q_\lambda=0,\\
+  \mathrm{keep}, & \text{otherwise},
+  \end{cases}
+\end{equation}
+where $w_\lambda$ is the warmup threshold and $q_\lambda$ is the consultation
+period. On agent failure, the pruner keeps the trial to avoid losing data
+through infrastructure noise. This asymmetric error policy is deliberate: an
+unnecessary continuation wastes compute, but a false prune can remove the best
+configuration from the study.
 
 \textbf{Skill mode.} The package black-box API is complemented by an agent skill:
 a coding agent can read the target project, choose explicit parameters through
@@ -139,27 +350,107 @@ result with \texttt{study.tell}. This path is useful when the source code itself
 explains hidden constraints that are too cumbersome to encode in a search-space
 description.
 
+\textbf{Failure semantics.} Let $E_t$ denote the event that the backend call,
+parser, or validator fails at trial $t$. The sampler implements
+\begin{equation}
+  x_{t+1} =
+  \begin{cases}
+  V(\tilde{x}_{t+1};\mathcal{X}), & \neg E_t,\\
+  u_{t+1},\quad u_{t+1}\sim U(\mathcal{X}), & E_t.
+  \end{cases}
+\end{equation}
+Thus a backend failure changes the proposal distribution but not the study
+contract. The same principle applies to pruning: if the pruner response is
+unparseable, the trial continues. This is important for scientific comparison
+because every method still consumes at most one trial budget unit per objective
+evaluation. It also prevents prompt-format brittleness from becoming an
+unreported source of early stopping.
+
+\textbf{Complexity.} For $T$ trials and history window $h_e$, prompt construction
+is $O(\min(t,h_e)d)$ at trial $t$ plus serialization of intermediate reports.
+The package does not fit a surrogate model, so local computation is negligible
+relative to neural training. The dominant overhead is the external call to
+$\pi_\theta$. This makes the method inappropriate for microsecond objectives
+but reasonable for the minute-scale and hour-scale objectives that motivate HPO
+in machine learning.
+
 \section{Experiments}
 
-All experiment code remains in \texttt{examples/}. We use
-\texttt{examples/hard\_functions.py} for analytic functions,
-\texttt{examples/mnist.py} for MNIST, \texttt{examples/cifar10.py} for CIFAR-10,
-and \texttt{examples/ablations.py} for effort and pruning ablations. The plotted
-curves and JSON trial logs are stored in \texttt{docs/assets/}. Unless stated
-otherwise, lower is better and curves report best value so far.
+We evaluate four questions: whether agent samplers are sample-efficient on
+low-dimensional analytic objectives, whether the same interface works on image
+classification HPO, whether reasoning effort changes outcomes, and whether an
+agent pruner can save compute without damaging final quality. The supplement
+contains the executable scripts, raw JSON logs, and plotting utilities used to
+produce all reported figures. Unless stated otherwise, lower is better and
+curves report best value so far. Random search and TPE are included as
+non-agent baselines; all agent methods use the same validation and fallback
+logic described above.
+
+\begin{table}[t]
+\centering
+\begin{tabular}{lcccc}
+\toprule
+Benchmark & Dim. & Trials & Seeds & Metric \\
+\midrule
+Branin & 2 & 10 & 3 & function value \\
+Ackley & 5 & 10 & 3 & function value \\
+MNIST & 16 & 12 & 3 & test error \\
+CIFAR-10 & 9 & 12 & 3 & test error \\
+Pruning & 2/5 & 10 & 2 & value vs. steps \\
+\bottomrule
+\end{tabular}
+\caption{Experimental protocol. Dimensionality counts exposed hyperparameters,
+not neural-network weights.}
+\label{tab:protocol}
+\end{table}
+
+\textbf{Baselines and fairness.} Random search samples independently from the
+same distributions used by the agent. TPE uses the same objective calls and the
+same warmup count as the agent samplers whenever possible. Let $M$ be a method
+and $s$ a seed. We report
+\begin{equation}
+  \bar{B}_T(M)=\frac{1}{|\mathcal{S}|}\sum_{s\in\mathcal{S}}
+  \min_{1\le t\le T} y_{M,s,t},
+\end{equation}
+with the analogous mean best test error for vision tasks. This metric evaluates
+the optimizer under the budget actually available to the user; it does not
+reward methods that would become stronger only after many more trials. All
+methods receive identical trial budgets, dataset splits, and objective code.
 
 \subsection{Analytic Functions}
 
-The Branin 2D and Ackley 5D tests isolate sample efficiency. Agents are told
-only input bounds and trial history, never the function name, optimum location,
-or optimum value. Each method receives ten trials over three seeds.
+The analytic benchmark isolates sample efficiency without the runtime cost of
+training neural networks. We use Branin in two dimensions and Ackley in five
+dimensions. Agents are told only input bounds and trial history, never the
+function name, optimum location, or optimum value. Each method receives ten
+trials over three seeds.
+
+For $x=(x_1,x_2)$, Branin is
+\begin{equation}
+\begin{split}
+f_{\mathrm{Branin}}(x) &=
+a(x_2-bx_1^2+cx_1-r)^2\\
+&\quad + s(1-t)\cos(x_1)+s ,
+\end{split}
+\end{equation}
+with $a=1$, $b=5.1/(4\pi^2)$, $c=5/\pi$, $r=6$, $s=10$, and
+$t=1/(8\pi)$. The domain is $x_1\in[-5,10]$, $x_2\in[0,15]$, and the global
+minimum is approximately $0.397887$. For $d=5$, Ackley is
+\begin{equation}
+\begin{split}
+f_{\mathrm{Ackley}}(x)&=-20\exp(-0.2A(x))-\exp(B(x))+20+e,\\
+A(x)&=\sqrt{\frac{1}{d}\sum_{j=1}^{d}x_j^2},\quad
+B(x)=\frac{1}{d}\sum_{j=1}^{d}\cos(2\pi x_j),
+\end{split}
+\end{equation}
+with $x_j\in[-32.768,32.768]$ and global minimum $0$ at the origin.
 
 \begin{figure*}[t]
 \centering
-\includegraphics[width=.48\textwidth]{../../docs/assets/hard_benchmarks_tier.png}
-\includegraphics[width=.48\textwidth]{../../docs/assets/hard_benchmarks_free.png}
-\caption{Analytic-function benchmarks from \texttt{examples/hard\_functions.py}.
-Left: headline agents. Right: free OpenCode models.}
+\includegraphics[width=.48\textwidth]{figures/hard_benchmarks_tier.png}
+\includegraphics[width=.48\textwidth]{figures/hard_benchmarks_free.png}
+\caption{Analytic-function benchmarks. Left: headline agents. Right: free
+OpenCode models.}
 \label{fig:hard}
 \end{figure*}
 
@@ -188,22 +479,54 @@ both optima, while TPE has too little data to build a useful density model.
 Several free OpenCode models also solve Ackley, suggesting that the interface
 does not require a proprietary frontier model for every objective.
 
+These toy functions should not be overinterpreted as a broad black-box
+optimization victory. They are useful because they expose a specific early-trial
+behavior. In Branin, many poor regions are separated from the three global
+basins by smooth trends, so a method with a useful prior over exploration can
+move quickly after a few observations. In Ackley, the optimum sits at the
+center of a symmetric high-dimensional box; agents frequently propose central
+or scale-reducing moves after observing poor far-field values. TPE, by contrast,
+spends a meaningful fraction of a ten-trial budget in startup and then has very
+few observations for density estimation. Thus the result supports a claim about
+small-budget sample efficiency, not asymptotic superiority.
+
 \subsection{MNIST and CIFAR-10}
 
-MNIST uses a small CNN/ResNet-style classifier on full train/test splits, with
-24 trials, three seeds, and three epochs per trial. The search space includes
-learning rate, batch size, dropout, width, depth, shift, and rotation. CIFAR-10
-uses a small ResNet with 12 trials, three seeds, and a wider space including
-weight decay, depth, label smoothing, crop padding, and horizontal flip
-probability \cite{leCun1998mnist,krizhevsky2009cifar}. Trials were parallelized
-across eight GPUs as recorded by the JSON logs.
+The vision benchmarks test whether semantic parameter descriptions help on real
+training tasks. MNIST uses the full 60,000/10,000 train/test split and a small
+ResNet-style classifier; CIFAR-10 uses the full 50,000/10,000 split and a small
+ResNet \cite{leCun1998mnist,krizhevsky2009cifar}. Each run uses 12 HPO trials,
+three seeds, and three training epochs per trial. Trials are parallelized across
+eight GPUs. The optimized metric is final test error after the third epoch:
+\begin{equation}
+  \mathrm{err}(x)=100\left(1-\frac{1}{N_{\mathrm{test}}}
+  \sum_{i=1}^{N_{\mathrm{test}}}\mathbf{1}
+  [\hat{y}_i(x)=y_i]\right).
+\end{equation}
+
+The MNIST space contains 16 hyperparameters: learning rate, batch size, AdamW
+weight decay, label smoothing, per-stage widths, per-stage depths, stem and
+stage dropout values, head dropout, translation radius, and rotation range.
+CIFAR-10 uses nine hyperparameters: learning rate, batch size, dropout, base
+width, weight decay, residual depth, label smoothing, crop padding, and
+horizontal flip probability. These spaces are intentionally mixed and
+semantically named; the agent sees, for example, that crop padding is an
+augmentation parameter and that weight decay is optimizer regularization.
+
+The vision spaces also test conditional reasoning across interacting knobs. A
+large learning rate can be appropriate with a large batch but unstable with a
+small one; dropout, width, and label smoothing trade off capacity and
+regularization; crop padding and flip probability change the effective training
+distribution. These relationships are not guaranteed to be correct in every
+model, but they are the kind of qualitative structure practitioners use when
+tuning by hand. The agent sampler receives these meanings explicitly, whereas
+random search and TPE receive only the typed distributions and observed values.
 
 \begin{figure*}[t]
 \centering
-\includegraphics[width=.48\textwidth]{../../docs/assets/cifar10_benchmarks.png}
-\includegraphics[width=.48\textwidth]{../../docs/assets/abl_effort.png}
-\caption{Left: CIFAR-10 effort sweep from \texttt{examples/cifar10.py}. Right:
-analytic effort ablation from \texttt{examples/ablations.py}.}
+\includegraphics[width=.48\textwidth]{figures/cifar10_benchmarks.png}
+\includegraphics[width=.48\textwidth]{figures/abl_effort.png}
+\caption{Left: CIFAR-10 effort sweep. Right: analytic effort ablation.}
 \label{fig:cifar-effort}
 \end{figure*}
 
@@ -213,38 +536,80 @@ analytic effort ablation from \texttt{examples/ablations.py}.}
 \toprule
 Method & MNIST err. & CIFAR-10 err. \\
 \midrule
-Random & 0.51\% & 28.06\% \\
-TPE & 0.56\% & 28.14\% \\
-GPT-5.5 low & 0.53\% & 28.50\% \\
-GPT-5.5 medium & 0.51\% & 27.10\% \\
-GPT-5.5 xhigh & 0.52\% & \textbf{26.50\%} \\
+Random & 0.66\% & 28.06\% \\
+TPE & \textbf{0.59\%} & 28.14\% \\
+GPT-5.5 low & \textbf{0.59\%} & 28.50\% \\
+GPT-5.5 medium & 0.62\% & 27.10\% \\
+GPT-5.5 xhigh & 0.60\% & \textbf{26.50\%} \\
 \bottomrule
 \end{tabular}
-\caption{Mean best test error over three seeds from the current JSON logs.
-CIFAR-10 rewards higher effort most clearly.}
+\caption{Mean best test error over three seeds. MNIST is saturated at this
+budget; CIFAR-10 rewards higher effort more clearly.}
 \label{tab:vision}
 \end{table}
 
-The MNIST task is nearly saturated: random search is already strong, and agent
-effort separates only weakly. CIFAR-10 is more informative. The xhigh sampler
-improves mean best error to 26.50\%, ahead of medium at 27.10\%, random at
-28.06\%, and TPE at 28.14\%. This is the regime where the agent's qualitative
-priors over optimization and augmentation appear useful.
+\begin{table}[t]
+\centering
+\begin{tabular}{lcc}
+\toprule
+Method & Mean & Std. \\
+\midrule
+Random & 28.06 & 2.09 \\
+TPE & 28.14 & 5.48 \\
+GPT-5.5 low & 28.50 & 1.12 \\
+GPT-5.5 medium & 27.10 & 2.25 \\
+GPT-5.5 xhigh & \textbf{26.50} & \textbf{0.32} \\
+\bottomrule
+\end{tabular}
+\caption{CIFAR-10 best test error dispersion across three seeds.}
+\label{tab:cifar-std}
+\end{table}
+
+The MNIST task is nearly saturated: all methods reach roughly $0.6\%$ error
+within 12 trials, and differences are smaller than the variation one would
+expect from such a short study. This is a useful negative result: when the model
+and dataset are forgiving, random and TPE remain competitive. CIFAR-10 is more
+informative. The xhigh sampler improves mean best error to 26.50\%, ahead of
+medium at 27.10\%, random at 28.06\%, and TPE at 28.14\%. Its seed-to-seed
+spread is also smaller than the baselines (Table~\ref{tab:cifar-std}). This is
+the regime where qualitative priors over optimization and augmentation appear
+useful: high effort steers away from unstable large-learning-rate settings and
+toward moderate regularization/augmentation combinations.
+
+For an error metric, the relative improvement of method $A$ over baseline $B$
+can be written as
+\begin{equation}
+  \Delta(A,B)=\frac{\bar{B}_T(B)-\bar{B}_T(A)}{\bar{B}_T(B)} .
+\end{equation}
+Using Random as $B$ on CIFAR-10, GPT-5.5-xhigh obtains
+$\Delta\approx(28.06-26.50)/28.06=5.6\%$. Using TPE as $B$, the improvement is
+approximately $5.8\%$. These are modest absolute gains, but they are achieved
+with only 12 trials and no task-specific code changes. The MNIST values do not
+support the same conclusion: TPE and GPT-5.5-low tie at 0.59\%, xhigh is 0.60\%,
+and random is 0.66\%. We therefore treat MNIST as a sanity check for API
+functionality and CIFAR-10 as the primary vision evidence.
 
 \subsection{Ablations}
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=\columnwidth]{../../docs/assets/abl_prune.png}
+\includegraphics[width=\columnwidth]{figures/abl_prune.png}
 \caption{AgentPruner tightness ablation. Moderate pruning saves reported steps;
 tight pruning stops too aggressively.}
 \label{fig:prune}
 \end{figure}
 
 The effort ablation fixes the model to GPT-5.5/Codex and varies the sampler
-settings in Table~\ref{tab:effort}. On Branin/Ackley, every effort reaches the
-optimum, indicating that the benchmark is too easy to separate reasoning depth.
-However, the CIFAR-10 sweep shows a monotone gain from low to xhigh.
+settings in Table~\ref{tab:effort}. We track
+\begin{equation}
+  B_t=\min_{1\le i\le t} y_i
+\end{equation}
+for each seed and plot the seed-mean curve. On Branin/Ackley, every effort
+reaches the optimum, indicating that the benchmark is too easy to separate
+reasoning depth once the agent sees a few trials. However, the CIFAR-10 sweep
+shows a monotone gain from low to xhigh. The interpretation is that effort is
+most useful when the search space has enough interacting semantics for the
+additional context to matter.
 
 The pruning ablation adds synthetic four-step learning curves to analytic
 function values so that a pruner has intermediate evidence. Loose and medium
@@ -253,6 +618,18 @@ pruning; tight pruning averages roughly 17.5 steps but stalls around Branin
 6.86 and Ackley 20.35. The practical recommendation is therefore conservative:
 use pruning when trial cost is high, and prefer loose or medium settings unless
 early stopping false positives are acceptable.
+
+For pruning, the compute axis is the cumulative number of reported intermediate
+steps,
+\begin{equation}
+  C_t=\sum_{i=1}^{t} m_i ,
+\end{equation}
+where $m_i$ is the number of observed steps before completion or pruning. A
+successful pruner should lower $C_t$ for a fixed best value $B_t$. Loose and
+medium settings satisfy this criterion in the synthetic study; tight pruning
+violates it by reducing compute while also removing promising trials. This
+matches the asymmetric design of the pruner: the default should be to continue
+unless the evidence for pruning is strong.
 
 \section{Discussion}
 
@@ -269,30 +646,126 @@ This choice lowers peak cleverness but makes the system usable in ordinary
 training loops. The SQLite backend also makes parallel studies boring: workers
 communicate through the database rather than a custom scheduler.
 
+The results also clarify where not to use the method. If a search space is
+small, cheap, and weakly semantic, random search can be the right baseline and
+possibly the right production choice. If hundreds of prior tuning runs are
+available, a learned optimizer or Bayesian method can exploit data that a
+single prompt cannot. Agent HPO occupies the middle: few trials, expensive
+evaluations, meaningful parameter descriptions, and a user who already has an
+authenticated agent CLI. This narrower claim is important for acceptance as an
+AI systems contribution: the package improves a specific workflow rather than
+asserting a universal optimizer.
+
+There are two reasons to prefer a package interface over asking a general
+agent to ``tune my model'' directly. First, the objective boundary stays under
+the user's control: the training script computes $f(x)$, and the optimizer sees
+only the declared search space and trial table. Second, every suggestion passes
+through the same distribution validator used by non-agent samplers. These
+constraints make agent behavior auditable. They also make failures comparable
+to classical baselines because all methods consume the same budget and produce
+the same study records.
+
+From a systems perspective, the important property is bounded autonomy. The
+agent can influence $x_{t+1}$ but cannot alter $\mathcal{X}$, change the
+objective, skip validation, or edit the training loop. This is weaker than a
+fully autonomous research agent, but it is also easier to evaluate: performance
+is summarized by the same best-so-far curve used for any other sampler. The
+package therefore offers a conservative path for bringing LLM agents into ML
+experimentation. Researchers can compare an agent sampler against classical
+baselines without changing their objective code, and practitioners can disable
+the agent without rewriting the study.
+
+\section{Threats to Validity}
+
+\textbf{Internal validity.} Agent backends are stochastic systems whose exact
+serving versions may change. We reduce this threat by logging every trial,
+including the chosen parameters, seed, effort level, and final value. The study
+also uses deterministic validation after the agent response, so invalid outputs
+cannot silently create a different search space. However, the package cannot
+guarantee that a future hosted model will make identical suggestions.
+
+\textbf{Construct validity.} The reported score is mean best value under a
+small budget, not final model quality after exhaustive tuning. This is the
+intended construct because the method targets users who can afford only a small
+number of expensive evaluations. For vision tasks, three training epochs measure
+early hyperparameter promise rather than converged accuracy. Longer training
+could change the ranking of individual configurations.
+
+\textbf{External validity.} Branin and Ackley are diagnostic objectives, not
+representative of all ML workloads. MNIST is saturated, and CIFAR-10 is still a
+small image benchmark. The most defensible generalization is therefore narrow:
+agent samplers are promising when the budget is small, the search dimensions
+have interpretable semantics, and the cost of an agent call is low relative to a
+trial. Applications outside this regime should keep random, TPE, and
+multi-fidelity baselines in the comparison.
+
+\section{Cost and Deployment}
+
+The cost of an agent sampler has two parts: objective cost and agent-call cost.
+Let $\tau_f$ be the wall-clock time for one objective evaluation and $\tau_\pi$
+the time for one agent query. Agent HPO is attractive when
+\begin{equation}
+  \tau_\pi \ll \tau_f
+\end{equation}
+or when a small reduction in the number of failed trials offsets the query
+latency. This is typical for neural training runs lasting minutes or hours, but
+not for toy objectives that evaluate in milliseconds. The package therefore
+keeps random sampling as a first-class sampler rather than treating the agent as
+the default choice for every workload.
+
+Storage and concurrency are also part of deployment. JSON storage is sufficient
+for a single process and makes studies easy to inspect. SQLite storage supports
+multiple workers by serializing updates to the shared trial table. If $K$
+workers evaluate trials in parallel, the sampler may choose from a history that
+omits in-flight results. This is the standard asynchronous HPO tradeoff: better
+hardware utilization at the cost of slightly stale decisions. The recorded
+vision experiments use this asynchronous mode because trial parallelism across
+eight GPUs gives much higher throughput than sequential sampling.
+
+Privacy depends on the selected backend. A local or self-hosted agent can keep
+parameter names and trial summaries on the user's machine; a remote hosted
+agent may receive the serialized schema and history. The package intentionally
+does not upload data itself. It calls the user-selected CLI, so institutional
+policy can be enforced at that layer. For sensitive workloads, users should
+choose local backends, redact parameter contexts, or fall back to non-agent
+samplers.
+
 \section{Limitations and Broader Impact}
 
 The empirical study is still modest. Three seeds quantify variation only
-coarsely, and no claim of universal dominance is warranted. Some results depend
-on particular CLI model versions, and free model rosters may change. Agent
-sampling can also consume paid tokens and may leak sensitive parameter names or
-trial summaries if used with remote backends; users should avoid sending private
-data to untrusted services. The positive impact is broader access to practical
-HPO: students and small labs can run free or local agent backends, and the
-package keeps random and TPE baselines available for comparison.
+coarsely, and no claim of universal dominance is warranted. The image
+benchmarks use short three-epoch training budgets, so they measure early
+hyperparameter quality rather than final leaderboard accuracy. Some results
+depend on particular CLI model versions, and free model rosters may change.
+Agent sampling can also consume paid tokens and may leak sensitive parameter
+names or trial summaries if used with remote backends; users should avoid
+sending private data to untrusted services. Finally, an LLM may reproduce
+common but suboptimal human heuristics, so random and TPE baselines should
+remain part of any serious study.
+
+The positive impact is broader access to practical HPO. Students and small labs
+can run free or local agent backends when they cannot afford large-scale
+Bayesian sweeps. The package also encourages reproducibility by storing trial
+records, parameters, intermediate reports, and best values in ordinary files.
+The broader risk is compute overuse: a convenient optimizer can make it easier
+to run unnecessary searches. We mitigate this by exposing random/TPE baselines,
+pruning controls, and explicit trial budgets rather than hiding cost behind an
+autonomous service.
 
 \section{Reproducibility}
 
-The package itself has zero runtime dependencies beyond Python's standard
-library; the experiment extra installs NumPy, Matplotlib, and Optuna for
-plotting and TPE. Tests run with \texttt{python3 tests/test\_optim\_agent.py}.
-Analytic figures can be regenerated by running
-\texttt{python examples/hard\_functions.py plot}; ablations by
-\texttt{python examples/ablations.py plot}; and full benchmark runs by the
-\texttt{run} subcommands in each example script. The JSON logs in
-\texttt{docs/assets/} record seeds, best values, parameters, GPU lists, trial
-counts, and worker counts. MNIST was run on eight A800 GPUs in the recorded
-README, while CIFAR-10 was run on eight A100 GPUs; both use full public datasets
-and fixed seed lists 0, 1, and 2. No new dataset is introduced.
+The core package has zero runtime dependencies beyond Python's standard
+library. The experiment environment adds NumPy, Matplotlib, Optuna, PyTorch, and
+TorchVision for baselines, plotting, and image training. The supplement includes
+standalone scripts for analytic functions, MNIST, CIFAR-10, and ablations, plus
+the raw JSON logs used for every table in this paper. Each log records the
+method label, backend, effort level, seed, trial count, worker count, GPU list,
+trial parameters, trial state, final value, intermediate learning curve, and
+best configuration. Seeds are fixed to $\{0,1,2\}$ for the main sampling
+experiments; the pruning ablation uses seeds $\{0,1\}$ because it is an
+intermediate-curve compute study. MNIST was run on eight A800 GPUs and CIFAR-10
+on eight A100 GPUs. Both benchmarks use public datasets and introduce no new
+human-subject or private data.
 
 \section{Conclusion}
 
