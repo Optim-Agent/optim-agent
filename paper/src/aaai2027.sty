@@ -1,0 +1,430 @@
+%
+% WARNING: IF YOU ARE USING THIS STYLE SHEET FOR AN AAAI PUBLICATION, YOU
+% MAY NOT MODIFY IT FOR ANY REASON. MODIFICATIONS (IN YOUR SOURCE
+% OR IN THIS STYLE SHEET WILL RESULT IN REJECTION OF YOUR PAPER).
+%
+% WARNING: This style is NOT guaranteed to work. It is provided in the
+% hope that it might make the preparation of papers easier, but this style
+% file is provided "as is" without warranty of any kind, either express or
+% implied, including but not limited to the implied warranties of
+% merchantability, fitness for a particular purpose, or noninfringement.
+% You use this style file at your own risk. Standard disclaimers apply.
+% There are undoubtably bugs in this style. If you would like to submit
+% bug fixes, improvements, etc. please let us know. Please use the contact form
+% at www.aaai.org.
+%
+% Do not use this file unless you are an experienced LaTeX user.
+%
+\NeedsTeXFormat{LaTeX2e}%
+\ProvidesPackage{aaai2027}[2027/05/04 AAAI 2027 Submission format]%
+
+%
+% BASIC DEFINITIONS
+\def\aaai@conferenceyear{2027}%
+\typeout{Conference Style for AAAI for LaTeX 2e}%
+\def\copyright@on{T}
+\def\showauthors@on{T}
+\def\nocopyright{\gdef\copyright@on{}}
+\def\copyright@year{\aaai@conferenceyear}
+\def\copyright@text{Copyright \copyright\space \copyright@year,
+Association for the Advancement of Artificial Intelligence (www.aaai.org).
+All rights reserved.}
+
+%
+% OPTION PROCESSING
+\DeclareOption{submission}{%
+  \gdef\copyright@text{This is an anonymized submission for review purposes only. Distribution, citation, or public sharing of this manuscript is strictly prohibited. Copyright and publication details will appear in the final version if accepted.}%
+  \gdef\showauthors@on{}%
+  \long\gdef\pdfinfo #1{\relax}%
+}%
+\DeclareOption{draft}{%
+  \gdef\copyright@on{}%
+}%
+\DeclareOption{preprint}{%
+  \gdef\copyright@on{}%
+}%
+% gf: End changes for copyright notice (used in \maketitle, below)
+\DeclareOption{ccby}{%
+  \gdef\copyright@text{Copyright \copyright\space \copyright@year,
+Association for the Advancement of Artificial Intelligence (www.aaai.org).
+This work is published under the \mbox{CC~BY~4.0} license: https://creativecommons.org/licenses/by/4.0/.}%
+}%
+\ProcessOptions\relax%
+
+%
+% ENGINE GUARD — this style requires PDFLaTeX.
+% Attempting to compile with XeLaTeX or LuaLaTeX will stop here with a clear
+% error instead of producing silently broken output.
+\RequirePackage{iftex}
+\RequirePDFTeX
+%
+% FONT ENCODING — T1 is the correct encoding for PDFLaTeX with Type 1 fonts.
+% It enables proper hyphenation of words with accented characters and correct
+% copy/search of accented text in the generated PDF.
+\RequirePackage[T1]{fontenc}
+% SERIF TEXT FONT — newtxtext provides a Times-like text face that is
+% PDFLaTeX-native, Type 1-compatible, and more carefully maintained than
+% the legacy times package. Authors must not load \usepackage{times}
+% or any competing text-font package in their document preamble.
+\RequirePackage{newtxtext}
+% SANS-SERIF FONT — helvet provides Helvetica for sans-serif text.
+\RequirePackage{helvet}
+% MONOSPACED FONT — courier provides Courier for typewriter/code text.
+\RequirePackage{courier}
+%
+\RequirePackage{placeins} % To enforce float barrier before references
+
+%
+% PHYSICAL PAGE LAYOUT
+\setlength\topmargin{-0.25in} \setlength\oddsidemargin{-0.25in}
+\setlength\textheight{9.0in} \setlength\textwidth{7.0in}
+\setlength\columnsep{0.375in} \newlength\titlebox \setlength\titlebox{2.25in}
+\setlength\headheight{0pt}  \setlength\headsep{0pt}
+%\setlength\footheight{0pt}  \setlength\footskip{0pt}
+\thispagestyle{empty} \pagestyle{empty}
+\flushbottom \twocolumn \sloppy
+% Enforce letter-paper PDF page size. Owned here so authors do not need
+% fragile pdfpagewidth/pdfpageheight lines in their preamble.
+\pdfpagewidth=8.5in
+\pdfpageheight=11in
+% We're never going to need a table of contents, so just flush it to
+% save space --- suggested by drstrip@sandia-2
+\def\addcontentsline#1#2#3{}
+\def\copyrighttext#1{\gdef\copyright@on{T}\gdef\copyright@text{#1}}
+\def\copyrightyear#1{\gdef\copyright@on{T}\gdef\copyright@year{#1}}
+
+% 
+% TITLE PREPARATION
+\def\maketitle{%
+  \par%
+  \begingroup % to make the footnote style local to the title
+    \def\thefootnote{\fnsymbol{footnote}}
+    \twocolumn[\@maketitle]
+    % Redirect \@footnotetext so that \@thanks footnotes land in
+    % \aaai@thanksins (output after body footnotes) rather than \footins.
+    \long\def\@footnotetext##1{\insert\aaai@thanksins{%
+        \protect\footnotesize\interlinepenalty\interfootnotelinepenalty
+        \splittopskip\footnotesep\splitmaxdepth\dp\strutbox
+        \floatingpenalty\@MM\hsize\columnwidth\@parboxrestore
+        \protected@edef\@currentlabel{%
+           \csname p@footnote\endcsname\@thefnmark}%
+        \color@begingroup
+          \@makefntext{%
+            \rule\z@\footnotesep\ignorespaces##1\@finalstrut\strutbox}%
+        \color@endgroup}}%
+    \@thanks%
+  \endgroup%
+  % Insert copyright slug unless turned off
+  \if T\copyright@on\insert\aaai@copyrightins{\noindent\footnotesize\copyright@text}\fi%
+  %
+  \setcounter{footnote}{0}%
+  \let\maketitle\relax%
+  \let\@maketitle\relax%
+  \gdef\@thanks{}%
+  \gdef\@author{}%
+  \gdef\@title{}%
+  \let\thanks\relax%
+}%
+\long\gdef\affiliations #1{ \def \aaai@affiliations{\if T\showauthors@on#1\fi}}%
+%
+\def\@maketitle{%
+  \def\aaai@theauthors{\if T\showauthors@on\@author\else Anonymous submission\fi}
+  \newcounter{aaai@eqfn}\setcounter{aaai@eqfn}{0}%
+  \newcounter{aaai@corrfn}\setcounter{aaai@corrfn}{0}%
+  \newif\ifaaai@corrmulti\aaai@corrmultifalse
+  \newsavebox{\titlearea}
+  \sbox{\titlearea}{
+    \let\footnote\relax\let\thanks\relax%
+    \setcounter{footnote}{0}%
+    \def\equalcontrib{%
+      \ifnum\value{aaai@eqfn}=0%
+        \footnote{These authors contributed equally.}%
+        \setcounter{aaai@eqfn}{\value{footnote}}%
+      \else%
+        \footnotemark[\value{aaai@eqfn}]%
+      \fi%
+    }%
+    \def\corresponding{%
+      \ifnum\value{aaai@corrfn}=0%
+        \footnote{Corresponding author.}%
+        \setcounter{aaai@corrfn}{\value{footnote}}%
+      \else%
+        \footnotemark[\value{aaai@corrfn}]%
+        \global\aaai@corrmultitrue
+      \fi%
+    }%
+    \vbox{%
+      \hsize\textwidth%
+      \linewidth\hsize%
+      \vskip 0.625in minus 0.125in%
+      \centering%
+      {\LARGE\bf \@title \par}%
+      \vskip 0.1in plus 0.5fil minus 0.05in%
+      {\Large{\textbf{\aaai@theauthors\ifhmode\\\fi}}}%
+      \vskip .2em plus 0.25fil%
+      {\normalsize \aaai@affiliations\ifhmode\\\fi}%
+      \vskip 1em plus 2fil%
+    }%
+  }%
+%
+  \newlength\actualheight%
+  \settoheight{\actualheight}{\usebox{\titlearea}}%
+  \ifdim\actualheight>\titlebox%
+    \setlength{\titlebox}{\actualheight}%
+  \fi%
+%
+  \vbox to \titlebox {%
+    \let\footnote\thanks\relax%
+    \setcounter{footnote}{0}%
+    \def\equalcontrib{%
+      \ifnum\value{aaai@eqfn}=0%
+        \footnote{These authors contributed equally.}%
+        \setcounter{aaai@eqfn}{\value{footnote}}%
+      \else%
+        \footnotemark[\value{aaai@eqfn}]%
+      \fi%
+    }%
+    \def\corresponding{%
+      \ifnum\value{aaai@corrfn}=0%
+        \footnote{Corresponding author\ifaaai@corrmulti{s}\fi.}%
+        \setcounter{aaai@corrfn}{\value{footnote}}%
+      \else%
+        \footnotemark[\value{aaai@corrfn}]%
+      \fi%
+    }
+    \hsize\textwidth%
+    \linewidth\hsize%
+    \vskip 0.625in minus 0.125in%
+    \centering%
+    {\LARGE\bf \@title \par}%
+    \vskip 0.1in plus 0.5fil minus 0.05in%
+    {\Large{\textbf{\aaai@theauthors\ifhmode\\\fi}}}%
+    \vskip .2em plus 0.25fil%
+    {\normalsize \aaai@affiliations\ifhmode\\\fi}%
+    \vskip 1em plus 2fil%
+  }%
+}%
+%
+\renewenvironment{abstract}{%
+  \centerline{\bf Abstract}%
+  \vspace{0.5ex}%
+  \setlength{\leftmargini}{10pt}%
+  \begin{quote}%
+    \small%
+}{%
+  \par%
+  \end{quote}%
+  \vskip 1ex%
+}%
+\newenvironment{links}{%
+  \newcommand{\link}[2]{\par\textbf{##1} --- \url{##2}}%
+  \setlength{\hangindent}{10pt}%
+  \setlength{\parskip}{2pt}%
+  \begin{flushleft}%
+}{%
+  \end{flushleft}%
+  \vskip 1ex%
+}%
+%
+% SECTIONS with less space
+\def\section{\@startsection {section}{1}{\z@}{-2.0ex plus -0.5ex minus -.2ex}{3pt plus 2pt minus 1pt}{\Large\bf\centering}}
+\def\subsection{\@startsection{subsection}{2}{\z@}{-2.0ex plus -0.5ex minus -.2ex}{3pt plus 2pt minus 1pt}{\large\bf\raggedright}}
+\def\subsubsection{\@startsection{subparagraph}{3}{\z@}{-6pt plus -2pt minus -1pt}{-1em}{\normalsize\bf}}
+\renewcommand\paragraph{\@startsection{paragraph}{4}{\z@}{-6pt plus -2pt minus -1pt}{-1em}{\normalsize\bf}}%
+\setcounter{secnumdepth}{0}
+%
+% FOOTNOTES
+\footnotesep 6.65pt %
+\skip\footins 9pt plus 4pt minus 2pt
+\def\footnoterule{\kern-3pt \hrule width 5pc \kern 2.6pt }
+\setcounter{footnote}{0}
+%
+% FOOTNOTE-AREA INSERT REGISTERS
+% Two dedicated insert classes ensure the first-column footnote area always
+% appears in the correct order:
+%   1. body footnotes  (from abstract / introduction text, arabic numerals)
+%   2. title footnotes (from \equalcontrib, \corresponding, \thanks, symbols)
+%   3. copyright notice
+% count=1000 gives the same page-cost weight as \footins so TeX reserves
+% the correct amount of column space for each register.
+\newinsert\aaai@thanksins%
+\count\aaai@thanksins=1000%
+\dimen\aaai@thanksins=\maxdimen%
+\skip\aaai@thanksins=\skip\footins%
+%
+\newinsert\aaai@copyrightins%
+\count\aaai@copyrightins=1000%
+\dimen\aaai@copyrightins=\maxdimen%
+\skip\aaai@copyrightins=\skip\footins%
+%
+% Patch \@makecol to assemble: body footnotes, then title thanks, then copyright.
+% Budget accounting: \skip\aaai@thanksins and \skip\aaai@copyrightins are each set to
+% \skip\footins (the worst case: opening the footnote area with rule + gap).  When the
+% area is already open (body footnotes present, or thanks already appended) we only add
+% 4pt physically; the ~5pt deficit is silently absorbed by the infinite stretch glue that
+% \flushbottom places between paragraphs.  This keeps the page height exact in the
+% worst case (no body footnotes) and produces no overfull warnings in any case.
+\newif\ifaaai@hasfootnotes
+\let\aaai@orig@makecol\@makecol
+\def\@makecol{%
+  % Merge title/thanks footnotes and copyright into \footins so the
+  % standard \@makecol emits a single rule and gap for the whole area.
+  % TeX has already budgeted \@colht for all three registers (count=1000).
+  \ifvoid\aaai@thanksins\else
+    \setbox\footins\vbox{%
+      \boxmaxdepth\@maxdepth
+      \ifvoid\footins\else\unvbox\footins\fi
+      \unvbox\aaai@thanksins}%
+  \fi
+  \ifvoid\aaai@copyrightins\else
+    \setbox\footins\vbox{%
+      \boxmaxdepth\@maxdepth
+      \ifvoid\footins\else\unvbox\footins\fi
+      \vskip 2pt
+      \unvbox\aaai@copyrightins}%
+  \fi
+  \aaai@orig@makecol
+}
+%
+% LISTS AND PARAGRAPHS
+\parindent 10pt
+\topsep 4pt plus 1pt minus 2pt
+\partopsep 1pt plus 0.5pt minus 0.5pt
+\itemsep 0.5pt plus 1pt minus 0.5pt
+\parsep 2pt plus 1pt minus 0.5pt
+\leftmargin 10pt \leftmargini 13pt \leftmarginii 10pt \leftmarginiii 5pt \leftmarginiv 5pt \leftmarginv 5pt \leftmarginvi 5pt
+\labelwidth\leftmargini\advance\labelwidth-\labelsep \labelsep 5pt
+\def\@listi{\leftmargin\leftmargini}
+\def\@listii{\leftmargin\leftmarginii
+\labelwidth\leftmarginii\advance\labelwidth-\labelsep
+\topsep 2pt plus 1pt minus 0.5pt
+\parsep 1pt plus 0.5pt minus 0.5pt
+\itemsep \parsep}
+\def\@listiii{\leftmargin\leftmarginiii
+\labelwidth\leftmarginiii\advance\labelwidth-\labelsep
+\topsep 1pt plus 0.5pt minus 0.5pt
+\parsep \z@
+\partopsep 0.5pt plus 0pt minus 0.5pt
+\itemsep \topsep}
+\def\@listiv{\leftmargin\leftmarginiv
+\labelwidth\leftmarginiv\advance\labelwidth-\labelsep}
+\def\@listv{\leftmargin\leftmarginv
+\labelwidth\leftmarginv\advance\labelwidth-\labelsep}
+\def\@listvi{\leftmargin\leftmarginvi
+\labelwidth\leftmarginvi\advance\labelwidth-\labelsep}
+\abovedisplayskip 7pt plus2pt minus5pt%
+\belowdisplayskip \abovedisplayskip
+\abovedisplayshortskip 0pt plus3pt%
+\belowdisplayshortskip 4pt plus3pt minus3pt%
+% Less leading in most fonts (due to the narrow columns)
+% The choices were between 1-pt and 1.5-pt leading
+\def\normalsize{\@setfontsize\normalsize\@xpt{11}}   % 10 point on 11
+\def\small{\@setfontsize\small\@ixpt{10}}    % 9 point on 10
+\def\footnotesize{\@setfontsize\footnotesize\@ixpt{10}}  % 9 point on 10
+\def\scriptsize{\@setfontsize\scriptsize\@viipt{10}}  % 7 point on 8
+\def\tiny{\@setfontsize\tiny\@vipt{7}}    % 6 point on 7
+\def\large{\@setfontsize\large\@xipt{12}}    % 11 point on 12
+\def\Large{\@setfontsize\Large\@xiipt{14}}    % 12 point on 14
+\def\LARGE{\@setfontsize\LARGE\@xivpt{16}}    % 14 point on 16
+\def\huge{\@setfontsize\huge\@xviipt{20}}    % 17 point on 20
+\def\Huge{\@setfontsize\Huge\@xxpt{23}}    % 20 point on 23
+%
+% REPRODUCIBILITY CHECKLIST
+\RequirePackage{xcolor} % Needed for the reproducibility checklist
+\def\isChecklistMainFile{} % Signal the checklist that it's included from the main file
+
+\AtBeginDocument{%
+%
+  \AtBeginDocument{
+    % Outer hook fires during \begin{document} processing;
+    % inner hook is registered at that moment, so it fires after
+    % all other \AtBeginDocument hooks (including other packages).
+    % Add a float barrier to prevent figures/tables from bleeding into the references pages
+    \let\aaai@orig@bibliography\bibliography%
+    \renewcommand{\bibliography}[1]{\FloatBarrier\aaai@orig@bibliography{#1}}%
+  }
+%
+  \@ifpackageloaded{natbib}%
+    {%
+      % When natbib is in use, set the proper style and fix a few things
+      \let\cite\citep
+      \let\shortcite\citeyearpar
+      \setcitestyle{aysep={}}
+      \setlength\bibhang{0pt}
+      \bibliographystyle{aaai2027}
+    }{}%
+  \@ifpackageloaded{hyperref}%
+    {%
+      \PackageError{aaai}{You must not use hyperref in AAAI papers.}{You (or one of the packages you imported) are importing the hyperref package, which is forbidden in AAAI papers. You must remove it from the paper to proceed.}
+    }{}%
+  \@ifpackageloaded{bbm}%
+    {%
+      \PackageError{aaai}{You must not use bbm package in AAAI papers because it introduces Type 3 fonts which are forbidden.}{See https://tex.stackexchange.com/questions/479160/a-replacement-to-mathbbm1-with-type-1-fonts for possible alternatives.}
+    }{}%
+    \@ifpackageloaded{authblk}%
+    {%
+      \PackageError{aaai}{Package authblk is forbidden.}{Package authblk is forbidden. You must find an alternative.}
+    }{}%
+  \@ifpackageloaded{balance}%
+    {%
+      \PackageError{aaai}{Package balance is forbidden.}{Package balance is forbidden. You must find an alternative.}
+    }{}%
+  \@ifpackageloaded{CJK}%
+    {%
+      \PackageError{aaai}{Package CJK is forbidden.}{Package CJK is forbidden. You must find an alternative.}
+    }{}%
+  \@ifpackageloaded{flushend}%
+    {%
+      \PackageError{aaai}{Package flushend is forbidden.}{Package flushend is forbidden. You must find an alternative.}
+    }{}%
+  \@ifpackageloaded{fullpage}%
+    {%
+      \PackageError{aaai}{Package fullpage is forbidden.}{Package fullpage is forbidden. You must find an alternative.}
+    }{}%
+  \@ifpackageloaded{geometry}%
+    {%
+      \PackageError{aaai}{Package geometry is forbidden.}{Package geometry is forbidden. You must find an alternative.}
+    }{}%
+  \@ifpackageloaded{navigator}%
+    {%
+      \PackageError{aaai}{Package navigator is forbidden.}{Package navigator is forbidden. You must find an alternative.}
+    }{}%
+  \@ifpackageloaded{savetrees}%
+    {%
+      \PackageError{aaai}{Package savetrees is forbidden.}{Package savetrees is forbidden. You must find an alternative.}
+    }{}%
+  \@ifpackageloaded{setspace}%
+    {%
+      \PackageError{aaai}{Package setspace is forbidden.}{Package setspace is forbidden. You must find an alternative.}
+    }{}%
+  \@ifpackageloaded{stfloats}%
+    {%
+      \PackageError{aaai}{Package stfloats is forbidden.}{Package stfloats is forbidden. You must find an alternative.}
+    }{}%
+  \@ifpackageloaded{tabu}%
+    {%
+      \PackageError{aaai}{Package tabu is forbidden.}{Package tabu is forbidden. You must find an alternative.}
+    }{}%
+  \@ifpackageloaded{titlesec}%
+    {%
+      \PackageError{aaai}{Package titlesec is forbidden.}{Package titlesec is forbidden. You must find an alternative.}
+    }{}%
+  \@ifpackageloaded{tocbibind}%
+    {%
+      \PackageError{aaai}{Package tocbibind is forbidden.}{Package tocbibind is forbidden. You must find an alternative.}
+    }{}%
+  \@ifpackageloaded{ulem}%
+    {%
+      \PackageError{aaai}{Package ulem is forbidden.}{Package ulem is forbidden. You must find an alternative.}
+    }{}%
+  \@ifpackageloaded{wrapfig}%
+    {%
+      \PackageError{aaai}{Package wrapfig is forbidden.}{Package wrapfig is forbidden. You must find an alternative.}
+    }{}%
+}
+
+% The article class's \endthebibliography normally runs an empty-list warning
+% check (\@noitemerr) before closing the list. We bypass that check by pointing
+% directly to \endlist, preventing spurious warnings when natbib (or the AAAI
+% bibliography machinery) regenerates the environment.
+\let\endthebibliography=\endlist
