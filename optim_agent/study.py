@@ -160,7 +160,7 @@ class Study:
         elif self.storage and self.storage.exists():
             self._load(direction)
         if seed is not None and self.trials:  # don't replay the pre-resume random sequence
-            self._rng = random.Random((seed, len(self.trials)))
+            self._rng = random.Random(f"{seed}-{len(self.trials)}")  # str seed: valid on 3.11+, tuple isn't
 
     # -- ask / tell ----------------------------------------------------------
 
