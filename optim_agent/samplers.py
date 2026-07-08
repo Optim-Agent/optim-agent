@@ -1,16 +1,16 @@
-"""Samplers. AgentSampler asks an LLM agent for the next point; levels trade tokens for depth."""
+"""Samplers. AgentSampler asks an LLM agent for the next point; effort trades tokens for depth."""
 
 import random
 import warnings
 
 from . import agent as _agent
 
-# Each level controls how rich the harness prompt is:
+# Each effort level controls how rich the harness prompt is:
 #   history    — how many past trials the agent sees (None = all)
 #   reasoning  — ask the agent to reason about the landscape before answering
 #   notes      — agent keeps a qualitative scratchpad carried across trials
 #   candidates — agent proposes N ranked points, first valid one wins
-LEVELS = {
+EFFORTS = {
     "low":    dict(history=5,    reasoning=False, notes=False, candidates=1),
     "medium": dict(history=15,   reasoning=False, notes=False, candidates=1),
     "high":   dict(history=None, reasoning=True,  notes=False, candidates=1),
@@ -31,23 +31,23 @@ class AgentSampler:
 
     backend: "claude" | "codex" | "opencode" | "mock" (offline, for tests/demos)
     model:   passed to the backend CLI's model flag; None = backend default
-    level:   one of LEVELS, from "low" (terse, cheap) to "max" (full history,
+    effort:  one of EFFORTS, from "low" (terse, cheap) to "max" (full history,
              reasoning, persistent notes, multiple candidates)
     context: optional free-text description of what is being tuned, e.g.
              "learning rate and batch size of a CNN on MNIST"
     n_init:  random warmup trials before the agent is consulted
     """
 
-    def __init__(self, backend="claude", model=None, level="high", context=None,
+    def __init__(self, backend="claude", model=None, effort="high", context=None,
                  n_init=2, timeout=300, seed=None):
-        if level not in LEVELS:
-            raise ValueError(f"level must be one of {list(LEVELS)}")
+        if effort not in EFFORTS:
+            raise ValueError(f"effort must be one of {list(EFFORTS)}")
         if backend != "mock" and backend not in _agent.BACKENDS:
             raise ValueError(f"backend must be one of {_agent.BACKENDS + ('mock',)}")
-        self.backend, self.model, self.level = backend, model, level
+        self.backend, self.model, self.effort = backend, model, effort
         self.context, self.n_init, self.timeout = context, n_init, timeout
         self.rng = random.Random(seed)
-        self.note = None  # qualitative scratchpad, fed back at xhigh/max levels
+        self.note = None  # qualitative scratchpad, fed back at xhigh/max efforts
 
     def propose(self, study) -> dict:
         done = [t for t in study.trials if t.state in ("complete", "pruned") and t.value is not None]
@@ -55,7 +55,7 @@ class AgentSampler:
             return {}
         if self.backend == "mock":
             return self._mock(study, done)
-        cfg = LEVELS[self.level]
+        cfg = EFFORTS[self.effort]
         prompt = self._prompt(study, done, cfg)
         for attempt in range(2):
             try:

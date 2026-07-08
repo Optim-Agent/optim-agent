@@ -41,7 +41,7 @@ def test_agent_sampler(monkeypatch=None):
     original = samplers._agent.call_agent
     samplers._agent.call_agent = fake_call
     try:
-        s = oa.AgentSampler(backend="claude", level="max", n_init=2, seed=1)
+        s = oa.AgentSampler(backend="claude", effort="max", n_init=2, seed=1)
         study = oa.create_study(sampler=s, seed=1)
         study.optimize(quadratic, n_trials=5, verbose=False)
     finally:

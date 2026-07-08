@@ -98,7 +98,7 @@ def _agent_curve(preset, spec, trials, seed, timeout):
         sampler = oa.RandomSampler()
     else:
         sampler = oa.AgentSampler(backend=preset["backend"], model=preset["model"],
-                                  level="high", context=_context(spec),
+                                  effort="high", context=_context(spec),
                                   n_init=3, timeout=timeout, seed=seed)
     study = oa.create_study(sampler=sampler, seed=seed)
     study.optimize(make_objective(spec), n_trials=trials)

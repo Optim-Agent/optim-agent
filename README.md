@@ -9,9 +9,9 @@ services: if the agent CLI runs on your machine, optim-agent can drive it.
 
 - **Drop-in study API**: `create_study` / `suggest_float` / `optimize`, familiar
   to anyone who has tuned hyperparameters in Python.
-- **Agent samplers in five levels** (`low` → `max`): higher levels see more
-  history, reason explicitly, keep qualitative notes across trials, and rank
-  multiple candidates.
+- **Agent samplers at five effort levels** (`low` → `max`): higher effort sees
+  more history, reasons explicitly, keeps qualitative notes across trials, and
+  ranks multiple candidates.
 - **Agent pruners in three levels** (`loose` → `tight`): an agent inspects the
   intermediate learning curve and stops hopeless trials early.
 - **Two ways to use it**: a pip package (blackbox, drop-in) or a
@@ -109,7 +109,7 @@ study = oa.create_study(
     direction="minimize",
     sampler=oa.AgentSampler(
         backend="claude",                          # or "codex" / "opencode"
-        level="high",                              # low | medium | high | xhigh | max
+        effort="high",                             # low | medium | high | xhigh | max
         context="a CNN on MNIST",                  # study-wide description (optional)
     ),
     storage="study.json",                          # optional: persist & resume
@@ -124,9 +124,9 @@ small batch — try 3e-4 and a larger batch") instead of a blind point-picker.
 Set it study-wide on `AgentSampler(context=...)`, per-parameter on each
 `suggest_*(..., context=...)`, or both — every piece is shown to the agent.
 
-### Sampler levels
+### Sampler effort
 
-| level | history shown | explicit reasoning | qualitative notes | candidates |
+| effort | history shown | explicit reasoning | qualitative notes | candidates |
 |---|---|---|---|---|
 | `low` | last 5 trials | – | – | 1 |
 | `medium` | last 15 trials | – | – | 1 |
@@ -134,7 +134,7 @@ Set it study-wide on `AgentSampler(context=...)`, per-parameter on each
 | `xhigh` | all | ✓ | ✓ carried across trials | 1 |
 | `max` | all | ✓ | ✓ carried across trials | 3, ranked |
 
-Higher levels spend more tokens per trial. If your objective is expensive
+Higher effort spends more tokens per trial. If your objective is expensive
 (minutes of training per trial), `max` is cheap by comparison; for fast
 objectives, `low` or plain `RandomSampler()` may be all you need.
 

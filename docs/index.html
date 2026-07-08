@@ -72,7 +72,7 @@ footer { margin-top: 64px; padding-top: 16px; border-top: 1px solid var(--border
     <li><a href="#how-it-works">How it works</a></li>
     <li><a href="#search-space">Search space</a></li>
     <li><a href="#samplers">Samplers</a></li>
-    <li class="sub"><a href="#sampler-levels">Levels</a></li>
+    <li class="sub"><a href="#sampler-levels">Effort</a></li>
     <li class="sub"><a href="#context">Context</a></li>
     <li class="sub"><a href="#fallback">Fallback behavior</a></li>
     <li><a href="#pruners">Pruners</a></li>
@@ -131,7 +131,7 @@ study = oa.create_study(
     direction="minimize",
     sampler=oa.AgentSampler(
         backend="claude",                      # or "codex" / "opencode"
-        level="high",
+        effort="high",
         context="learning rate and batch size of a CNN on MNIST",
     ),
     storage="study.json",                      # optional: persist &amp; resume
@@ -156,7 +156,7 @@ needs some history to reason about.</li>
 prompt</em>: the optimization direction, your <a href="#context">context</a>
 string, the search-space bounds, a table of past trials (parameters, value,
 state — including pruned and failed ones), the best result so far, and — at
-higher <a href="#sampler-levels">levels</a> — the agent's own notes from
+higher <a href="#sampler-levels">effort</a> — the agent's own notes from
 previous calls.</li>
 <li>The prompt is sent to the agent CLI as a one-shot subprocess call. The
 agent replies with a JSON object of parameter values.</li>
@@ -200,20 +200,20 @@ back to random sampling.</li>
 <pre><code>oa.AgentSampler(
     backend="claude",   # "claude" | "codex" | "opencode" | "mock"
     model=None,         # passed to the CLI's model flag; None = CLI default
-    level="high",       # "low" | "medium" | "high" | "xhigh" | "max"
+    effort="high",      # "low" | "medium" | "high" | "xhigh" | "max"
     context=None,       # free-text: what is being tuned
     n_init=2,           # random warmup trials before the agent is consulted
     timeout=300,        # seconds per CLI call
     seed=None,          # seeds the mock backend and internal jitter only
 )</code></pre>
 
-<h3 id="sampler-levels">Levels</h3>
+<h3 id="sampler-levels">Effort</h3>
 
-<p>Levels control how rich the harness prompt is — how much the agent sees
-and how hard it is asked to think. Higher levels cost more tokens per trial.</p>
+<p>Effort controls how rich the harness prompt is — how much the agent sees
+and how hard it is asked to think. Higher effort costs more tokens per trial.</p>
 
 <table>
-<tr><th>Level</th><th>History shown</th><th>Explicit reasoning</th><th>Qualitative notes</th><th>Candidates</th></tr>
+<tr><th>Effort</th><th>History shown</th><th>Explicit reasoning</th><th>Qualitative notes</th><th>Candidates</th></tr>
 <tr><td><code>low</code></td><td>last 5 trials</td><td>–</td><td>–</td><td>1</td></tr>
 <tr><td><code>medium</code></td><td>last 15 trials</td><td>–</td><td>–</td><td>1</td></tr>
 <tr><td><code>high</code></td><td>all<sup>†</sup></td><td>✓</td><td>–</td><td>1</td></tr>
@@ -471,7 +471,7 @@ objective to end the trial as pruned.</p>
 <h3>class <code>AgentSampler</code></h3>
 
 <p>See <a href="#samplers">Samplers</a>. Constructor validates
-<code>backend</code> and <code>level</code>; invalid values raise
+<code>backend</code> and <code>effort</code>; invalid values raise
 <code>ValueError</code> immediately, not at trial time.</p>
 
 <h3>class <code>AgentPruner</code></h3>
@@ -495,7 +495,7 @@ offline median-rule pruner for testing.</p>
 <tr><td>Every trial falls back — replies unparseable</td>
     <td>Some CLI configurations wrap output oddly. Run the CLI by hand with a "reply with only JSON" prompt and check what comes back; the parser accepts any JSON object anywhere in stdout.</td></tr>
 <tr><td>Trials are slow</td>
-    <td>Each agent trial is one CLI call (typically 5–60 s, model-dependent). Lower the sampler <code>level</code>, use a faster model, or reserve agent sampling for objectives whose runtime dwarfs the call.</td></tr>
+    <td>Each agent trial is one CLI call (typically 5–60 s, model-dependent). Lower the sampler <code>effort</code>, use a faster model, or reserve agent sampling for objectives whose runtime dwarfs the call.</td></tr>
 <tr><td><code>ValueError: ... was already registered as ...</code></td>
     <td>You changed a parameter's bounds/type mid-study. Intentional? Start a new storage file.</td></tr>
 <tr><td><code>ValueError: study at ... was created with direction=...</code></td>
