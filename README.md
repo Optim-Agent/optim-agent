@@ -282,8 +282,10 @@ more reasoning to help. The one visible effect is **speed of convergence on the
 harder function**: on Ackley-5D the higher efforts reach 0 by trial ~4 while
 `low` needs until trial ~8; on the easy Branin all efforts collapse to the
 optimum together by trial ~4. Effort buys faster convergence when the problem is
-hard enough to reward it; on trivial objectives `low` is all you need. Its real
-value should show on the paper's higher-dimensional MNIST/ARIMA tasks.
+hard enough to reward it; on trivial objectives `low` is all you need. And on a
+real task it does pay off: the [MNIST sweep](#mnist-cnn-gpt-55-effort-sweep)
+above shows test error falling monotonically with effort (`low` 0.92% → `medium`
+0.90% → `xhigh` 0.89%), all beating Random and TPE at 0.94%.
 
 ### Pruner tightness
 
