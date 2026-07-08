@@ -89,6 +89,60 @@ opencode's free roster rotates; check `opencode models | grep -E 'free|pickle'`
 and swap model ids in `examples/hard_functions.py` as needed. (Some free entries
 are too slow to serve as a sampler and are excluded.)
 
+## Ablations
+
+Both ablations fix the model (GLM-5.2 via opencode, free) and vary one knob, on
+the same Branin/Ackley functions with Random and TPE for reference
+(`python examples/ablations.py plot`).
+
+### Sampler effort
+
+![sampler effort ablation](docs/assets/abl_effort.png)
+
+GLM-5.2 at all five efforts (`low`→`max`), best value vs trial, mean of 3 seeds.
+**Every effort beats Random and TPE on both functions** — but effort does *not*
+produce a clean ranking here: on Branin the cheapest `low` (5-trial history, no
+reasoning) is the strongest, on Ackley `high` wins and `xhigh` trails. The five
+curves sit inside one seed-noise band. On low-dimensional problems with a
+10-trial budget the bottleneck is exploration luck, not reasoning depth, so the
+extra history, notes, and ranked candidates that higher effort buys have little
+to bite on. Effort is expected to earn its tokens on harder, longer-budget tasks
+(the paper's MNIST/ARIMA studies); for cheap objectives, `low` is often enough.
+
+### Pruner tightness
+
+![pruner tightness ablation](docs/assets/abl_prune.png)
+
+Branin and Ackley are scalar, so there is no learning curve for a pruner to
+watch. To exercise pruning we attach a **synthetic** noisy loss curve (four
+steps descending toward `f(x)`, with occasional slow-starters) to each
+evaluation; the x-axis is **compute (reported steps)**, mean of 2 seeds. A
+pruner's payoff is compute saved, so this plots best value vs steps.
+
+Tighter pruning ends at fewer steps — `tight` uses ~20 steps where `none` uses
+40, real compute saved. Whether that is worth it depends on the landscape:
+
+- **Branin** (many decent basins): pruning reaches the same ~4–6 quality at
+  roughly half the compute — a clear win for `medium`/`tight`.
+- **Ackley** (one good region, found late): the winning trial only reveals
+  itself near the end, so pruning abandons it — `none` reaches 0.0 while `tight`
+  stalls near 20. Aggressive pruning here *hurts*.
+
+Lesson: pruning pays off when doomed trials look bad early and good trials reveal
+themselves early. It backfires on late-blooming optima. Prefer `loose` or no
+pruning unless each evaluation is genuinely expensive and its early signal is
+reliable.
+
+```bash
+for s in 0 1 2; do
+  for e in low medium xhigh max; do python examples/ablations.py effort --variant $e --seeds $s; done
+done
+for s in 0 1; do
+  for p in loose medium tight; do python examples/ablations.py prune --variant $p --seeds $s; done
+done
+python examples/ablations.py plot   # reuses the GLM-5.2/Random/TPE curves above
+```
+
 ## Install
 
 ```bash

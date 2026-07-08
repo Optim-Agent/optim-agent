@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>optim-agent — LLM agents as your hyperparameter optimizer</title>
 <meta name="description" content="Documentation for optim-agent: agent-driven hyperparameter optimization using Claude Code, Codex, or OpenCode as samplers and pruners.">
+<link rel="icon" type="image/svg+xml" href="assets/optim-agent-mark.svg">
 <style>
 :root {
   --bg: #ffffff; --fg: #1f2328; --muted: #57606a; --border: #d0d7de;
@@ -27,7 +28,8 @@ nav {
   position: fixed; top: 0; left: 0; bottom: 0; width: 240px; overflow-y: auto;
   padding: 24px 16px; border-right: 1px solid var(--border); background: var(--sidebar-bg);
 }
-nav .brand { font-weight: 700; font-size: 18px; display: block; margin-bottom: 4px; color: var(--fg); }
+nav .brand { display: block; margin-bottom: 4px; }
+nav .brand .logo { display: block; width: 188px; max-width: 100%; height: auto; border: none; border-radius: 0; }
 nav .version { color: var(--muted); font-size: 12px; margin-bottom: 16px; }
 nav ul { list-style: none; padding: 0; margin: 0 0 16px; }
 nav li a { display: block; padding: 3px 8px; border-radius: 6px; color: var(--fg); font-size: 14px; }
@@ -64,7 +66,12 @@ footer { margin-top: 64px; padding-top: 16px; border-top: 1px solid var(--border
 <body>
 
 <nav>
-  <a class="brand" href="#top">optim-agent</a>
+  <a class="brand" href="#top">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/optim-agent-logo-dark.svg">
+      <img class="logo" src="assets/optim-agent-logo-light.svg" alt="optim-agent" width="188">
+    </picture>
+  </a>
   <div class="version">v0.1.0 · MIT</div>
   <ul>
     <li><a href="#install">Installation</a></li>
