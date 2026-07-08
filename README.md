@@ -149,6 +149,34 @@ opencode's free roster rotates; check `opencode models | grep -E 'free|pickle'`
 and swap model ids in `examples/hard_functions.py` as needed. (Some free entries
 are too slow to serve as a sampler and are excluded.)
 
+### MNIST CNN: GPT-5.5 effort sweep
+
+Full MNIST train/test splits, a small CNN, **24 trials × 3 seeds**, and 3
+epochs per trial. Trials were run in parallel across the machine's **8 A800
+GPUs**. Codex used the CLI default model, labeled here as GPT-5.5, with
+`model_reasoning_effort` set to `low`, `medium`, and `xhigh`; TPE is Optuna's
+baseline sampler. Lower test error is better.
+
+The search space is defined in [`examples/mnist.py`](examples/mnist.py):
+`lr` is a log-uniform float from `1e-4` to `3e-2`; `batch_size` is one of
+`64`, `128`, `256`, `512`; `dropout` is a float from `0.0` to `0.6`; and
+`width` is one of `16`, `32`, `64`, `96`, `128` base CNN channels.
+
+![MNIST GPT-5.5 effort sweep](docs/assets/mnist_benchmarks.png)
+
+Best test error reached:
+
+| method | backend/effort | seed 0 | seed 1 | seed 2 | mean best test error |
+|---|---|--:|--:|--:|--:|
+| Random | baseline | 0.86% | 0.97% | 1.00% | 0.94% |
+| TPE | optuna / TPE | 0.99% | 0.90% | 0.94% | 0.94% |
+| GPT-5.5-low | codex / low | 0.88% | 1.04% | 0.85% | 0.92% |
+| GPT-5.5-medium | codex / medium | 0.92% | 0.94% | 0.84% | 0.90% |
+| GPT-5.5-xhigh | codex / xhigh | 0.82% | 1.03% | 0.83% | 0.89% |
+
+The offline `mock` backend is intentionally excluded from this comparison; it
+is only a token-free wiring check, not a real agent call.
+
 ## Usage guide
 
 ### Sampler effort

@@ -9,8 +9,11 @@ paper/*.log
 paper/*.out
 paper/*.bbl
 paper/*.blg
+paper/src/
 .pytest_cache/
 .DS_Store
 .claude/
 next_point.json
 proposal.json
+data/
+.optim-agent-runs/
