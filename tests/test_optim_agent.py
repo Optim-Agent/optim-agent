@@ -197,6 +197,11 @@ def test_mnist_helper_curves_and_labels():
                                     {"test_error": 8.0}]) == [9.0, 7.5, 7.5]
     assert mnist._device_for_trial(10, [0, 1, 2]) == "cuda:1"
     assert mnist._device_for_trial(3, []) == "cpu"
+    assert mnist._run_label("codex", "low") == "codex-low"
+    assert mnist._run_label("Random", "xhigh") == "Random"
+    assert "mock" not in mnist.PLOT_LABELS
+    assert mnist.PLOT_LABELS == ("Random", "codex-low", "codex-medium", "codex-xhigh")
+    assert set(mnist.PLOT_STYLES) == {"codex-low", "codex-medium", "codex-xhigh"}
 
 
 def test_mnist_trial_record_serializes_metrics():

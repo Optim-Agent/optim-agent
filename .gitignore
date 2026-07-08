@@ -9,6 +9,7 @@ paper/*.log
 paper/*.out
 paper/*.bbl
 paper/*.blg
+paper/src/
 .pytest_cache/
 .DS_Store
 .claude/

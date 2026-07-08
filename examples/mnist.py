@@ -39,6 +39,12 @@ METHODS = {
 }
 BATCHES = [64, 128, 256, 512]
 WIDTHS = [16, 32, 64, 96, 128]
+PLOT_LABELS = ("Random", "codex-low", "codex-medium", "codex-xhigh")
+PLOT_STYLES = {
+    "codex-low": dict(style=(0, (1, 1.5))),
+    "codex-medium": dict(style=(0, (4, 2))),
+    "codex-xhigh": dict(style=(0, (6, 2))),
+}
 
 
 def _ensure_cuda_driver_compat():
@@ -67,6 +73,10 @@ def _ensure_cuda_driver_compat():
 
 def _sanitize_label(label):
     return re.sub(r"[^A-Za-z0-9_.-]+", "-", label).strip("-")
+
+
+def _run_label(method, effort):
+    return f"{method}-{effort}" if METHODS[method]["backend"] else method
 
 
 def _device_for_trial(number, gpus):
@@ -273,7 +283,8 @@ def run(method, seeds, trials, epochs, workers, gpus, effort, timeout, model):
     ASSETS.mkdir(parents=True, exist_ok=True)
     STORAGE.mkdir(parents=True, exist_ok=True)
     for seed in seeds:
-        safe = _sanitize_label(method)
+        label = _run_label(method, effort)
+        safe = _sanitize_label(label)
         db = STORAGE / f"mnist_{safe}_s{seed}.json"
         sampler = _sampler(method, seed, effort, timeout, model)
         study = oa.create_study(direction="minimize", sampler=sampler, storage=db,
@@ -291,7 +302,8 @@ def run(method, seeds, trials, epochs, workers, gpus, effort, timeout, model):
             }
             records.append(_trial_record(t, metrics))
         out = {
-            "label": method, "seed": seed, "epochs": epochs, "trials": trials,
+            "label": label, "method": method, "effort": effort,
+            "seed": seed, "epochs": epochs, "trials": trials,
             "workers": workers, "gpus": gpus, "records": records,
             "best_error": study.best_value, "best_params": study.best_params,
         }
@@ -315,11 +327,15 @@ def plot():
         raise SystemExit("no mnist_curves_*_s*.json in docs/assets — run an experiment first")
 
     fig, ax = plt.subplots(figsize=(7.2, 4.5))
-    for label, runs in by_label.items():
+    for label in PLOT_LABELS:
+        runs = by_label.get(label)
+        if not runs:
+            continue
         curves = [_best_error_curve(r["records"]) for r in runs]
         width = min(len(c) for c in curves)
         mean = np.mean([c[:width] for c in curves], axis=0)
-        p = METHODS.get(label, {})
+        p = METHODS.get(label.split("-")[0], {})
+        p = {**p, **PLOT_STYLES.get(label, {})}
         ax.plot(range(1, width + 1), mean, marker="o", ms=4, lw=1.8,
                 color=p.get("color"), linestyle=p.get("style", "solid"),
                 label=f"{label} (n={len(runs)})")

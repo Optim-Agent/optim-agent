@@ -149,6 +149,37 @@ opencode's free roster rotates; check `opencode models | grep -E 'free|pickle'`
 and swap model ids in `examples/hard_functions.py` as needed. (Some free entries
 are too slow to serve as a sampler and are excluded.)
 
+### MNIST CNN: Codex effort sweep
+
+Full MNIST train/test splits, a small CNN, **24 trials × 3 seeds**, and 3
+epochs per trial. Trials were run in parallel across the machine's **8 A800
+GPUs**. Codex used the CLI default model (GPT-5.5 in this benchmark set) with
+`model_reasoning_effort` set to `low`, `medium`, and `xhigh`; lower test error
+is better.
+
+![MNIST Codex effort sweep](docs/assets/mnist_benchmarks.png)
+
+Best test error reached:
+
+| method | backend/effort | seed 0 | seed 1 | seed 2 | mean best test error |
+|---|---|--:|--:|--:|--:|
+| Random | baseline | 0.86% | 0.97% | 1.00% | 0.94% |
+| codex-low | codex / low | 0.88% | 1.04% | 0.85% | 0.92% |
+| codex-medium | codex / medium | 0.92% | 0.94% | 0.84% | 0.90% |
+| codex-xhigh | codex / xhigh | 0.82% | 1.03% | 0.83% | 0.89% |
+
+Best configuration seen per method:
+
+| method | lr | batch_size | dropout | width | best seed |
+|---|--:|--:|--:|--:|--:|
+| Random | 0.002787 | 128 | 0.303 | 64 | 0.86% (s0) |
+| codex-low | 0.0018 | 64 | 0.34 | 96 | 0.85% (s2) |
+| codex-medium | 0.00155 | 64 | 0.5 | 96 | 0.84% (s2) |
+| codex-xhigh | 0.002787 | 128 | 0.303 | 64 | 0.82% (s0) |
+
+The offline `mock` backend is intentionally excluded from this comparison; it
+is only a token-free wiring check, not a real agent call.
+
 ## Usage guide
 
 ### Sampler effort
