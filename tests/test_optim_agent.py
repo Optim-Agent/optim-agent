@@ -197,11 +197,38 @@ def test_mnist_helper_curves_and_labels():
                                     {"test_error": 8.0}]) == [9.0, 7.5, 7.5]
     assert mnist._device_for_trial(10, [0, 1, 2]) == "cuda:1"
     assert mnist._device_for_trial(3, []) == "cpu"
-    assert mnist._run_label("codex", "low") == "codex-low"
+    assert mnist._run_label("codex", "low") == "GPT-5.5-low"
     assert mnist._run_label("Random", "xhigh") == "Random"
+    assert mnist._run_label("TPE", "xhigh") == "TPE"
     assert "mock" not in mnist.PLOT_LABELS
-    assert mnist.PLOT_LABELS == ("Random", "codex-low", "codex-medium", "codex-xhigh")
-    assert set(mnist.PLOT_STYLES) == {"codex-low", "codex-medium", "codex-xhigh"}
+    assert mnist.PLOT_LABELS == ("Random", "TPE", "GPT-5.5-low", "GPT-5.5-medium", "GPT-5.5-xhigh")
+    assert set(mnist.PLOT_STYLES) == {"GPT-5.5-low", "GPT-5.5-medium", "GPT-5.5-xhigh"}
+
+
+def test_mnist_optuna_trial_adapter_ignores_context():
+    from examples import mnist
+
+    class FakeOptunaTrial:
+        number = 4
+        params = {}
+
+        def suggest_float(self, name, low, high, *, log=False):
+            self.params[name] = low
+            return low
+
+        def suggest_categorical(self, name, choices):
+            self.params[name] = choices[0]
+            return choices[0]
+
+        def report(self, value, step):
+            self.reported = (value, step)
+
+    t = mnist._OptunaTrialAdapter(FakeOptunaTrial())
+    assert t.suggest_float("lr", 1e-4, 3e-2, log=True, context="ignored") == 1e-4
+    assert t.suggest_categorical("batch_size", [64, 128], context="ignored") == 64
+    t.report(1.2, 3)
+    assert t.params == {"lr": 1e-4, "batch_size": 64}
+    assert t.number == 4
 
 
 def test_mnist_trial_record_serializes_metrics():
@@ -228,6 +255,7 @@ if __name__ == "__main__":
                test_pruner, test_mock_backend_and_storage, test_concurrency_and_sqlite,
                test_skill_mode_ask_tell, test_hostile_agent_values, test_guardrails,
                test_resume_no_replay, test_mnist_helper_curves_and_labels,
+               test_mnist_optuna_trial_adapter_ignores_context,
                test_mnist_trial_record_serializes_metrics]:
         fn()
         print(f"ok: {fn.__name__}")

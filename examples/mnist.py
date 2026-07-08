@@ -32,18 +32,19 @@ STORAGE = ROOT / ".optim-agent-runs" / "mnist"
 
 METHODS = {
     "Random": dict(backend=None, model=None, color="#9ca3af", style="solid"),
+    "TPE": dict(backend="tpe", model=None, color="#111827", style=(0, (2, 2))),
     "mock": dict(backend="mock", model=None, color="#2563eb", style=(0, (4, 2))),
-    "codex": dict(backend="codex", model=None, color="#10a37f", style=(0, (6, 2))),
+    "codex": dict(backend="codex", model=None, label="GPT-5.5", color="#10a37f", style=(0, (6, 2))),
     "claude": dict(backend="claude", model=None, color="#8b5cf6", style="solid"),
     "opencode": dict(backend="opencode", model=None, color="#16a34a", style=(0, (1, 1.5))),
 }
 BATCHES = [64, 128, 256, 512]
 WIDTHS = [16, 32, 64, 96, 128]
-PLOT_LABELS = ("Random", "codex-low", "codex-medium", "codex-xhigh")
+PLOT_LABELS = ("Random", "TPE", "GPT-5.5-low", "GPT-5.5-medium", "GPT-5.5-xhigh")
 PLOT_STYLES = {
-    "codex-low": dict(style=(0, (1, 1.5))),
-    "codex-medium": dict(style=(0, (4, 2))),
-    "codex-xhigh": dict(style=(0, (6, 2))),
+    "GPT-5.5-low": dict(style=(0, (1, 1.5))),
+    "GPT-5.5-medium": dict(style=(0, (4, 2))),
+    "GPT-5.5-xhigh": dict(style=(0, (6, 2))),
 }
 
 
@@ -76,7 +77,8 @@ def _sanitize_label(label):
 
 
 def _run_label(method, effort):
-    return f"{method}-{effort}" if METHODS[method]["backend"] else method
+    preset = METHODS[method]
+    return f"{preset.get('label', method)}-{effort}" if preset["backend"] not in (None, "tpe") else method
 
 
 def _device_for_trial(number, gpus):
@@ -95,7 +97,7 @@ def _best_error_curve(records):
 def _trial_record(trial, metrics):
     return {
         "trial": trial.number,
-        "state": trial.state,
+        "state": str(getattr(trial, "state", "complete")).lower(),
         "params": dict(trial.params),
         "test_error": metrics.get("test_error"),
         "test_acc": metrics.get("test_acc"),
@@ -224,6 +226,28 @@ def _train_once(params, device, epochs, seed):
     return out
 
 
+class _OptunaTrialAdapter:
+    def __init__(self, trial):
+        self._trial = trial
+
+    @property
+    def number(self):
+        return self._trial.number
+
+    @property
+    def params(self):
+        return self._trial.params
+
+    def suggest_float(self, name, low, high, *, context=None, log=False):
+        return self._trial.suggest_float(name, low, high, log=log)
+
+    def suggest_categorical(self, name, choices, *, context=None):
+        return self._trial.suggest_categorical(name, choices)
+
+    def report(self, value, step):
+        return self._trial.report(value, step)
+
+
 def _objective(epochs, seed, gpus):
     lock = threading.Lock()
     next_slot = 0
@@ -260,6 +284,8 @@ def _sampler(method, seed, effort, timeout, model):
     preset = METHODS[method]
     if preset["backend"] is None:
         return oa.RandomSampler()
+    if preset["backend"] == "tpe":
+        raise ValueError("TPE runs through Optuna's study API, not optim-agent's sampler API")
     return oa.AgentSampler(
         backend=preset["backend"], model=model or preset["model"], effort=effort,
         context="Full MNIST CNN validation error; tune learning rate, batch size, dropout and width.",
@@ -270,6 +296,28 @@ def _sampler(method, seed, effort, timeout, model):
 def download():
     train, test = _datasets(download=True)
     print(f"MNIST ready at {DATA}: train={len(train)} test={len(test)}")
+
+
+def _run_tpe(seed, trials, epochs, workers, gpus):
+    import optuna
+    optuna.logging.set_verbosity(optuna.logging.WARNING)
+    study = optuna.create_study(direction="minimize",
+                                sampler=optuna.samplers.TPESampler(seed=seed, n_startup_trials=4))
+    records = []
+    before = 0
+    print(f"== TPE seed {seed}: {before}/{trials} trials present, "
+          f"epochs={epochs}, workers={workers}, gpus={gpus or ['cpu']} ==")
+    objective = _objective(epochs, seed, gpus)
+
+    def wrapped(trial):
+        t = _OptunaTrialAdapter(trial)
+        value = objective(t)
+        records.append(_trial_record(t, t._mnist_metrics))
+        return value
+
+    study.optimize(wrapped, n_trials=trials, n_jobs=workers)
+    records.sort(key=lambda r: r["trial"])
+    return records, study.best_value, study.best_params
 
 
 def run(method, seeds, trials, epochs, workers, gpus, effort, timeout, model):
@@ -285,31 +333,35 @@ def run(method, seeds, trials, epochs, workers, gpus, effort, timeout, model):
     for seed in seeds:
         label = _run_label(method, effort)
         safe = _sanitize_label(label)
-        db = STORAGE / f"mnist_{safe}_s{seed}.json"
-        sampler = _sampler(method, seed, effort, timeout, model)
-        study = oa.create_study(direction="minimize", sampler=sampler, storage=db,
-                                seed=seed, max_concurrency=workers)
-        before = len(study.trials)
-        print(f"== {method} seed {seed}: {before}/{trials} trials present, "
-              f"epochs={epochs}, workers={workers}, gpus={gpus or ['cpu']} ==")
-        if before < trials:
-            study.optimize(_objective(epochs, seed, gpus), n_trials=trials - before)
-        records = []
-        for t in study.trials:
-            metrics = getattr(t, "_mnist_metrics", None) or {
-                "test_error": t.value, "test_acc": None, "test_loss": None,
-                "history": [{"step": s, "test_error": v} for s, v in t.intermediate],
-            }
-            records.append(_trial_record(t, metrics))
+        if method == "TPE":
+            records, best_value, best_params = _run_tpe(seed, trials, epochs, workers, gpus)
+        else:
+            db = STORAGE / f"mnist_{safe}_s{seed}.json"
+            sampler = _sampler(method, seed, effort, timeout, model)
+            study = oa.create_study(direction="minimize", sampler=sampler, storage=db,
+                                    seed=seed, max_concurrency=workers)
+            before = len(study.trials)
+            print(f"== {method} seed {seed}: {before}/{trials} trials present, "
+                  f"epochs={epochs}, workers={workers}, gpus={gpus or ['cpu']} ==")
+            if before < trials:
+                study.optimize(_objective(epochs, seed, gpus), n_trials=trials - before)
+            records = []
+            for t in study.trials:
+                metrics = getattr(t, "_mnist_metrics", None) or {
+                    "test_error": t.value, "test_acc": None, "test_loss": None,
+                    "history": [{"step": s, "test_error": v} for s, v in t.intermediate],
+                }
+                records.append(_trial_record(t, metrics))
+            best_value, best_params = study.best_value, study.best_params
         out = {
             "label": label, "method": method, "effort": effort,
             "seed": seed, "epochs": epochs, "trials": trials,
             "workers": workers, "gpus": gpus, "records": records,
-            "best_error": study.best_value, "best_params": study.best_params,
+            "best_error": best_value, "best_params": best_params,
         }
         path = ASSETS / f"mnist_curves_{safe}_s{seed}.json"
         path.write_text(json.dumps(out, indent=1))
-        print(f"wrote {path} best_error={study.best_value:.4g}")
+        print(f"wrote {path} best_error={best_value:.4g}")
 
 
 def plot():
@@ -334,7 +386,9 @@ def plot():
         curves = [_best_error_curve(r["records"]) for r in runs]
         width = min(len(c) for c in curves)
         mean = np.mean([c[:width] for c in curves], axis=0)
-        p = METHODS.get(label.split("-")[0], {})
+        method = next((m for m, p in METHODS.items() if label == p.get("label") or label.startswith(p.get("label", m) + "-")),
+                      label.split("-")[0])
+        p = METHODS.get(method, {})
         p = {**p, **PLOT_STYLES.get(label, {})}
         ax.plot(range(1, width + 1), mean, marker="o", ms=4, lw=1.8,
                 color=p.get("color"), linestyle=p.get("style", "solid"),
