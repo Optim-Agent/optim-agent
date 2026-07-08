@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/optim-agent-logo-dark.svg">
+    <img alt="optim-agent" src="docs/assets/optim-agent-logo-light.svg" width="280">
+  </picture>
+</p>
+
 # optim-agent
 
 **LLM agents as your hyperparameter optimizer.** Instead of an evolutionary
