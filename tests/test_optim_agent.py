@@ -188,11 +188,42 @@ def test_resume_no_replay():
         assert _raises(ValueError, lambda: oa.create_study(direction="maximize", storage=path))
 
 
+def test_mnist_helper_curves_and_labels():
+    from examples import mnist
+
+    assert mnist._sanitize_label("GPT-5.5") == "GPT-5.5"
+    assert mnist._sanitize_label("agent/mock") == "agent-mock"
+    assert mnist._best_error_curve([{"test_error": 9.0}, {"test_error": 7.5},
+                                    {"test_error": 8.0}]) == [9.0, 7.5, 7.5]
+    assert mnist._device_for_trial(10, [0, 1, 2]) == "cuda:1"
+    assert mnist._device_for_trial(3, []) == "cpu"
+
+
+def test_mnist_trial_record_serializes_metrics():
+    from examples import mnist
+
+    study = oa.create_study()
+    trial = study.ask({"lr": 0.001, "batch_size": 128, "dropout": 0.2, "width": 32})
+    trial.suggest_float("lr", 1e-4, 3e-2, log=True)
+    trial.suggest_categorical("batch_size", [64, 128, 256, 512])
+    trial.suggest_float("dropout", 0.0, 0.6)
+    trial.suggest_categorical("width", [16, 32, 64, 96, 128])
+    metrics = {"test_error": 2.5, "test_acc": 97.5, "test_loss": 0.08,
+               "history": [{"epoch": 1, "test_error": 2.5}]}
+
+    rec = mnist._trial_record(trial, metrics)
+
+    assert rec["params"]["batch_size"] == 128
+    assert rec["test_error"] == 2.5
+    assert rec["history"][0]["epoch"] == 1
+
+
 if __name__ == "__main__":
     for fn in [test_random_study, test_extract_json, test_agent_sampler,
                test_pruner, test_mock_backend_and_storage, test_concurrency_and_sqlite,
                test_skill_mode_ask_tell, test_hostile_agent_values, test_guardrails,
-               test_resume_no_replay]:
+               test_resume_no_replay, test_mnist_helper_curves_and_labels,
+               test_mnist_trial_record_serializes_metrics]:
         fn()
         print(f"ok: {fn.__name__}")
     print("all checks passed")

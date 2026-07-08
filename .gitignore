@@ -14,3 +14,5 @@ paper/*.blg
 .claude/
 next_point.json
 proposal.json
+data/
+.optim-agent-runs/
