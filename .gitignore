@@ -13,3 +13,4 @@ paper/*.blg
 .DS_Store
 .claude/
 next_point.json
+proposal.json

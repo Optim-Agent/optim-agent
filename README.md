@@ -5,30 +5,90 @@
   </picture>
 </p>
 
-# optim-agent
+<h1 align="center">optim-agent</h1>
 
-**LLM agents as your hyperparameter optimizer.** Instead of an evolutionary
-algorithm or a Bayesian surrogate, optim-agent hands the *choose-the-next-point*
-decision to a coding agent (Claude Code, Codex, or OpenCode) that reasons both
-**qualitatively** — what a learning rate or a lookback window *means* — and
-**quantitatively** — what the trial history *shows*. No API keys, no extra
-services: if the agent CLI runs on your machine, optim-agent can drive it.
+<p align="center">
+  <strong>LLM agents as your hyperparameter optimizer.</strong><br>
+  A context-aware, agent-driven drop-in for Optuna — for tuning any machine-learning or deep-learning training run.
+</p>
 
-- **Drop-in study API**: `create_study` / `suggest_float` / `optimize`, familiar
-  to anyone who has tuned hyperparameters in Python.
-- **Agent samplers at five effort levels** (`low` → `max`): higher effort sees
-  more history, reasons explicitly, keeps qualitative notes across trials, and
-  ranks multiple candidates.
-- **Agent pruners in three levels** (`loose` → `tight`): an agent inspects the
-  intermediate learning curve and stops hopeless trials early.
-- **Two ways to use it**: a pip package (blackbox, drop-in) or a
-  [skill](skills/optim-agent/SKILL.md) where the agent *reads your code* before
-  proposing configurations.
-- **Zero runtime dependencies** — pure stdlib; agents are called through their
-  own CLIs.
+<p align="center">
+  <a href="https://pypi.org/project/optim-agent/"><img alt="PyPI" src="https://img.shields.io/pypi/v/optim-agent"></a>
+  <a href="https://pypi.org/project/optim-agent/"><img alt="Python versions" src="https://img.shields.io/pypi/pyversions/optim-agent"></a>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/pypi/l/optim-agent"></a>
+  <img alt="Zero runtime deps" src="https://img.shields.io/badge/runtime%20deps-0-brightgreen">
+</p>
+
+Instead of an evolutionary algorithm or a Bayesian surrogate, optim-agent hands
+the *choose-the-next-point* decision to a coding agent (Claude Code, Codex, or
+OpenCode) that reasons both **qualitatively** — what a learning rate or a
+lookback window *means* — and **quantitatively** — what the trial history
+*shows*. No API keys, no extra services: if the agent CLI runs on your machine,
+optim-agent can drive it.
+
+## Why optim-agent
+
+- 🧠 **Agent-friendly by design** — the optimizer *is* an LLM agent. Point it at
+  `claude`, `codex`, or `opencode`; it reads the trial history and reasons about
+  the next configuration like a practitioner would.
+- 🎯 **Context-aware** — tell it what each knob *means* (`context="learning rate
+  for a CNN"`) and it optimizes with domain priors, not blind point-picking.
+- ⚡ **More efficient** — reaches good configs in a handful of trials where
+  classical HPO needs a warm-up; the agent pruner kills doomed runs early to
+  save compute.
+- 🏆 **More effective** — at small budgets (10 trials) top agents hit the optimum
+  of standard benchmark functions while TPE and random search don't yet. See
+  [Benchmarks](#benchmarks-agents-vs-tpe-and-random-search).
+- 🔧 **A general ML/DL training helper** — a drop-in `create_study` /
+  `suggest_float` / `optimize` API that wraps *any* training loop, plus a
+  [skill](skills/optim-agent/SKILL.md) where the agent reads your code first.
+- 📦 **Zero runtime dependencies** — pure stdlib; agents are called through their
+  own CLIs. Nothing to host, no keys to manage.
 
 **Full documentation:** [docs/index.html](docs/index.html) — served as a
 website via GitHub Pages (Settings → Pages → deploy from branch, `main` /`docs`).
+
+## Install
+
+```bash
+pip install optim-agent
+```
+
+Plus at least one agent CLI on your PATH, already authenticated:
+[claude](https://docs.anthropic.com/en/docs/claude-code),
+[codex](https://github.com/openai/codex), or
+[opencode](https://github.com/sst/opencode).
+
+## Quickstart
+
+```python
+import optim_agent as oa
+
+def objective(trial):
+    lr = trial.suggest_float("lr", 1e-5, 1e-1, log=True,
+                             context="learning rate for training an image classifier")
+    batch = trial.suggest_int("batch", 8, 256, log=True,
+                              context="mini-batch size; larger is more stable but slower")
+    return train_and_validate(lr, batch)          # your code
+
+study = oa.create_study(
+    direction="minimize",
+    sampler=oa.AgentSampler(
+        backend="claude",                          # or "codex" / "opencode"
+        effort="high",                             # low | medium | high | xhigh | max
+        context="a CNN on MNIST",                  # study-wide description (optional)
+    ),
+    storage="study.json",                          # optional: persist & resume
+)
+study.optimize(objective, n_trials=20)
+print(study.best_value, study.best_params)
+```
+
+`context` is optional but powerful: it tells the agent what the parameters
+*are*, so it can reason like a practitioner ("loss diverged at lr=0.1 with a
+small batch — try 3e-4 and a larger batch") instead of a blind point-picker.
+Set it study-wide on `AgentSampler(context=...)`, per-parameter on each
+`suggest_*(..., context=...)`, or both — every piece is shown to the agent.
 
 ## Benchmarks: agents vs. TPE and random search
 
@@ -89,104 +149,7 @@ opencode's free roster rotates; check `opencode models | grep -E 'free|pickle'`
 and swap model ids in `examples/hard_functions.py` as needed. (Some free entries
 are too slow to serve as a sampler and are excluded.)
 
-## Ablations
-
-Both ablations fix the model (GLM-5.2 via opencode, free) and vary one knob, on
-the same Branin/Ackley functions with Random and TPE for reference
-(`python examples/ablations.py plot`).
-
-### Sampler effort
-
-![sampler effort ablation](docs/assets/abl_effort.png)
-
-GLM-5.2 at all five efforts (`low`→`max`), best value vs trial, mean of 3 seeds.
-**Every effort beats Random and TPE on both functions** — but effort does *not*
-produce a clean ranking here: on Branin the cheapest `low` (5-trial history, no
-reasoning) is the strongest, on Ackley `high` wins and `xhigh` trails. The five
-curves sit inside one seed-noise band. On low-dimensional problems with a
-10-trial budget the bottleneck is exploration luck, not reasoning depth, so the
-extra history, notes, and ranked candidates that higher effort buys have little
-to bite on. Effort is expected to earn its tokens on harder, longer-budget tasks
-(the paper's MNIST/ARIMA studies); for cheap objectives, `low` is often enough.
-(These curves predate wiring effort to each CLI's reasoning-effort flag
-`--effort` / `model_reasoning_effort` / `--variant`, which now also makes higher
-effort deliberate harder — a re-run may separate more.)
-
-### Pruner tightness
-
-![pruner tightness ablation](docs/assets/abl_prune.png)
-
-Branin and Ackley are scalar, so there is no learning curve for a pruner to
-watch. To exercise pruning we attach a **synthetic** noisy loss curve (four
-steps descending toward `f(x)`, with occasional slow-starters) to each
-evaluation; the x-axis is **compute (reported steps)**, mean of 2 seeds. A
-pruner's payoff is compute saved, so this plots best value vs steps.
-
-Tighter pruning ends at fewer steps — `tight` uses ~20 steps where `none` uses
-40, real compute saved. Whether that is worth it depends on the landscape:
-
-- **Branin** (many decent basins): pruning reaches the same ~4–6 quality at
-  roughly half the compute — a clear win for `medium`/`tight`.
-- **Ackley** (one good region, found late): the winning trial only reveals
-  itself near the end, so pruning abandons it — `none` reaches 0.0 while `tight`
-  stalls near 20. Aggressive pruning here *hurts*.
-
-Lesson: pruning pays off when doomed trials look bad early and good trials reveal
-themselves early. It backfires on late-blooming optima. Prefer `loose` or no
-pruning unless each evaluation is genuinely expensive and its early signal is
-reliable.
-
-```bash
-for s in 0 1 2; do
-  for e in low medium xhigh max; do python examples/ablations.py effort --variant $e --seeds $s; done
-done
-for s in 0 1; do
-  for p in loose medium tight; do python examples/ablations.py prune --variant $p --seeds $s; done
-done
-python examples/ablations.py plot   # reuses the GLM-5.2/Random/TPE curves above
-```
-
-## Install
-
-```bash
-pip install optim-agent
-```
-
-Plus at least one agent CLI on your PATH, already authenticated:
-[claude](https://docs.anthropic.com/en/docs/claude-code),
-[codex](https://github.com/openai/codex), or
-[opencode](https://github.com/sst/opencode).
-
-## Quickstart
-
-```python
-import optim_agent as oa
-
-def objective(trial):
-    lr = trial.suggest_float("lr", 1e-5, 1e-1, log=True,
-                             context="learning rate for training an image classifier")
-    batch = trial.suggest_int("batch", 8, 256, log=True,
-                              context="mini-batch size; larger is more stable but slower")
-    return train_and_validate(lr, batch)          # your code
-
-study = oa.create_study(
-    direction="minimize",
-    sampler=oa.AgentSampler(
-        backend="claude",                          # or "codex" / "opencode"
-        effort="high",                             # low | medium | high | xhigh | max
-        context="a CNN on MNIST",                  # study-wide description (optional)
-    ),
-    storage="study.json",                          # optional: persist & resume
-)
-study.optimize(objective, n_trials=20)
-print(study.best_value, study.best_params)
-```
-
-`context` is optional but powerful: it tells the agent what the parameters
-*are*, so it can reason like a practitioner ("loss diverged at lr=0.1 with a
-small batch — try 3e-4 and a larger batch") instead of a blind point-picker.
-Set it study-wide on `AgentSampler(context=...)`, per-parameter on each
-`suggest_*(..., context=...)`, or both — every piece is shown to the agent.
+## Usage guide
 
 ### Sampler effort
 
@@ -272,12 +235,81 @@ study.tell(trial, run_training(**trial.params))
 `AgentSampler(backend="mock")` is a token-free stand-in (hill climbing around
 the best point) so you can wire everything up before spending agent calls.
 
+## Ablations
+
+Both ablations fix the model (GLM-5.2 via opencode, free) and vary one knob, on
+the same Branin/Ackley functions with Random and TPE for reference
+(`python examples/ablations.py plot`).
+
+### Sampler effort
+
+![sampler effort ablation](docs/assets/abl_effort.png)
+
+GLM-5.2 at all five efforts (`low`→`max`), best value vs trial, mean of 3 seeds.
+**Every effort beats Random and TPE on both functions** — but effort does *not*
+produce a clean ranking here: on Branin the cheapest `low` (5-trial history, no
+reasoning) is the strongest, on Ackley `high` wins and `xhigh` trails. The five
+curves sit inside one seed-noise band. On low-dimensional problems with a
+10-trial budget the bottleneck is exploration luck, not reasoning depth, so the
+extra history, notes, and ranked candidates that higher effort buys have little
+to bite on. Effort is expected to earn its tokens on harder, longer-budget tasks
+(the paper's MNIST/ARIMA studies); for cheap objectives, `low` is often enough.
+(These curves predate wiring effort to each CLI's reasoning-effort flag
+`--effort` / `model_reasoning_effort` / `--variant`, which now also makes higher
+effort deliberate harder — a re-run may separate more.)
+
+### Pruner tightness
+
+![pruner tightness ablation](docs/assets/abl_prune.png)
+
+Branin and Ackley are scalar, so there is no learning curve for a pruner to
+watch. To exercise pruning we attach a **synthetic** noisy loss curve (four
+steps descending toward `f(x)`, with occasional slow-starters) to each
+evaluation; the x-axis is **compute (reported steps)**, mean of 2 seeds. A
+pruner's payoff is compute saved, so this plots best value vs steps.
+
+Tighter pruning ends at fewer steps — `tight` uses ~20 steps where `none` uses
+40, real compute saved. Whether that is worth it depends on the landscape:
+
+- **Branin** (many decent basins): pruning reaches the same ~4–6 quality at
+  roughly half the compute — a clear win for `medium`/`tight`.
+- **Ackley** (one good region, found late): the winning trial only reveals
+  itself near the end, so pruning abandons it — `none` reaches 0.0 while `tight`
+  stalls near 20. Aggressive pruning here *hurts*.
+
+Lesson: pruning pays off when doomed trials look bad early and good trials reveal
+themselves early. It backfires on late-blooming optima. Prefer `loose` or no
+pruning unless each evaluation is genuinely expensive and its early signal is
+reliable.
+
+```bash
+for s in 0 1 2; do
+  for e in low medium xhigh max; do python examples/ablations.py effort --variant $e --seeds $s; done
+done
+for s in 0 1; do
+  for p in loose medium tight; do python examples/ablations.py prune --variant $p --seeds $s; done
+done
+python examples/ablations.py plot   # reuses the GLM-5.2/Random/TPE curves above
+```
+
 ## Troubleshooting
 
 - **`claude` returns 401 inside an agent session** — nested sessions inherit
   `ANTHROPIC_API_KEY`; run with `env -u ANTHROPIC_API_KEY` or from a clean shell.
 - **A backend call times out or emits garbage** — the sampler warns and falls
   back to a random point for that trial; the study keeps going.
+
+## Contributing
+
+Contributions are welcome. To develop locally:
+
+```bash
+pip install -e ".[examples]"
+pytest                     # runs tests/test_optim_agent.py
+```
+
+Please open an issue to discuss larger changes before sending a PR. Adding a new
+agent backend usually means one small function in [`optim_agent/agent.py`](optim_agent/agent.py).
 
 ## Paper
 
