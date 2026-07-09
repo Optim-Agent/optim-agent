@@ -105,12 +105,12 @@ def test_anchor_proposals_seed_warmup():
     )
     study = oa.create_study(sampler=s, seed=0)
     first = study.ask()
-    first.suggest_float("x", -5, 5)
+    assert first.suggest_float("x", -5, 5) == 1.5
 
     second = study.ask()
-    assert second.suggest_float("x", -5, 5) == 1.5
+    assert second.suggest_float("x", -5, 5) == 2.5
     third = study.ask()
-    assert third.suggest_float("x", -5, 5) == 2.5
+    assert -5 <= third.suggest_float("x", -5, 5) <= 5
 
     partial = oa.AgentSampler(
         backend="claude", effort="medium", n_init=4, context="early reward", seed=0,
@@ -119,6 +119,7 @@ def test_anchor_proposals_seed_warmup():
     partial_study = oa.create_study(sampler=partial, seed=0)
     t = partial_study.ask()
     t.suggest_float("x", -5, 5)
+    partial_study.tell(t, 1.0)
     assert partial_study.sampler.propose(partial_study) == {}
 
 

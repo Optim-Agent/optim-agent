@@ -43,6 +43,7 @@ class AgentSampler:
         self.backend, self.model, self.effort = backend, model, effort
         self.context, self.n_init, self.timeout = context, n_init, timeout
         self.anchor_proposals = list(anchor_proposals or [])
+        self._anchor_idx = 0
         self.rng = random.Random(seed)
         self.note = None  # qualitative scratchpad, fed back at high effort
 
@@ -53,6 +54,10 @@ class AgentSampler:
                 anchored = self._anchor_proposal(study)
                 if anchored:
                     return anchored
+                if not study.space and self._anchor_idx < len(self.anchor_proposals):
+                    out = self.anchor_proposals[self._anchor_idx]
+                    self._anchor_idx += 1
+                    return out
             return {}
         if self.backend == "mock":
             return self._mock(study, done)
@@ -179,7 +184,9 @@ class AgentSampler:
             return {}
         names = set(study.space)
         used = [{n: t.params.get(n) for n in names} for t in study.trials]
-        for proposal in self.anchor_proposals:
+        while self._anchor_idx < len(self.anchor_proposals):
+            proposal = self.anchor_proposals[self._anchor_idx]
+            self._anchor_idx += 1
             if set(proposal) != names:
                 continue
             try:
