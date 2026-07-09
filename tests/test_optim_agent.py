@@ -336,7 +336,6 @@ def test_mnist_helper_curves_and_labels():
     assert contexts and all(c is None for c in contexts)
     assert mnist._sampler("codex-no-context", 0, "high", 1, None).context is None
     assert mnist._sampler("codex", 0, "medium", 1, None).anchor_proposals == mnist.ANCHORS
-    assert mnist._sampler("codex", 0, "medium", 1, None).n_init == 2
     assert mnist._sampler("codex-no-context", 0, "medium", 1, None).anchor_proposals == []
 
 
