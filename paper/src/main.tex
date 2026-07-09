@@ -100,7 +100,10 @@ effort sweeps, and pruner tightness ablations. The submitted supplement contains
 the scripts, raw JSON logs, and plotting utilities used for every table and
 figure. The results support a bounded conclusion. Agent HPO is not a universal
 replacement for mature Bayesian or bandit methods, but it is a practical and
-reproducible tool for low-budget, semantically meaningful search spaces.
+reproducible tool for low-budget, semantically meaningful search spaces. To the
+best of our knowledge, this is the first contribution that turns LLM agents into
+a validated sampler/pruner interface and marks a meaningful step toward making
+them usable in everyday HPO workflows.
 
 Our contributions are:
 \begin{itemize}
@@ -673,6 +676,14 @@ through the same distribution validator used by non-agent samplers. These
 constraints make agent behavior auditable. They also make failures comparable
 to classical baselines because all methods consume the same budget and produce
 the same study records.
+
+A distinctive advantage of this interface is that it can make HPO decisions
+more explainable than purely empirical samplers. The recorded proposal can be
+paired with parameter meanings, observed trial history, and optional agent
+rationales, so a team can inspect why a configuration was plausible before it
+was evaluated. This is especially valuable in high-stakes, risk-managed ML
+workflows, where a good hyperparameter set is not enough: the path by which it
+was selected must also be auditable.
 
 From a systems perspective, the important property is bounded autonomy. The
 agent can influence $x_{t+1}$ but cannot alter $\mathcal{X}$, change the
