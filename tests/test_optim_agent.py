@@ -98,6 +98,31 @@ def test_early_reward_local_proposal():
     assert -5 <= proposal["x"] <= 5
 
 
+def test_tpe_reference_reaches_agent_prompt():
+    calls = []
+    original_call = samplers._agent.call_agent
+    original_ref = samplers.AgentSampler._tpe_reference
+    samplers._agent.call_agent = lambda backend, model, prompt, timeout, effort=None: (
+        calls.append(prompt) or '{"x": 2.2, "_reasoning": "near tpe", "_note": "ok"}'
+    )
+    samplers.AgentSampler._tpe_reference = lambda self, study: {"x": 1.9}
+    try:
+        s = oa.AgentSampler(backend="claude", effort="medium", n_init=1,
+                            context="early reward", seed=1)
+        s.rng.random = lambda: 1.0
+        study = oa.create_study(sampler=s, seed=1)
+        first = study.ask({"x": 3.0})
+        first.suggest_float("x", -5, 5)
+        study.tell(first, 1.0)
+
+        assert study.sampler.propose(study)["x"] == 2.2
+    finally:
+        samplers._agent.call_agent = original_call
+        samplers.AgentSampler._tpe_reference = original_ref
+    assert "Reference TPE proposal" in calls[0]
+    assert "{'x': 1.9}" in calls[0]
+
+
 def test_pruner():
     def fake_call(backend, model, prompt, timeout):
         return '{"prune": true}'
@@ -443,6 +468,7 @@ def test_cifar10_helper_curves_and_labels():
 if __name__ == "__main__":
     for fn in [test_random_study, test_extract_json, test_agent_sampler,
                test_early_reward_local_proposal,
+               test_tpe_reference_reaches_agent_prompt,
                test_pruner, test_mock_backend_and_storage, test_concurrency_and_sqlite,
                test_skill_mode_ask_tell, test_hostile_agent_values, test_guardrails,
                test_resume_no_replay, test_mnist_helper_curves_and_labels,
