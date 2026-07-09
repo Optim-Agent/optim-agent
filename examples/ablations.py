@@ -1,7 +1,7 @@
 """Two ablations, both on Branin (2D) and Ackley (5D), reusing the main-benchmark
 Random / TPE curves (non-agent, so unaffected by the sampler model) where valid:
 
-  (1) effort  — GPT-5.5 sampler at all five efforts (low..max) vs Random & TPE.
+  (1) effort  — GPT-5.5 sampler at three efforts (low/medium/high) vs Random & TPE.
   (2) prune   — GPT-5.5 sampler with each AgentPruner tightness (none/loose/
                 medium/tight) vs Random & TPE.
 
@@ -30,7 +30,7 @@ from hard_functions import ASSETS, FUNCTIONS, _context, make_objective
 
 MODEL = dict(backend="codex", model=None)      # GPT-5.5 = codex default; reliable, not throttled
 MODEL_LABEL = "GPT-5.5"
-EFFORTS = ["low", "medium", "high", "xhigh", "max"]
+EFFORTS = ["low", "medium", "high"]
 PRUNES = ["none", "loose", "medium", "tight"]
 S = 4                                            # synthetic curve length (steps/trial)
 N_TRIALS = 10
@@ -168,7 +168,7 @@ def plot():
     from matplotlib.ticker import MaxNLocator
 
     seeds = [0, 1, 2]
-    e_colors = dict(zip(EFFORTS, ["#c7d2fe", "#93c5fd", "#3b82f6", "#1d4ed8", "#1e3a8a"]))
+    e_colors = dict(zip(EFFORTS, ["#93c5fd", "#3b82f6", "#1e3a8a"]))
     p_colors = dict(zip(PRUNES, ["#9ca3af", "#fbbf24", "#f97316", "#dc2626"]))
     base = {"Random": ("#111827", (0, (2, 2))), "TPE": ("#6b7280", (0, (5, 2)))}
 
@@ -186,7 +186,7 @@ def plot():
         ax.set_title("Branin 2D" if name == "branin" else "Ackley 5D", fontsize=11)
         ax.xaxis.set_major_locator(MaxNLocator(integer=True))
         ax.legend(fontsize=8, ncol=2)
-    fig.suptitle("Ablation 1 — GPT-5.5 sampler effort (low→max) vs Random & TPE", fontsize=12)
+    fig.suptitle("Ablation 1 — GPT-5.5 sampler effort (low/medium/high) vs Random & TPE", fontsize=12)
     fig.tight_layout(); fig.savefig(ASSETS / "abl_effort.png", dpi=130)
     print("wrote abl_effort.png")
 

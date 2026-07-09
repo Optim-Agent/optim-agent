@@ -7,8 +7,8 @@ Planned outline:
 1. **Introduction** — LLM agents as hyperparameter samplers: qualitative
    reasoning (what a parameter *means*) fused with quantitative reasoning
    (what the history *shows*), versus evolutionary and Bayesian strategies.
-2. **Method** — sampler levels (low → max: history window, explicit reasoning,
-   persistent qualitative notes, multi-candidate ranking), agent pruner levels
+2. **Method** — sampler levels (low/medium/high: history window, explicit reasoning,
+   persistent qualitative notes), agent pruner levels
    (loose → tight), and the skill mode where the agent reads the target
    codebase before proposing configurations.
 3. **Experiments**

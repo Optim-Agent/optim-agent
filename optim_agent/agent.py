@@ -7,11 +7,10 @@ import subprocess
 BACKENDS = ("claude", "codex", "opencode")
 
 
-# each CLI's own reasoning-effort flag. claude/opencode accept our full low..max
-# set; codex tops out at "xhigh" (no "max"), so clamp there.
+# each CLI's own reasoning-effort flag.
 def _effort_flag(backend: str, effort: str) -> list:
     if backend == "codex":
-        return ["-c", f"model_reasoning_effort={'xhigh' if effort == 'max' else effort}"]
+        return ["-c", f"model_reasoning_effort={effort}"]
     return {"claude": ["--effort", effort], "opencode": ["--variant", effort]}[backend]
 
 

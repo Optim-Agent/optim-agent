@@ -89,7 +89,7 @@ study = oa.create_study(
     direction="minimize",
     sampler=oa.AgentSampler(
         backend="claude",                          # or "codex" / "opencode"
-        effort="high",                             # low | medium | high | xhigh | max
+        effort="high",                             # low | medium | high
         context="a CNN on MNIST",                  # study-wide description (optional)
     ),
     storage="study.json",                          # optional: persist & resume
@@ -163,30 +163,56 @@ opencode's free roster rotates; check `opencode models | grep -E 'free|pickle'`
 and swap model ids in `examples/hard_functions.py` as needed. (Some free entries
 are too slow to serve as a sampler and are excluded.)
 
-### MNIST CNN: GPT-5.5 effort sweep
+### MNIST ResNet: NAS-style search space
 
-Full MNIST train/test splits, a small CNN, **24 trials × 3 seeds**, and 3
-epochs per trial. Trials were run in parallel across the machine's **8 A800
-GPUs**. Codex used the CLI default model, labeled here as GPT-5.5, with
-`model_reasoning_effort` set to `low`, `medium`, and `xhigh`; TPE is Optuna's
-baseline sampler. Lower test error is better.
+Full MNIST train/test splits, a small ResNet, **24 trials × 3 seeds**, and 3
+epochs per trial. Trials were run in parallel across the machine's **8 A100
+GPUs**. Codex used the CLI default model, labeled here as GPT-5.5. TPE is
+Optuna's baseline sampler. Lower test error is better.
 
 The search space is defined in [`examples/mnist.py`](examples/mnist.py):
-`lr` is a log-uniform float from `1e-4` to `3e-2`; `batch_size` is one of
-`64`, `128`, `256`, `512`; `dropout` is a float from `0.0` to `0.6`; and
-`width` is one of `16`, `32`, `64`, `96`, `128` base CNN channels.
+`lr` is a log-uniform float from `1e-5` to `5e-2`; `batch_size` is one of
+`64`, `128`, `256`, `512`; `weight_decay` is a log-uniform float from `1e-6`
+to `1e-2`; `label_smoothing` is a float from `0.0` to `0.2`; the three
+ResNet stages independently tune width, depth, and dropout; `head_dropout` is
+a float from `0.0` to `0.8`; `aug_shift` is one of `0`, `1`, `2`, `3`
+translation pixels; and `aug_rotate` is one of `0`, `5`, `10` degrees.
 
-![MNIST GPT-5.5 effort sweep](docs/assets/mnist_benchmarks.png)
+The previous GPT-5.5 effort results were generated before the effort ladder was
+simplified to `low` / `medium` / `high`. Re-run `examples/mnist.py` before
+publishing a fresh three-effort table.
+
+The offline `mock` backend is intentionally excluded from this comparison; it
+is only a token-free wiring check, not a real agent call.
+
+### CIFAR-10 ResNet: wider search space
+
+Full CIFAR-10 train/test splits, a small ResNet, **12 trials × 3 seeds**, and
+3 epochs per trial. Trials were run in parallel across the machine's **8 A100
+GPUs**. Codex used the CLI default model, labeled here as GPT-5.5, with
+`model_reasoning_effort` set to `low`, `medium`, and `high`; TPE is Optuna's
+baseline sampler. Lower test error is better.
+
+The search space is defined in [`examples/cifar10.py`](examples/cifar10.py):
+`lr` is a log-uniform float from `1e-5` to `5e-2`; `batch_size` is one of
+`64`, `128`, `256`, `512`; `dropout` is a float from `0.0` to `0.7`; `width`
+is one of `16`, `32`, `64`, `96`, `128`, `160` base ResNet channels;
+`weight_decay` is a log-uniform float from `1e-6` to `1e-2`; `depth` is one of
+`1`, `2`, `3` residual blocks per stage; `label_smoothing` is a float from
+`0.0` to `0.2`; `aug_crop` is one of `0`, `2`, `4`, `6` random-crop padding
+pixels; and `aug_flip` is one of `0.0`, `0.5` horizontal flip probability.
+
+![CIFAR-10 GPT-5.5 effort sweep](docs/assets/cifar10_benchmarks.png)
 
 Best test error reached:
 
 | method | backend/effort | seed 0 | seed 1 | seed 2 | mean best test error |
 |---|---|--:|--:|--:|--:|
-| Random | baseline | 0.86% | 0.97% | 1.00% | 0.94% |
-| TPE | optuna / TPE | 0.99% | 0.90% | 0.94% | 0.94% |
-| GPT-5.5-low | codex / low | 0.88% | 1.04% | 0.85% | 0.92% |
-| GPT-5.5-medium | codex / medium | 0.92% | 0.94% | 0.84% | 0.90% |
-| GPT-5.5-xhigh | codex / xhigh | 0.82% | 1.03% | 0.83% | 0.89% |
+| Random | baseline | 28.16% | 25.45% | 30.56% | 28.06% |
+| TPE | optuna / TPE | 30.32% | 20.62% | 33.49% | 28.14% |
+| GPT-5.5-low | codex / low | 27.71% | 27.70% | 30.08% | 28.50% |
+| GPT-5.5-medium | codex / medium | 28.35% | 23.94% | 29.00% | 27.10% |
+| GPT-5.5-xhigh (legacy) | codex / xhigh | 26.90% | 26.49% | 26.11% | 26.50% |
 
 The offline `mock` backend is intentionally excluded from this comparison; it
 is only a token-free wiring check, not a real agent call.
@@ -195,17 +221,14 @@ is only a token-free wiring check, not a real agent call.
 
 ### Sampler effort
 
-| effort | history shown | explicit reasoning | qualitative notes | candidates |
-|---|---|---|---|---|
-| `low` | last 5 trials | – | – | 1 |
-| `medium` | last 15 trials | – | – | 1 |
-| `high` | all | ✓ | – | 1 |
-| `xhigh` | all | ✓ | ✓ carried across trials | 1 |
-| `max` | all | ✓ | ✓ carried across trials | 3, ranked |
+| effort | history shown | explicit reasoning | qualitative notes |
+|---|---|---|---|
+| `low` | last 5 trials | – | – |
+| `medium` | last 10 trials | ✓ | – |
+| `high` | last 20 trials | ✓ | ✓ carried across trials |
 
-Higher effort spends more tokens per trial. If your objective is expensive
-(minutes of training per trial), `max` is cheap by comparison; for fast
-objectives, `low` or plain `RandomSampler()` may be all you need.
+Higher effort spends more tokens per trial. For fast objectives, `low` or plain
+`RandomSampler()` may be all you need.
 
 ### Pruning
 
@@ -288,7 +311,7 @@ the model deliberate harder (`python examples/ablations.py plot`).
 
 ![sampler effort ablation](docs/assets/abl_effort.png)
 
-GPT-5.5 at all five efforts (`low`→`max`), best value vs trial, mean of 3 seeds.
+GPT-5.5 at three efforts (`low`/`medium`/`high`), best value vs trial, mean of 3 seeds.
 **Every effort reaches the optimum of both functions**, far ahead of Random and
 TPE. Effort barely separates — but now for a telling reason: these benchmarks are
 *too easy for GPT-5.5*. It saturates at every effort, so there is no headroom for
@@ -296,10 +319,9 @@ more reasoning to help. The one visible effect is **speed of convergence on the
 harder function**: on Ackley-5D the higher efforts reach 0 by trial ~4 while
 `low` needs until trial ~8; on the easy Branin all efforts collapse to the
 optimum together by trial ~4. Effort buys faster convergence when the problem is
-hard enough to reward it; on trivial objectives `low` is all you need. And on a
-real task it does pay off: the [MNIST sweep](#mnist-cnn-gpt-55-effort-sweep)
-above shows test error falling monotonically with effort (`low` 0.92% → `medium`
-0.90% → `xhigh` 0.89%), all beating Random and TPE at 0.94%.
+hard enough to reward it; on trivial objectives `low` is all you need. The
+[MNIST sweep](#mnist-resnet-nas-style-search-space) should be re-run before
+drawing conclusions under the simplified effort ladder.
 
 ### Pruner tightness
 
@@ -325,7 +347,7 @@ evaluation is so expensive that cutting late-blooming winners is worth it.
 ```bash
 # uses GPT-5.5 (codex); Random/TPE curves are reused from the benchmark above
 for s in 0 1 2; do
-  for e in low medium high xhigh max; do python examples/ablations.py effort --variant $e --seeds $s; done
+  for e in low medium high; do python examples/ablations.py effort --variant $e --seeds $s; done
 done
 for s in 0 1; do
   for p in loose medium tight; do python examples/ablations.py prune --variant $p --seeds $s; done

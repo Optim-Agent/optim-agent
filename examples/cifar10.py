@@ -1,13 +1,13 @@
-"""MNIST ResNet hyperparameter benchmark.
+"""CIFAR-10 ResNet hyperparameter benchmark.
 
-Full MNIST train/test splits, small ResNet, and optim-agent samplers. Independent
+Full CIFAR-10 train/test splits, small ResNet, and optim-agent samplers. Independent
 trials can run across all visible GPUs; this is trial parallelism, not
 distributed training.
 
-    python examples/mnist.py download
-    python examples/mnist.py run --method Random --seeds 0 1 2 --workers 8 --trials 24 --gpus 0 1 2 3 4 5 6 7
-    python examples/mnist.py plot
-    python examples/mnist.py selfcheck
+    python examples/cifar10.py download
+    python examples/cifar10.py run --method Random --seeds 0 1 2 --workers 8 --trials 12 --gpus 0 1 2 3 4 5 6 7
+    python examples/cifar10.py plot
+    python examples/cifar10.py selfcheck
 """
 
 import argparse
@@ -26,26 +26,22 @@ import optim_agent as oa
 
 ROOT = Path(__file__).resolve().parent.parent
 ASSETS = ROOT / "docs" / "assets"
-DATA = ROOT / "data" / "mnist"
-STORAGE = ROOT / ".optim-agent-runs" / "mnist"
+DATA = ROOT / "data" / "cifar10-kaggle"
+STORAGE = ROOT / ".optim-agent-runs" / "cifar10"
 
 METHODS = {
     "Random": dict(backend=None, model=None, color="#9ca3af", style="solid"),
     "TPE": dict(backend="tpe", model=None, color="#111827", style=(0, (2, 2))),
     "mock": dict(backend="mock", model=None, color="#2563eb", style=(0, (4, 2))),
     "codex": dict(backend="codex", model=None, label="GPT-5.5", color="#10a37f", style=(0, (6, 2))),
-    "codex-no-context": dict(backend="codex", model=None, label="GPT-5.5", no_context=True,
-                             color="#f97316", style=(0, (1, 1.5))),
     "claude": dict(backend="claude", model=None, color="#8b5cf6", style="solid"),
     "opencode": dict(backend="opencode", model=None, color="#16a34a", style=(0, (1, 1.5))),
 }
 BATCHES = [64, 128, 256, 512]
-STAGE1_WIDTHS = [8, 16, 24, 32, 48, 64]
-STAGE2_WIDTHS = [16, 32, 48, 64, 96, 128]
-STAGE3_WIDTHS = [32, 64, 96, 128, 160, 192]
+WIDTHS = [16, 32, 64, 96, 128, 160]
 DEPTHS = [1, 2, 3]
-SHIFTS = [0, 1, 2, 3]
-ROTATIONS = [0, 5, 10]
+CROP_PADS = [0, 2, 4, 6]
+FLIP_PROBS = [0.0, 0.5]
 PLOT_LABELS = ("Random", "TPE", "GPT-5.5-low", "GPT-5.5-medium", "GPT-5.5-high")
 PLOT_STYLES = {
     "GPT-5.5-low": dict(style=(0, (1, 1.5))),
@@ -84,10 +80,7 @@ def _sanitize_label(label):
 
 def _run_label(method, effort):
     preset = METHODS[method]
-    if preset["backend"] in (None, "tpe"):
-        return method
-    suffix = f"-{effort}" + ("-no-context" if preset.get("no_context") else "")
-    return f"{preset.get('label', method)}{suffix}"
+    return f"{preset.get('label', method)}-{effort}" if preset["backend"] not in (None, "tpe") else method
 
 
 def _device_for_trial(number, gpus):
@@ -121,7 +114,7 @@ def _torch():
         from torch import nn
         from torch.nn import functional as F
     except Exception as e:
-        raise SystemExit("PyTorch is required for examples/mnist.py") from e
+        raise SystemExit("PyTorch is required for examples/cifar10.py") from e
     return torch, nn, F
 
 
@@ -137,16 +130,14 @@ class ResNet:
     """Factory wrapper so importing this module does not require torch."""
 
     @staticmethod
-    def make(stage1_width, stage2_width, stage3_width, stage1_depth, stage2_depth,
-             stage3_depth, stem_dropout, stage1_dropout, stage2_dropout, head_dropout):
+    def make(width, dropout, depth):
         torch, nn, F = _torch()
 
         class Block(nn.Module):
-            def __init__(self, in_ch, out_ch, stride=1, dropout=0.0):
+            def __init__(self, in_ch, out_ch, stride=1):
                 super().__init__()
                 self.conv1 = nn.Conv2d(in_ch, out_ch, 3, stride=stride, padding=1, bias=False)
                 self.bn1 = nn.BatchNorm2d(out_ch)
-                self.drop = nn.Dropout2d(float(dropout))
                 self.conv2 = nn.Conv2d(out_ch, out_ch, 3, padding=1, bias=False)
                 self.bn2 = nn.BatchNorm2d(out_ch)
                 self.skip = nn.Identity() if stride == 1 and in_ch == out_ch else nn.Sequential(
@@ -156,7 +147,6 @@ class ResNet:
 
             def forward(self, x):
                 y = F.relu(self.bn1(self.conv1(x)))
-                y = self.drop(y)
                 y = self.bn2(self.conv2(y))
                 return F.relu(y + self.skip(x))
 
@@ -164,25 +154,21 @@ class ResNet:
             def __init__(self):
                 super().__init__()
                 self.stem = nn.Sequential(
-                    nn.Conv2d(1, stage1_width, 3, padding=1, bias=False),
-                    nn.BatchNorm2d(stage1_width),
+                    nn.Conv2d(3, width, 3, padding=1, bias=False),
+                    nn.BatchNorm2d(width),
                     nn.ReLU(inplace=True),
-                    nn.Dropout2d(float(stem_dropout)),
                 )
-                self.layer1 = self._stage(stage1_width, stage1_width, stage1_depth, stride=1,
-                                          dropout=stage1_dropout)
-                self.layer2 = self._stage(stage1_width, stage2_width, stage2_depth, stride=2,
-                                          dropout=stage2_dropout)
-                self.layer3 = self._stage(stage2_width, stage3_width, stage3_depth, stride=2,
-                                          dropout=0.0)
-                self.drop = nn.Dropout(float(head_dropout))
-                self.fc = nn.Linear(stage3_width, 10)
+                self.layer1 = self._stage(width, width, depth, stride=1)
+                self.layer2 = self._stage(width, width * 2, depth, stride=2)
+                self.layer3 = self._stage(width * 2, width * 4, depth, stride=2)
+                self.drop = nn.Dropout(float(dropout))
+                self.fc = nn.Linear(width * 4, 10)
 
             @staticmethod
-            def _stage(in_ch, out_ch, depth, stride, dropout):
+            def _stage(in_ch, out_ch, depth, stride):
                 return nn.Sequential(
-                    Block(in_ch, out_ch, stride=stride, dropout=dropout),
-                    *[Block(out_ch, out_ch, dropout=dropout) for _ in range(depth - 1)],
+                    Block(in_ch, out_ch, stride=stride),
+                    *[Block(out_ch, out_ch) for _ in range(depth - 1)],
                 )
 
             def forward(self, x):
@@ -198,41 +184,36 @@ def _datasets(download):
     try:
         from torchvision import datasets, transforms
     except Exception as e:
-        raise SystemExit("torchvision is required for examples/mnist.py") from e
+        raise SystemExit("torchvision is required for examples/cifar10.py") from e
     try:
-        train = datasets.MNIST(str(DATA), train=True, download=download, transform=transforms.ToTensor())
-        test = datasets.MNIST(str(DATA), train=False, download=download, transform=transforms.ToTensor())
+        train = datasets.CIFAR10(str(DATA), train=True, download=download, transform=transforms.ToTensor())
+        test = datasets.CIFAR10(str(DATA), train=False, download=download, transform=transforms.ToTensor())
     except Exception as e:
         if download:
-            raise SystemExit("MNIST download failed; please download the full dataset manually "
+            raise SystemExit("CIFAR-10 download failed; please download the full dataset manually "
                              f"into {DATA}") from e
-        raise SystemExit(f"MNIST not found in {DATA}; run `python examples/mnist.py download`") from e
-    if len(train) != 60000 or len(test) != 10000:
-        raise SystemExit(f"expected full MNIST (60000/10000), got {len(train)}/{len(test)}")
+        raise SystemExit(f"CIFAR-10 not found in {DATA}; run `python examples/cifar10.py download`") from e
+    if len(train) != 50000 or len(test) != 10000:
+        raise SystemExit(f"expected full CIFAR-10 (50000/10000), got {len(train)}/{len(test)}")
     return train, test
 
 
 def _tensor_dataset(dataset):
     torch, _, _ = _torch()
-    x = torch.as_tensor(dataset.data).unsqueeze(1).float().div_(255.0)
-    y = torch.as_tensor(dataset.targets).long()
+    x = torch.from_numpy(dataset.data).permute(0, 3, 1, 2).float().div_(255.0)
+    y = torch.tensor(dataset.targets).long()
     return torch.utils.data.TensorDataset(x, y)
 
 
-def _augment(x, shift, rotate):
+def _augment(x, pad, flip_prob):
     torch, _, F = _torch()
-    theta = torch.eye(2, 3, device=x.device, dtype=x.dtype).repeat(x.size(0), 1, 1)
-    if rotate:
-        angles = (torch.rand(x.size(0), device=x.device, dtype=x.dtype) * 2 - 1) * (math.pi * rotate / 180.0)
-        c, s = torch.cos(angles), torch.sin(angles)
-        theta[:, 0, 0], theta[:, 0, 1] = c, -s
-        theta[:, 1, 0], theta[:, 1, 1] = s, c
-    if shift:
-        offset = (torch.rand(x.size(0), 2, device=x.device, dtype=x.dtype) * 2 - 1) * (2 * shift / 28.0)
-        theta[:, :, 2] = offset
-    if shift or rotate:
-        grid = F.affine_grid(theta, x.size(), align_corners=False)
-        x = F.grid_sample(x, grid, padding_mode="zeros", align_corners=False)
+    if pad:
+        x = F.pad(x, (pad, pad, pad, pad), mode="reflect")
+        i = torch.randint(0, pad * 2 + 1, ()).item()
+        j = torch.randint(0, pad * 2 + 1, ()).item()
+        x = x[..., i:i + 32, j:j + 32]
+    if flip_prob and torch.rand(()) < flip_prob:
+        x = x.flip(-1)
     return x
 
 
@@ -271,23 +252,18 @@ def _train_once(params, device, epochs, seed):
     train_ds, test_ds = map(_tensor_dataset, _datasets(download=False))
     train_loader = _loader(train_ds, int(params["batch_size"]), True, seed)
     test_loader = _loader(test_ds, 1024, False, seed)
-    model = ResNet.make(
-        int(params["stage1_width"]), int(params["stage2_width"]), int(params["stage3_width"]),
-        int(params["stage1_depth"]), int(params["stage2_depth"]), int(params["stage3_depth"]),
-        float(params["stem_dropout"]), float(params["stage1_dropout"]),
-        float(params["stage2_dropout"]), float(params["head_dropout"]),
-    ).to(device)
+    model = ResNet.make(int(params["width"]), float(params["dropout"]), int(params["depth"])).to(device)
     opt = torch.optim.AdamW(
         model.parameters(), lr=float(params["lr"]), weight_decay=float(params["weight_decay"])
     )
-    aug_shift, aug_rotate = int(params["aug_shift"]), int(params["aug_rotate"])
+    aug_crop, aug_flip = int(params["aug_crop"]), float(params["aug_flip"])
     label_smoothing = float(params["label_smoothing"])
     history = []
     for epoch in range(1, epochs + 1):
         model.train()
         for x, y in train_loader:
+            x = _augment(x, aug_crop, aug_flip)
             x, y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)
-            x = _augment(x, aug_shift, aug_rotate)
             opt.zero_grad(set_to_none=True)
             F.cross_entropy(model(x), y, label_smoothing=label_smoothing).backward()
             opt.step()
@@ -321,10 +297,9 @@ class _OptunaTrialAdapter:
         return self._trial.report(value, step)
 
 
-def _objective(epochs, seed, gpus, use_context=True):
+def _objective(epochs, seed, gpus):
     lock = threading.Lock()
     next_slot = 0
-    ctx = (lambda text: text if use_context else None)
 
     def objective(trial):
         nonlocal next_slot
@@ -332,80 +307,47 @@ def _objective(epochs, seed, gpus, use_context=True):
             slot = next_slot
             next_slot += 1
         lr = trial.suggest_float("lr", 1e-5, 5e-2, log=True,
-                                 context=ctx("AdamW learning rate for MNIST ResNet"))
+                                 context="AdamW learning rate for CIFAR-10 ResNet")
         batch_size = trial.suggest_categorical(
             "batch_size", BATCHES,
-            context=ctx("mini-batch size; larger improves GPU use but may need a larger learning rate"),
+            context="mini-batch size; larger improves GPU use but may need a larger learning rate",
+        )
+        dropout = trial.suggest_float("dropout", 0.0, 0.7,
+                                      context="dropout before the classifier head")
+        width = trial.suggest_categorical(
+            "width", WIDTHS,
+            context="base ResNet channel count; later stages use 2x and 4x this width",
         )
         weight_decay = trial.suggest_float(
             "weight_decay", 1e-6, 1e-2, log=True,
-            context=ctx("AdamW weight decay regularization"),
+            context="AdamW weight decay regularization",
+        )
+        depth = trial.suggest_categorical(
+            "depth", DEPTHS,
+            context="residual blocks per ResNet stage",
         )
         label_smoothing = trial.suggest_float(
             "label_smoothing", 0.0, 0.2,
-            context=ctx("cross-entropy label smoothing"),
+            context="cross-entropy label smoothing",
         )
-        stage1_width = trial.suggest_categorical(
-            "stage1_width", STAGE1_WIDTHS,
-            context=ctx("channel count for the first residual stage"),
+        aug_crop = trial.suggest_categorical(
+            "aug_crop", CROP_PADS,
+            context="random-crop reflection padding in pixels; 0 disables crop augmentation",
         )
-        stage2_width = trial.suggest_categorical(
-            "stage2_width", STAGE2_WIDTHS,
-            context=ctx("channel count for the second residual stage"),
-        )
-        stage3_width = trial.suggest_categorical(
-            "stage3_width", STAGE3_WIDTHS,
-            context=ctx("channel count for the third residual stage"),
-        )
-        stage1_depth = trial.suggest_categorical(
-            "stage1_depth", DEPTHS,
-            context=ctx("residual blocks in the first stage"),
-        )
-        stage2_depth = trial.suggest_categorical(
-            "stage2_depth", DEPTHS,
-            context=ctx("residual blocks in the second stage"),
-        )
-        stage3_depth = trial.suggest_categorical(
-            "stage3_depth", DEPTHS,
-            context=ctx("residual blocks in the third stage"),
-        )
-        stem_dropout = trial.suggest_float(
-            "stem_dropout", 0.0, 0.4,
-            context=ctx("dropout after the input stem"),
-        )
-        stage1_dropout = trial.suggest_float(
-            "stage1_dropout", 0.0, 0.5,
-            context=ctx("dropout inside first-stage residual blocks"),
-        )
-        stage2_dropout = trial.suggest_float(
-            "stage2_dropout", 0.0, 0.6,
-            context=ctx("dropout inside second-stage residual blocks"),
-        )
-        head_dropout = trial.suggest_float(
-            "head_dropout", 0.0, 0.8,
-            context=ctx("dropout before the classifier head"),
-        )
-        aug_shift = trial.suggest_categorical(
-            "aug_shift", SHIFTS,
-            context=ctx("random translation radius in pixels; 0 disables shift augmentation"),
-        )
-        aug_rotate = trial.suggest_categorical(
-            "aug_rotate", ROTATIONS,
-            context=ctx("random rotation range in degrees; 0 disables rotation augmentation"),
+        aug_flip = trial.suggest_categorical(
+            "aug_flip", FLIP_PROBS,
+            context="horizontal flip probability",
         )
         device = _device_for_trial(slot, gpus)
         metrics = _train_once(dict(
-            lr=lr, batch_size=batch_size, weight_decay=weight_decay, label_smoothing=label_smoothing,
-            stage1_width=stage1_width, stage2_width=stage2_width, stage3_width=stage3_width,
-            stage1_depth=stage1_depth, stage2_depth=stage2_depth, stage3_depth=stage3_depth,
-            stem_dropout=stem_dropout, stage1_dropout=stage1_dropout,
-            stage2_dropout=stage2_dropout, head_dropout=head_dropout,
-            aug_shift=aug_shift, aug_rotate=aug_rotate,
+            lr=lr, batch_size=batch_size, dropout=dropout, width=width,
+            weight_decay=weight_decay, depth=depth, label_smoothing=label_smoothing,
+            aug_crop=aug_crop, aug_flip=aug_flip,
         ), device, epochs, seed + slot)
         metrics["device"] = device
         for row in metrics["history"]:
             trial.report(row["test_error"], row["epoch"])
-        trial._mnist_metrics = metrics
+        trial._cifar10_metrics = metrics
         return metrics["test_error"]
     return objective
 
@@ -418,16 +360,15 @@ def _sampler(method, seed, effort, timeout, model):
         raise ValueError("TPE runs through Optuna's study API, not optim-agent's sampler API")
     return oa.AgentSampler(
         backend=preset["backend"], model=model or preset["model"], effort=effort,
-        context=(None if preset.get("no_context") else
-                 "Full MNIST neural architecture search: tune optimizer regularization, "
-                 "per-stage ResNet widths/depths/dropouts, label smoothing, shift and rotation augmentation."),
+        context=("Full CIFAR-10 ResNet validation error; tune learning rate, batch size, dropout, "
+                 "width, weight decay, depth, label smoothing, crop padding and flip probability."),
         n_init=4, timeout=timeout, seed=seed,
     )
 
 
 def download():
     train, test = _datasets(download=True)
-    print(f"MNIST ready at {DATA}: train={len(train)} test={len(test)}")
+    print(f"CIFAR-10 ready at {DATA}: train={len(train)} test={len(test)}")
 
 
 def _run_tpe(seed, trials, epochs, workers, gpus):
@@ -444,7 +385,7 @@ def _run_tpe(seed, trials, epochs, workers, gpus):
     def wrapped(trial):
         t = _OptunaTrialAdapter(trial)
         value = objective(t)
-        records.append(_trial_record(t, t._mnist_metrics))
+        records.append(_trial_record(t, t._cifar10_metrics))
         return value
 
     study.optimize(wrapped, n_trials=trials, n_jobs=workers)
@@ -468,7 +409,7 @@ def run(method, seeds, trials, epochs, workers, gpus, effort, timeout, model):
         if method == "TPE":
             records, best_value, best_params = _run_tpe(seed, trials, epochs, workers, gpus)
         else:
-            db = STORAGE / f"mnist_{safe}_s{seed}.json"
+            db = STORAGE / f"cifar10_{safe}_s{seed}.json"
             sampler = _sampler(method, seed, effort, timeout, model)
             study = oa.create_study(direction="minimize", sampler=sampler, storage=db,
                                     seed=seed, max_concurrency=workers)
@@ -476,11 +417,10 @@ def run(method, seeds, trials, epochs, workers, gpus, effort, timeout, model):
             print(f"== {method} seed {seed}: {before}/{trials} trials present, "
                   f"epochs={epochs}, workers={workers}, gpus={gpus or ['cpu']} ==")
             if before < trials:
-                study.optimize(_objective(epochs, seed, gpus, not METHODS[method].get("no_context")),
-                               n_trials=trials - before)
+                study.optimize(_objective(epochs, seed, gpus), n_trials=trials - before)
             records = []
             for t in study.trials:
-                metrics = getattr(t, "_mnist_metrics", None) or {
+                metrics = getattr(t, "_cifar10_metrics", None) or {
                     "test_error": t.value, "test_acc": None, "test_loss": None,
                     "history": [{"step": s, "test_error": v} for s, v in t.intermediate],
                 }
@@ -492,7 +432,7 @@ def run(method, seeds, trials, epochs, workers, gpus, effort, timeout, model):
             "workers": workers, "gpus": gpus, "records": records,
             "best_error": best_value, "best_params": best_params,
         }
-        path = ASSETS / f"mnist_curves_{safe}_s{seed}.json"
+        path = ASSETS / f"cifar10_curves_{safe}_s{seed}.json"
         path.write_text(json.dumps(out, indent=1))
         print(f"wrote {path} best_error={best_value:.4g}")
 
@@ -505,11 +445,11 @@ def plot():
     from matplotlib.ticker import MaxNLocator
 
     by_label = {}
-    for path in sorted(ASSETS.glob("mnist_curves_*_s*.json")):
+    for path in sorted(ASSETS.glob("cifar10_curves_*_s*.json")):
         run_data = json.loads(path.read_text())
         by_label.setdefault(run_data["label"], []).append(run_data)
     if not by_label:
-        raise SystemExit("no mnist_curves_*_s*.json in docs/assets — run an experiment first")
+        raise SystemExit("no cifar10_curves_*_s*.json in docs/assets — run an experiment first")
 
     fig, ax = plt.subplots(figsize=(7.2, 4.5))
     for label in PLOT_LABELS:
@@ -528,11 +468,11 @@ def plot():
                 label=f"{label} (n={len(runs)})")
     ax.set_xlabel("trial")
     ax.set_ylabel("best test error % (mean over seeds)")
-    ax.set_title("MNIST ResNet hyperparameter optimization")
+    ax.set_title("CIFAR-10 ResNet hyperparameter optimization")
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
     ax.legend(fontsize=9)
     fig.tight_layout()
-    path = ASSETS / "mnist_benchmarks.png"
+    path = ASSETS / "cifar10_benchmarks.png"
     fig.savefig(path, dpi=140)
     print(f"wrote {path}")
 
@@ -542,9 +482,9 @@ def selfcheck():
     assert _best_error_curve([{"test_error": 4}, {"test_error": 5}, {"test_error": 3}]) == [4, 4, 3]
     assert _device_for_trial(9, [0, 1, 2, 3]) == "cuda:1"
     torch, _, _ = _torch()
-    model = ResNet.make(16, 32, 64, 1, 1, 1, 0.1, 0.1, 0.1, 0.1)
+    model = ResNet.make(16, 0.1, 1)
     with torch.no_grad():
-        y = model(torch.zeros(2, 1, 28, 28))
+        y = model(torch.zeros(2, 3, 32, 32))
     assert tuple(y.shape) == (2, 10)
     with tempfile.TemporaryDirectory() as tmp:
         p = Path(tmp) / "one.json"
@@ -560,7 +500,7 @@ if __name__ == "__main__":
     p_run = sub.add_parser("run")
     p_run.add_argument("--method", required=True, choices=list(METHODS))
     p_run.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2])
-    p_run.add_argument("--trials", type=int, default=24)
+    p_run.add_argument("--trials", type=int, default=12)
     p_run.add_argument("--epochs", type=int, default=3)
     p_run.add_argument("--workers", type=int, default=8)
     p_run.add_argument("--gpus", type=int, nargs="*", default=list(range(8)))

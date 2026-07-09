@@ -9,13 +9,10 @@ from . import agent as _agent
 #   history    — how many past trials the agent sees (None = all)
 #   reasoning  — ask the agent to reason about the landscape before answering
 #   notes      — agent keeps a qualitative scratchpad carried across trials
-#   candidates — agent proposes N ranked points, first valid one wins
 EFFORTS = {
-    "low":    dict(history=5,    reasoning=False, notes=False, candidates=1),
-    "medium": dict(history=15,   reasoning=False, notes=False, candidates=1),
-    "high":   dict(history=None, reasoning=True,  notes=False, candidates=1),
-    "xhigh":  dict(history=None, reasoning=True,  notes=True,  candidates=1),
-    "max":    dict(history=None, reasoning=True,  notes=True,  candidates=3),
+    "low":    dict(history=5,  reasoning=False, notes=False),
+    "medium": dict(history=10, reasoning=True,  notes=False),
+    "high":   dict(history=20, reasoning=True,  notes=True),
 }
 
 
@@ -31,8 +28,7 @@ class AgentSampler:
 
     backend: "claude" | "codex" | "opencode" | "mock" (offline, for tests/demos)
     model:   passed to the backend CLI's model flag; None = backend default
-    effort:  one of EFFORTS, from "low" (terse, cheap) to "max" (full history,
-             reasoning, persistent notes, multiple candidates)
+    effort:  one of EFFORTS: "low", "medium", or "high"
     context: optional free-text description of what is being tuned, e.g.
              "learning rate and batch size of a CNN on MNIST"
     n_init:  random warmup trials before the agent is consulted
@@ -47,7 +43,7 @@ class AgentSampler:
         self.backend, self.model, self.effort = backend, model, effort
         self.context, self.n_init, self.timeout = context, n_init, timeout
         self.rng = random.Random(seed)
-        self.note = None  # qualitative scratchpad, fed back at xhigh/max efforts
+        self.note = None  # qualitative scratchpad, fed back at high effort
 
     def propose(self, study) -> dict:
         done = [t for t in study.trials if t.state in ("complete", "pruned") and t.value is not None]
@@ -85,20 +81,41 @@ class AgentSampler:
         ]
         if self.context:
             lines += ["", f"What is being tuned: {self.context}"]
+            if cfg["reasoning"]:
+                lines += ["", "Context-derived priors:",
+                          "- Prefer stable, plausible training settings before extreme exploration.",
+                          "- For neural nets, start from moderate learning rates, low-to-moderate "
+                          "regularization/dropout, enough width/depth, and augmentation only when "
+                          "history shows it helps.",
+                          "- Treat parameter names and descriptions as semantic hints, not just tokens."]
         lines += ["", "Search space:"]
         lines += [f"- {n}: {d.describe()}" for n, d in study.space.items()]
 
-        # ponytail: cap "all history" at 400 rows so the prompt never blows past ARG_MAX;
-        # pass prompts via stdin if someone really runs 10k-trial studies.
         shown = done[-(cfg["history"] or 400):]
         best = study.best_trial
         if best is not None and best not in shown:
             shown = [best] + shown
-        lines += ["", "Trial history (oldest first):",
-                  "| trial | " + " | ".join(names) + " | value | state |"]
-        for t in shown:
-            row = [str(t.params.get(n, "-")) for n in names]
-            lines.append(f"| {t.number} | " + " | ".join(row) + f" | {t.value:.6g} | {t.state} |")
+        if cfg["reasoning"]:
+            lines += ["", "History summary:"]
+            if best is not None:
+                lines += [f"- Best trial: #{best.number} value={best.value:.6g} params={best.params}"]
+            ranked = sorted(shown, key=lambda t: t.value,
+                            reverse=(study.direction == "maximize"))
+            lines += ["- Promising trials:"]
+            for t in ranked[:5]:
+                lines += [f"  - #{t.number}: value={t.value:.6g}, params={t.params}"]
+            lines += ["- Recent trials:"]
+            for t in shown[-5:]:
+                lines += [f"  - #{t.number}: value={t.value:.6g}, params={t.params}"]
+            lines += ["- Failed or weak regions to avoid:"]
+            for t in ranked[-3:]:
+                lines += [f"  - #{t.number}: value={t.value:.6g}, params={t.params}"]
+        else:
+            lines += ["", "Trial history (oldest first):",
+                      "| trial | " + " | ".join(names) + " | value | state |"]
+            for t in shown:
+                row = [str(t.params.get(n, "-")) for n in names]
+                lines.append(f"| {t.number} | " + " | ".join(row) + f" | {t.value:.6g} | {t.state} |")
         if best is not None:
             lines += ["", f"Best so far: trial {best.number}, value={best.value:.6g}, params={best.params}"]
         if cfg["notes"] and self.note:
@@ -107,13 +124,12 @@ class AgentSampler:
         lines += ["", "Propose the next point to evaluate. Balance exploration of unvisited "
                       "regions against exploitation around promising ones; never repeat an "
                       "already-evaluated point exactly."]
+        if cfg["reasoning"]:
+            lines += ["Use the task context as priors when available: prefer choices that "
+                      "make sense for the described setup unless the trial history clearly "
+                      "contradicts them."]
         keys = ", ".join(f'"{n}": <value>' for n in names)
-        if cfg["candidates"] > 1:
-            lines += [f'Reply with ONLY a JSON object of the form '
-                      f'{{"candidates": [{{{keys}}}, ...]}} containing your top '
-                      f'{cfg["candidates"]} candidates ranked best first.']
-        else:
-            lines += [f'Reply with ONLY a JSON object: {{{keys}}}.']
+        lines += [f'Reply with ONLY a JSON object: {{{keys}}}.']
         if cfg["reasoning"]:
             lines += ['Include a short "_reasoning" field explaining your choice.']
         if cfg["notes"]:
@@ -129,14 +145,12 @@ class AgentSampler:
             return None
         if cfg["notes"] and isinstance(data.get("_note"), str):
             self.note = data["_note"][:2000]
-        candidates = data.get("candidates") if isinstance(data.get("candidates"), list) else [data]
-        for cand in candidates:
-            if not isinstance(cand, dict) or not all(n in cand for n in study.space):
-                continue
-            try:
-                return {n: dist.validate(cand[n]) for n, dist in study.space.items()}
-            except (ValueError, TypeError):
-                continue
+        if not all(n in data for n in study.space):
+            return None
+        try:
+            return {n: dist.validate(data[n]) for n, dist in study.space.items()}
+        except (ValueError, TypeError):
+            return None
         return None
 
     def _mock(self, study, done) -> dict:

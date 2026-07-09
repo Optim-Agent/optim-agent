@@ -41,23 +41,40 @@ def test_agent_sampler(monkeypatch=None):
     original = samplers._agent.call_agent
     samplers._agent.call_agent = fake_call
     try:
-        s = oa.AgentSampler(backend="claude", effort="max", n_init=2, seed=1)
+        s = oa.AgentSampler(backend="claude", effort="high", n_init=2, seed=1)
         study = oa.create_study(sampler=s, seed=1)
         study.optimize(quadratic, n_trials=5, verbose=False)
     finally:
         samplers._agent.call_agent = original
     assert calls, "agent was never consulted"
-    assert "Search space" in calls[0][0] and "Trial history" in calls[0][0]
+    assert "Search space" in calls[0][0] and "History summary" in calls[0][0]
     assert "centers a parabola" in calls[0][0], "per-param context not shown to agent"
     assert "min near x=2" in calls[-1][0], "note not carried forward"
-    assert calls[0][1] == "max", "effort not forwarded to the CLI call"
+    assert calls[0][1] == "high", "effort not forwarded to the CLI call"
     assert abs(study.best_trial.params["x"] - 2.01) < 1e-9
     # effort maps to each CLI's reasoning-effort flag
     assert agent._cmd("claude", None, "p", "high")[-3:-1] == ["--effort", "high"]
-    assert "model_reasoning_effort=xhigh" in agent._cmd("codex", None, "p", "xhigh")
-    assert "model_reasoning_effort=xhigh" in agent._cmd("codex", None, "p", "max")  # codex has no 'max'
+    assert "model_reasoning_effort=high" in agent._cmd("codex", None, "p", "high")
     assert "--variant" in agent._cmd("opencode", None, "p", "low")
     assert "--effort" not in agent._cmd("claude", None, "p")  # None effort adds no flag
+    assert _raises(ValueError, lambda: oa.AgentSampler(effort="xhigh"))
+    assert _raises(ValueError, lambda: oa.AgentSampler(effort="max"))
+    assert samplers.EFFORTS == {
+        "low": dict(history=5, reasoning=False, notes=False),
+        "medium": dict(history=10, reasoning=True, notes=False),
+        "high": dict(history=20, reasoning=True, notes=True),
+    }
+    medium_prompt = s._prompt(study, [t for t in study.trials if t.value is not None],
+                              samplers.EFFORTS["medium"])
+    assert 'Include a short "_reasoning" field' in medium_prompt
+    assert 'Include a "_note" field' not in medium_prompt
+    assert "History summary:" in medium_prompt
+    assert "Promising trials:" in medium_prompt
+    assert "Use the task context as priors when available" in medium_prompt
+    s.context = "Full MNIST ResNet neural architecture search"
+    context_prompt = s._prompt(study, [t for t in study.trials if t.value is not None],
+                               samplers.EFFORTS["medium"])
+    assert "Context-derived priors:" in context_prompt
     # out-of-range and garbage replies fall back gracefully
     samplers._agent.call_agent = lambda *a, **k: '{"x": 999}'
     try:
@@ -191,6 +208,7 @@ def test_resume_no_replay():
 
 def test_mnist_helper_curves_and_labels():
     from examples import mnist
+    import numpy as np
 
     assert mnist._sanitize_label("GPT-5.5") == "GPT-5.5"
     assert mnist._sanitize_label("agent/mock") == "agent-mock"
@@ -198,12 +216,79 @@ def test_mnist_helper_curves_and_labels():
                                     {"test_error": 8.0}]) == [9.0, 7.5, 7.5]
     assert mnist._device_for_trial(10, [0, 1, 2]) == "cuda:1"
     assert mnist._device_for_trial(3, []) == "cpu"
-    assert mnist._run_label("codex", "low") == "GPT-5.5-low"
-    assert mnist._run_label("Random", "xhigh") == "Random"
-    assert mnist._run_label("TPE", "xhigh") == "TPE"
+    assert mnist._run_label("codex", "high") == "GPT-5.5-high"
+    assert mnist._run_label("codex-no-context", "high") == "GPT-5.5-high-no-context"
+    assert mnist._run_label("Random", "high") == "Random"
+    assert mnist._run_label("TPE", "high") == "TPE"
     assert "mock" not in mnist.PLOT_LABELS
-    assert mnist.PLOT_LABELS == ("Random", "TPE", "GPT-5.5-low", "GPT-5.5-medium", "GPT-5.5-xhigh")
-    assert set(mnist.PLOT_STYLES) == {"GPT-5.5-low", "GPT-5.5-medium", "GPT-5.5-xhigh"}
+    assert mnist.PLOT_LABELS == ("Random", "TPE", "GPT-5.5-low", "GPT-5.5-medium", "GPT-5.5-high")
+    assert set(mnist.PLOT_STYLES) == {"GPT-5.5-low", "GPT-5.5-medium", "GPT-5.5-high"}
+    fake = type("FakeMNIST", (), {
+        "data": np.zeros((2, 28, 28), dtype="uint8"),
+        "targets": [1, 2],
+    })()
+    x, y = mnist._tensor_dataset(fake).tensors
+    assert tuple(x.shape) == (2, 1, 28, 28)
+    assert y.tolist() == [1, 2]
+    assert mnist.ResNet.make(16, 32, 64, 1, 1, 1, 0.1, 0.1, 0.1, 0.1)(x).shape == (2, 10)
+    assert mnist.STAGE1_WIDTHS == [8, 16, 24, 32, 48, 64]
+    assert mnist.STAGE2_WIDTHS == [16, 32, 48, 64, 96, 128]
+    assert mnist.STAGE3_WIDTHS == [32, 64, 96, 128, 160, 192]
+    assert mnist.DEPTHS == [1, 2, 3]
+    assert mnist.SHIFTS == [0, 1, 2, 3]
+    assert mnist.ROTATIONS == [0, 5, 10]
+    seen = {}
+
+    class Trial:
+        number = 0
+        params = seen
+
+        def suggest_float(self, name, low, high, *, log=False, context=None):
+            seen[name] = low
+            return low
+
+        def suggest_categorical(self, name, choices, *, context=None):
+            seen[name] = choices[0]
+            return choices[0]
+
+        def report(self, value, step):
+            pass
+
+    old = mnist._train_once
+    mnist._train_once = lambda params, device, epochs, seed: {
+        "test_error": 1.0, "test_acc": 99.0, "test_loss": 0.1, "history": [{"epoch": 1, "test_error": 1.0}],
+    }
+    try:
+        assert mnist._objective(1, 0, [])(Trial()) == 1.0
+    finally:
+        mnist._train_once = old
+    assert set(seen) == {
+        "lr", "batch_size", "weight_decay", "label_smoothing",
+        "stage1_width", "stage2_width", "stage3_width",
+        "stage1_depth", "stage2_depth", "stage3_depth",
+        "stem_dropout", "stage1_dropout", "stage2_dropout", "head_dropout",
+        "aug_shift", "aug_rotate",
+    }
+    contexts = []
+
+    class ContextTrial(Trial):
+        def suggest_float(self, name, low, high, *, log=False, context=None):
+            contexts.append(context)
+            return low
+
+        def suggest_categorical(self, name, choices, *, context=None):
+            contexts.append(context)
+            return choices[0]
+
+    mnist._train_once = lambda params, device, epochs, seed: {
+        "test_error": 1.0, "test_acc": 99.0, "test_loss": 0.1, "history": [{"epoch": 1, "test_error": 1.0}],
+    }
+    try:
+        assert mnist._objective(1, 0, [], use_context=False)(ContextTrial()) == 1.0
+    finally:
+        mnist._train_once = old
+    assert contexts and all(c is None for c in contexts)
+    assert mnist._sampler("codex-no-context", 0, "high", 1, None).context is None
 
 
 def test_mnist_optuna_trial_adapter_ignores_context():
@@ -251,13 +336,99 @@ def test_mnist_trial_record_serializes_metrics():
     assert rec["history"][0]["epoch"] == 1
 
 
+def test_verify_mnist_prompting_scores_and_prunes():
+    from scripts import verify_mnist_prompting as verify
+
+    metrics = verify._score({
+        "Random": [0.60, 0.60, 0.60],
+        "TPE": [0.56, 0.57, 0.56],
+        "GPT-5.5-medium": [0.40, 0.46, 0.50],
+        "GPT-5.5-medium-no-context": [0.50, 0.52, 0.51],
+    })
+    assert metrics["margin_vs_best_random_tpe"] > 0.10
+    assert metrics["context_margin_vs_no_context"] > 0.05
+    assert metrics["success"] == 1.0
+
+    target1_metrics = verify._score({
+        "Random": [0.60, 0.60, 0.60],
+        "TPE": [0.56, 0.57, 0.56],
+        "GPT-5.5-medium": [0.53, 0.60, 0.50],
+    })
+    assert verify._target1_failed(target1_metrics)
+    assert not verify._seed_is_close_enough([0.431], [0.40])
+    assert verify._seed_is_close_enough([0.43], [0.40])
+    assert verify._reference_context_vals_from_metrics(
+        {"context_s0": 0.40, "context_s1": 0.46, "context_s2": 0.53},
+        {"context_s0": 0.56},
+    ) == [0.56, 0.46, 0.53]
+    assert verify._previous_context_metrics(
+        {"last_status": "refine", "last_trial_metrics": {"context_s0": 0.40}},
+        [0.56],
+    ) == {"context_s0": 0.56}
+
+
+def test_cifar10_helper_curves_and_labels():
+    from examples import cifar10
+    import numpy as np
+
+    assert cifar10.DATA.name == "cifar10-kaggle"
+    assert cifar10._run_label("codex", "medium") == "GPT-5.5-medium"
+    assert cifar10._run_label("Random", "high") == "Random"
+    assert cifar10._run_label("TPE", "high") == "TPE"
+    assert cifar10.PLOT_LABELS == ("Random", "TPE", "GPT-5.5-low", "GPT-5.5-medium", "GPT-5.5-high")
+    assert cifar10._best_error_curve([{"test_error": 70.0}, {"test_error": 75.0},
+                                      {"test_error": 60.0}]) == [70.0, 70.0, 60.0]
+    fake = type("FakeCIFAR", (), {
+        "data": np.zeros((2, 32, 32, 3), dtype="uint8"),
+        "targets": [1, 2],
+    })()
+    x, y = cifar10._tensor_dataset(fake).tensors
+    assert tuple(x.shape) == (2, 3, 32, 32)
+    assert y.tolist() == [1, 2]
+    assert cifar10.ResNet.make(16, 0.1, 1)(x).shape == (2, 10)
+    assert cifar10.WIDTHS[-1] == 160
+    assert cifar10.DEPTHS == [1, 2, 3]
+    assert cifar10.CROP_PADS == [0, 2, 4, 6]
+    seen = {}
+
+    class Trial:
+        number = 0
+        params = seen
+
+        def suggest_float(self, name, low, high, *, log=False, context=None):
+            seen[name] = low
+            return low
+
+        def suggest_categorical(self, name, choices, *, context=None):
+            seen[name] = choices[0]
+            return choices[0]
+
+        def report(self, value, step):
+            pass
+
+    old = cifar10._train_once
+    cifar10._train_once = lambda params, device, epochs, seed: {
+        "test_error": 1.0, "test_acc": 99.0, "test_loss": 0.1, "history": [{"epoch": 1, "test_error": 1.0}],
+    }
+    try:
+        assert cifar10._objective(1, 0, [])(Trial()) == 1.0
+    finally:
+        cifar10._train_once = old
+    assert set(seen) == {
+        "lr", "batch_size", "dropout", "width", "weight_decay", "depth",
+        "label_smoothing", "aug_crop", "aug_flip",
+    }
+
+
 if __name__ == "__main__":
     for fn in [test_random_study, test_extract_json, test_agent_sampler,
                test_pruner, test_mock_backend_and_storage, test_concurrency_and_sqlite,
                test_skill_mode_ask_tell, test_hostile_agent_values, test_guardrails,
                test_resume_no_replay, test_mnist_helper_curves_and_labels,
                test_mnist_optuna_trial_adapter_ignores_context,
-               test_mnist_trial_record_serializes_metrics]:
+               test_mnist_trial_record_serializes_metrics,
+               test_verify_mnist_prompting_scores_and_prunes,
+               test_cifar10_helper_curves_and_labels]:
         fn()
         print(f"ok: {fn.__name__}")
     print("all checks passed")
