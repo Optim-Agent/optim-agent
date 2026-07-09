@@ -54,7 +54,7 @@ class AgentSampler:
         if self.context and "early reward" in self.context.lower() and self.rng.random() < 0.25:
             return self._local_around_best(study)
         cfg = EFFORTS[self.effort]
-        prompt = self._prompt(study, done, cfg, self._tpe_reference(study))
+        prompt = self._prompt(study, done, cfg)
         for attempt in range(2):
             try:
                 reply = _agent.call_agent(self.backend, self.model, prompt,
@@ -72,7 +72,7 @@ class AgentSampler:
 
     # -- prompt construction ------------------------------------------------
 
-    def _prompt(self, study, done, cfg, tpe_reference=None) -> str:
+    def _prompt(self, study, done, cfg) -> str:
         names = list(study.space)
         lines = [
             "You are an expert hyperparameter-optimization engine. Think both "
@@ -123,9 +123,6 @@ class AgentSampler:
                 lines.append(f"| {t.number} | " + " | ".join(row) + f" | {t.value:.6g} | {t.state} |")
         if best is not None:
             lines += ["", f"Best so far: trial {best.number}, value={best.value:.6g}, params={best.params}"]
-        if tpe_reference is not None:
-            lines += ["", f"Reference TPE proposal: {tpe_reference}",
-                      "Use it as a Bayesian baseline hint, but choose the final point yourself."]
         if cfg["notes"] and self.note:
             lines += ["", f"Your notes from previous trials: {self.note}"]
 
@@ -171,42 +168,6 @@ class AgentSampler:
         if best is None:
             return {}
         return self._local_around_best(study)
-
-    def _tpe_reference(self, study):
-        try:
-            import optuna
-            from optuna.distributions import CategoricalDistribution, FloatDistribution, IntDistribution
-            from optuna.trial import TrialState, create_trial
-        except Exception:
-            return None
-        optuna.logging.set_verbosity(optuna.logging.WARNING)
-        dist = {}
-        for name, d in study.space.items():
-            if hasattr(d, "choices"):
-                dist[name] = CategoricalDistribution(list(d.choices))
-            elif type(d).__name__ == "Int":
-                dist[name] = IntDistribution(d.low, d.high, log=d.log)
-            else:
-                dist[name] = FloatDistribution(d.low, d.high, log=d.log)
-        sampler = optuna.samplers.TPESampler(seed=self.rng.randrange(2**32), n_startup_trials=self.n_init)
-        ref = optuna.create_study(direction=study.direction, sampler=sampler)
-        for t in study.trials:
-            if t.state == "complete" and t.value is not None and all(n in t.params for n in dist):
-                ref.add_trial(create_trial(params={n: t.params[n] for n in dist},
-                                           distributions=dist, value=t.value,
-                                           state=TrialState.COMPLETE))
-        trial = ref.ask()
-        try:
-            for name, d in study.space.items():
-                if hasattr(d, "choices"):
-                    trial.suggest_categorical(name, list(d.choices))
-                elif type(d).__name__ == "Int":
-                    trial.suggest_int(name, d.low, d.high, log=d.log)
-                else:
-                    trial.suggest_float(name, d.low, d.high, log=d.log)
-            return {n: d.validate(trial.params[n]) for n, d in study.space.items()}
-        except Exception:
-            return None
 
     def _local_around_best(self, study) -> dict:
         best = study.best_trial
