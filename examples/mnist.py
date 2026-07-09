@@ -421,9 +421,9 @@ def _sampler(method, seed, effort, timeout, model):
         context=(None if preset.get("no_context") else
                  "Full MNIST neural architecture search with early reward: minimize the sum of "
                  "incumbent best test errors over 24 trials. Prefer fast, reliable drops in test "
-                 "error over risky late exploration. Strong priors: AdamW lr around 1e-3 to 3e-3, "
-                 "batch size 128 or 256, low weight decay, little label smoothing, low dropout, "
-                 "moderate-to-wide ResNet stages, and small shift/rotation augmentation."),
+                 "error over risky late exploration. Start near stable MNIST defaults: lr 0.0015-0.003, "
+                 "batch_size 128 or 256, weight_decay <= 1e-4, label_smoothing <= 0.05, dropout <= 0.2, "
+                 "stage widths at least 32/64/96, depths 1-2, aug_shift 1-2, aug_rotate 0-5."),
         n_init=4, timeout=timeout, seed=seed,
     )
 
