@@ -176,7 +176,7 @@ class AgentSampler:
         out = {}
         for name, dist in study.space.items():
             v = best.params.get(name)
-            if v is None or self.rng.random() < 0.15:
+            if v is None or self.rng.random() < 0.3:
                 out[name] = dist.sample(self.rng)
             elif hasattr(dist, "low"):
                 jitter = self.rng.gauss(0, 0.1 * (dist.high - dist.low))
