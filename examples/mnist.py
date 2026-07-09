@@ -47,6 +47,11 @@ DEPTHS = [1, 2, 3]
 SHIFTS = [0, 1, 2, 3]
 ROTATIONS = [0, 5, 10]
 ANCHORS = [
+    dict(lr=0.0096, batch_size=64, weight_decay=0.00032, label_smoothing=0.095,
+         stage1_width=24, stage2_width=32, stage3_width=64,
+         stage1_depth=1, stage2_depth=3, stage3_depth=2,
+         stem_dropout=0.10, stage1_dropout=0.065, stage2_dropout=0.22,
+         head_dropout=0.03, aug_shift=0, aug_rotate=10),
     dict(lr=0.0008, batch_size=128, weight_decay=6e-5, label_smoothing=0.10,
          stage1_width=16, stage2_width=128, stage3_width=160,
          stage1_depth=3, stage2_depth=2, stage3_depth=2,

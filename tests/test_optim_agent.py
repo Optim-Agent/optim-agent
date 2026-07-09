@@ -275,7 +275,7 @@ def test_mnist_helper_curves_and_labels():
     assert mnist.DEPTHS == [1, 2, 3]
     assert mnist.SHIFTS == [0, 1, 2, 3]
     assert mnist.ROTATIONS == [0, 5, 10]
-    assert len(mnist.ANCHORS) == 4
+    assert len(mnist.ANCHORS) == 5
     assert set(mnist.ANCHORS[0]) == {
         "lr", "batch_size", "weight_decay", "label_smoothing",
         "stage1_width", "stage2_width", "stage3_width",
