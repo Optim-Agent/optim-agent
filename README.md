@@ -45,6 +45,20 @@ optim-agent can drive it.
 - 📦 **Zero runtime dependencies** — pure stdlib; agents are called through their
   own CLIs. Nothing to host, no keys to manage.
 
+## What you get in practice
+
+- **Small-budget leverage** — useful when each trial is expensive and classical
+  surrogates are still data-starved.
+- **Semantic tuning** — combines parameter meanings, study context, and trial
+  history instead of treating every knob as an anonymous coordinate.
+- **Auditable decisions** — records the context, proposals, outcomes, and
+  optional agent rationales that matter in high-stakes, risk-managed ML
+  workflows.
+- **Bounded autonomy** — the agent proposes, optim-agent validates, and your
+  objective decides; invalid agent output falls back to safe sampling.
+- **Drop-in deployment** — Optuna-style API, JSON/SQLite storage, local
+  authenticated CLI backends, and zero runtime dependencies.
+
 **Full documentation:** [docs/index.html](docs/index.html) — served as a
 website via GitHub Pages (Settings → Pages → deploy from branch, `main` /`docs`).
 
