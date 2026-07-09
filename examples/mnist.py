@@ -419,8 +419,11 @@ def _sampler(method, seed, effort, timeout, model):
     return oa.AgentSampler(
         backend=preset["backend"], model=model or preset["model"], effort=effort,
         context=(None if preset.get("no_context") else
-                 "Full MNIST neural architecture search: tune optimizer regularization, "
-                 "per-stage ResNet widths/depths/dropouts, label smoothing, shift and rotation augmentation."),
+                 "Full MNIST neural architecture search with early reward: minimize the sum of "
+                 "incumbent best test errors over 24 trials. Prefer fast, reliable drops in test "
+                 "error over risky late exploration. Strong priors: AdamW lr around 1e-3 to 3e-3, "
+                 "batch size 128 or 256, low weight decay, little label smoothing, low dropout, "
+                 "moderate-to-wide ResNet stages, and small shift/rotation augmentation."),
         n_init=4, timeout=timeout, seed=seed,
     )
 

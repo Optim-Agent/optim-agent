@@ -367,6 +367,12 @@ def test_verify_mnist_prompting_scores_and_prunes():
     ) == {"context_s0": 0.56}
 
 
+def test_verify_mnist_reward_safe_label():
+    from scripts import verify_mnist_reward as verify
+
+    assert verify._safe("GPT-5.5 medium/no ctx") == "GPT-5.5-medium-no-ctx"
+
+
 def test_cifar10_helper_curves_and_labels():
     from examples import cifar10
     import numpy as np
@@ -428,6 +434,7 @@ if __name__ == "__main__":
                test_mnist_optuna_trial_adapter_ignores_context,
                test_mnist_trial_record_serializes_metrics,
                test_verify_mnist_prompting_scores_and_prunes,
+               test_verify_mnist_reward_safe_label,
                test_cifar10_helper_curves_and_labels]:
         fn()
         print(f"ok: {fn.__name__}")

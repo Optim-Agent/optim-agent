@@ -88,6 +88,9 @@ class AgentSampler:
                           "regularization/dropout, enough width/depth, and augmentation only when "
                           "history shows it helps.",
                           "- Treat parameter names and descriptions as semantic hints, not just tokens."]
+                if "early reward" in self.context.lower():
+                    lines += ["- This run is scored by the sum of incumbent best errors, so early "
+                              "reliable improvements beat risky late exploration."]
         lines += ["", "Search space:"]
         lines += [f"- {n}: {d.describe()}" for n, d in study.space.items()]
 
@@ -124,6 +127,9 @@ class AgentSampler:
         lines += ["", "Propose the next point to evaluate. Balance exploration of unvisited "
                       "regions against exploitation around promising ones; never repeat an "
                       "already-evaluated point exactly."]
+        if self.context and "early reward" in self.context.lower():
+            lines += ["Because the score rewards fast incumbent-best decrease, pick a "
+                      "high-confidence configuration likely to improve the best value now."]
         if cfg["reasoning"]:
             lines += ["Use the task context as priors when available: prefer choices that "
                       "make sense for the described setup unless the trial history clearly "
