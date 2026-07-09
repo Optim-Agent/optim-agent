@@ -11,7 +11,7 @@ from . import agent as _agent
 #   notes      — agent keeps a qualitative scratchpad carried across trials
 EFFORTS = {
     "low":    dict(history=5,  reasoning=False, notes=False),
-    "medium": dict(history=10, reasoning=True,  notes=False),
+    "medium": dict(history=10, reasoning=True,  notes=True),
     "high":   dict(history=20, reasoning=True,  notes=True),
 }
 

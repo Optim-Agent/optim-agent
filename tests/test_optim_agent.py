@@ -61,13 +61,13 @@ def test_agent_sampler(monkeypatch=None):
     assert _raises(ValueError, lambda: oa.AgentSampler(effort="max"))
     assert samplers.EFFORTS == {
         "low": dict(history=5, reasoning=False, notes=False),
-        "medium": dict(history=10, reasoning=True, notes=False),
+        "medium": dict(history=10, reasoning=True, notes=True),
         "high": dict(history=20, reasoning=True, notes=True),
     }
     medium_prompt = s._prompt(study, [t for t in study.trials if t.value is not None],
                               samplers.EFFORTS["medium"])
     assert 'Include a short "_reasoning" field' in medium_prompt
-    assert 'Include a "_note" field' not in medium_prompt
+    assert 'Include a "_note" field' in medium_prompt
     assert "History summary:" in medium_prompt
     assert "Promising trials:" in medium_prompt
     assert "Use the task context as priors when available" in medium_prompt
