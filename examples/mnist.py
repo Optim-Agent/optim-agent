@@ -451,7 +451,7 @@ def _sampler(method, seed, effort, timeout, model):
                  "error over risky late exploration. Start near stable MNIST defaults: lr 0.0015-0.003, "
                  "batch_size 128 or 256, weight_decay <= 1e-4, label_smoothing <= 0.05, dropout <= 0.2, "
                  "stage widths at least 32/64/96, depths 1-2, aug_shift 1-2, aug_rotate 0-5."),
-        n_init=4, timeout=timeout, seed=seed,
+        n_init=2, timeout=timeout, seed=seed,
         anchor_proposals=(None if preset.get("no_context") else ANCHORS),
     )
 
