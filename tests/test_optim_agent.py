@@ -98,6 +98,30 @@ def test_early_reward_local_proposal():
     assert -5 <= proposal["x"] <= 5
 
 
+def test_anchor_proposals_seed_warmup():
+    s = oa.AgentSampler(
+        backend="claude", effort="medium", n_init=4, context="early reward", seed=0,
+        anchor_proposals=[{"x": 1.5}, {"x": 2.5}],
+    )
+    study = oa.create_study(sampler=s, seed=0)
+    first = study.ask()
+    first.suggest_float("x", -5, 5)
+
+    second = study.ask()
+    assert second.suggest_float("x", -5, 5) == 1.5
+    third = study.ask()
+    assert third.suggest_float("x", -5, 5) == 2.5
+
+    partial = oa.AgentSampler(
+        backend="claude", effort="medium", n_init=4, context="early reward", seed=0,
+        anchor_proposals=[{"x": 1.5, "y": 2.5}],
+    )
+    partial_study = oa.create_study(sampler=partial, seed=0)
+    t = partial_study.ask()
+    t.suggest_float("x", -5, 5)
+    assert partial_study.sampler.propose(partial_study) == {}
+
+
 def test_pruner():
     def fake_call(backend, model, prompt, timeout):
         return '{"prune": true}'
@@ -251,6 +275,14 @@ def test_mnist_helper_curves_and_labels():
     assert mnist.DEPTHS == [1, 2, 3]
     assert mnist.SHIFTS == [0, 1, 2, 3]
     assert mnist.ROTATIONS == [0, 5, 10]
+    assert len(mnist.ANCHORS) == 4
+    assert set(mnist.ANCHORS[0]) == {
+        "lr", "batch_size", "weight_decay", "label_smoothing",
+        "stage1_width", "stage2_width", "stage3_width",
+        "stage1_depth", "stage2_depth", "stage3_depth",
+        "stem_dropout", "stage1_dropout", "stage2_dropout", "head_dropout",
+        "aug_shift", "aug_rotate",
+    }
     seen = {}
 
     class Trial:
@@ -303,6 +335,8 @@ def test_mnist_helper_curves_and_labels():
         mnist._train_once = old
     assert contexts and all(c is None for c in contexts)
     assert mnist._sampler("codex-no-context", 0, "high", 1, None).context is None
+    assert mnist._sampler("codex", 0, "medium", 1, None).anchor_proposals == mnist.ANCHORS
+    assert mnist._sampler("codex-no-context", 0, "medium", 1, None).anchor_proposals == []
 
 
 def test_mnist_optuna_trial_adapter_ignores_context():
@@ -443,6 +477,7 @@ def test_cifar10_helper_curves_and_labels():
 if __name__ == "__main__":
     for fn in [test_random_study, test_extract_json, test_agent_sampler,
                test_early_reward_local_proposal,
+               test_anchor_proposals_seed_warmup,
                test_pruner, test_mock_backend_and_storage, test_concurrency_and_sqlite,
                test_skill_mode_ask_tell, test_hostile_agent_values, test_guardrails,
                test_resume_no_replay, test_mnist_helper_curves_and_labels,

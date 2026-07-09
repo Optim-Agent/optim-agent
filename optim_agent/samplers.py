@@ -35,19 +35,24 @@ class AgentSampler:
     """
 
     def __init__(self, backend="claude", model=None, effort="high", context=None,
-                 n_init=2, timeout=300, seed=None):
+                 n_init=2, timeout=300, seed=None, anchor_proposals=None):
         if effort not in EFFORTS:
             raise ValueError(f"effort must be one of {list(EFFORTS)}")
         if backend != "mock" and backend not in _agent.BACKENDS:
             raise ValueError(f"backend must be one of {_agent.BACKENDS + ('mock',)}")
         self.backend, self.model, self.effort = backend, model, effort
         self.context, self.n_init, self.timeout = context, n_init, timeout
+        self.anchor_proposals = list(anchor_proposals or [])
         self.rng = random.Random(seed)
         self.note = None  # qualitative scratchpad, fed back at high effort
 
     def propose(self, study) -> dict:
         done = [t for t in study.trials if t.state in ("complete", "pruned") and t.value is not None]
         if len([t for t in done if t.state == "complete"]) < self.n_init or not study.space:
+            if self.context and "early reward" in self.context.lower():
+                anchored = self._anchor_proposal(study)
+                if anchored:
+                    return anchored
             return {}
         if self.backend == "mock":
             return self._mock(study, done)
@@ -168,6 +173,22 @@ class AgentSampler:
         if best is None:
             return {}
         return self._local_around_best(study)
+
+    def _anchor_proposal(self, study) -> dict:
+        if not study.space:
+            return {}
+        names = set(study.space)
+        used = [{n: t.params.get(n) for n in names} for t in study.trials]
+        for proposal in self.anchor_proposals:
+            if set(proposal) != names:
+                continue
+            try:
+                out = {n: study.space[n].validate(proposal[n]) for n in names}
+            except (ValueError, TypeError):
+                continue
+            if out not in used:
+                return out
+        return {}
 
     def _local_around_best(self, study) -> dict:
         best = study.best_trial
