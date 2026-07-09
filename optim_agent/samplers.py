@@ -51,7 +51,7 @@ class AgentSampler:
             return {}
         if self.backend == "mock":
             return self._mock(study, done)
-        if self.context and "early reward" in self.context.lower() and self.rng.random() < 0.5:
+        if self.context and "early reward" in self.context.lower() and self.rng.random() < 0.25:
             return self._local_around_best(study)
         cfg = EFFORTS[self.effort]
         prompt = self._prompt(study, done, cfg)
