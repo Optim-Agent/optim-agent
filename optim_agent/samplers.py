@@ -179,7 +179,7 @@ class AgentSampler:
             if v is None or self.rng.random() < 0.15:
                 out[name] = dist.sample(self.rng)
             elif hasattr(dist, "low"):
-                jitter = self.rng.gauss(0, 0.05 * (dist.high - dist.low))
+                jitter = self.rng.gauss(0, 0.1 * (dist.high - dist.low))
                 out[name] = dist.validate(v + jitter)
             else:
                 out[name] = v
