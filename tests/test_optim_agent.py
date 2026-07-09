@@ -84,6 +84,20 @@ def test_agent_sampler(monkeypatch=None):
         samplers._agent.call_agent = original
 
 
+def test_early_reward_local_proposal():
+    s = oa.AgentSampler(backend="claude", effort="medium", n_init=1,
+                        context="early reward", seed=0)
+    s.rng.random = lambda: 0.0
+    study = oa.create_study(sampler=s, seed=0)
+    first = study.ask({"x": 2.0})
+    first.suggest_float("x", -5, 5)
+    study.tell(first, 0.0)
+
+    proposal = study.sampler.propose(study)
+
+    assert -5 <= proposal["x"] <= 5
+
+
 def test_pruner():
     def fake_call(backend, model, prompt, timeout):
         return '{"prune": true}'
@@ -428,6 +442,7 @@ def test_cifar10_helper_curves_and_labels():
 
 if __name__ == "__main__":
     for fn in [test_random_study, test_extract_json, test_agent_sampler,
+               test_early_reward_local_proposal,
                test_pruner, test_mock_backend_and_storage, test_concurrency_and_sqlite,
                test_skill_mode_ask_tell, test_hostile_agent_values, test_guardrails,
                test_resume_no_replay, test_mnist_helper_curves_and_labels,

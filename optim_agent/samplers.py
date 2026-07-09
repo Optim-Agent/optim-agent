@@ -51,6 +51,8 @@ class AgentSampler:
             return {}
         if self.backend == "mock":
             return self._mock(study, done)
+        if self.context and "early reward" in self.context.lower() and self.rng.random() < 0.25:
+            return self._local_around_best(study)
         cfg = EFFORTS[self.effort]
         prompt = self._prompt(study, done, cfg)
         for attempt in range(2):
@@ -165,10 +167,16 @@ class AgentSampler:
         best = study.best_trial
         if best is None:
             return {}
+        return self._local_around_best(study)
+
+    def _local_around_best(self, study) -> dict:
+        best = study.best_trial
+        if best is None:
+            return {}
         out = {}
         for name, dist in study.space.items():
             v = best.params.get(name)
-            if v is None or self.rng.random() < 0.2:
+            if v is None or self.rng.random() < 0.15:
                 out[name] = dist.sample(self.rng)
             elif hasattr(dist, "low"):
                 jitter = self.rng.gauss(0, 0.1 * (dist.high - dist.low))
