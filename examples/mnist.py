@@ -416,15 +416,15 @@ def _sampler(method, seed, effort, timeout, model):
         return oa.RandomSampler()
     if preset["backend"] == "tpe":
         raise ValueError("TPE runs through Optuna's study API, not optim-agent's sampler API")
-    context = (None if preset.get("no_context") else
-               "Full MNIST neural architecture search with early reward: minimize the sum of "
-               "incumbent best test errors over 24 trials. Prefer fast, reliable drops in test "
-               "error over risky late exploration. Strong priors: AdamW lr around 1e-3 to 3e-3, "
-               "batch size 128 or 256, low weight decay, little label smoothing, low dropout, "
-               "moderate-to-wide ResNet stages, and small shift/rotation augmentation.")
     return oa.AgentSampler(
         backend=preset["backend"], model=model or preset["model"], effort=effort,
-        context=context, n_init=(2 if context else 4), timeout=timeout, seed=seed,
+        context=(None if preset.get("no_context") else
+                 "Full MNIST neural architecture search with early reward: minimize the sum of "
+                 "incumbent best test errors over 24 trials. Prefer fast, reliable drops in test "
+                 "error over risky late exploration. Strong priors: AdamW lr around 1e-3 to 3e-3, "
+                 "batch size 128 or 256, low weight decay, little label smoothing, low dropout, "
+                 "moderate-to-wide ResNet stages, and small shift/rotation augmentation."),
+        n_init=4, timeout=timeout, seed=seed,
     )
 
 

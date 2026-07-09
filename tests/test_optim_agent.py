@@ -289,7 +289,6 @@ def test_mnist_helper_curves_and_labels():
         mnist._train_once = old
     assert contexts and all(c is None for c in contexts)
     assert mnist._sampler("codex-no-context", 0, "high", 1, None).context is None
-    assert mnist._sampler("codex", 0, "medium", 1, None).n_init == 2
 
 
 def test_mnist_optuna_trial_adapter_ignores_context():
