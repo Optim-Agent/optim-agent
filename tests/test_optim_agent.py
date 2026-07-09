@@ -75,10 +75,6 @@ def test_agent_sampler(monkeypatch=None):
     context_prompt = s._prompt(study, [t for t in study.trials if t.value is not None],
                                samplers.EFFORTS["medium"])
     assert "Context-derived priors:" in context_prompt
-    s.context = "early reward"
-    reward_prompt = s._prompt(study, [t for t in study.trials if t.value is not None],
-                              samplers.EFFORTS["medium"])
-    assert "Incumbent-best trajectory:" in reward_prompt
     # out-of-range and garbage replies fall back gracefully
     samplers._agent.call_agent = lambda *a, **k: '{"x": 999}'
     try:

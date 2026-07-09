@@ -113,16 +113,6 @@ class AgentSampler:
             lines += ["- Failed or weak regions to avoid:"]
             for t in ranked[-3:]:
                 lines += [f"  - #{t.number}: value={t.value:.6g}, params={t.params}"]
-            if self.context and "early reward" in self.context.lower():
-                incumbent, improvements = None, []
-                better = (lambda v: incumbent is None or
-                          (v < incumbent if study.direction == "minimize" else v > incumbent))
-                for t in sorted(done, key=lambda t: t.number):
-                    if better(t.value):
-                        incumbent = t.value
-                        improvements.append((t.number, t.value))
-                lines += ["- Incumbent-best trajectory:"]
-                lines += [f"  - #{n}: best={v:.6g}" for n, v in improvements[-6:]]
         else:
             lines += ["", "Trial history (oldest first):",
                       "| trial | " + " | ".join(names) + " | value | state |"]
