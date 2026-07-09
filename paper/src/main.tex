@@ -54,10 +54,12 @@ modern training run exposes knobs for optimizer dynamics, regularization,
 architecture, augmentation, batching, and scheduling; the cost of choosing them
 often dominates the cost of implementing the model. Random search is simple and
 surprisingly competitive when only a few dimensions matter
-\cite{bergstra2012random}, while Bayesian optimization, TPE, Hyperband, and BOHB
-become powerful once enough observations support a useful surrogate or
-multi-fidelity decision rule
-\cite{snoek2012practical,akiba2019optuna,li2017hyperband,falkner2018bohb}.
+\cite{bergstra2012random}, while Bayesian optimization and expected improvement
+provide the classical model-based foundation for expensive black-box search
+\cite{mockus1978application,jones1998efficient,snoek2012practical,shahriari2016taking}.
+Tree-structured Parzen estimators (TPE), Hyperband, and BOHB become powerful
+once enough observations support density estimation or multi-fidelity decisions
+\cite{bergstra2011algorithms,akiba2019optuna,li2017hyperband,falkner2018bohb}.
 Yet the first several trials of a real training run are not purely numerical.
 A practitioner knows that learning rate, batch size, dropout, weight decay,
 augmentation strength, model width, and optimizer schedule have meanings. A
@@ -69,8 +71,8 @@ avoid such language-level structure.
 Large language model (LLM) agents introduce a different computational object:
 a model that can read a natural-language description, inspect a short history,
 keep notes, and act through a tool interface
-\cite{brown2020language,yao2023react,wang2024surveyagents}. The question is not
-whether an LLM can replace the statistical foundations of HPO. It should not.
+\cite{brown2020language,yao2023react,schick2023toolformer,wang2024surveyagents}.
+The question is not whether an LLM can replace the statistical foundations of HPO. It should not.
 The question is whether the agent's semantic prior can be exposed through a
 small, reliable software interface so that it complements ordinary HPO
 workflows. This is especially relevant in the small-budget regime, where a
@@ -113,15 +115,18 @@ pruning recommendation.
 
 \section{Related Work}
 
-Classical HPO spans random search, Bayesian optimization, multi-fidelity
-bandits, evolutionary search, and automated machine learning systems
-\cite{bergstra2012random,snoek2012practical,li2017hyperband,falkner2018bohb,feurer2015autosklearn,hutter2019automl}.
-These methods deliberately treat the objective as a black box and derive sample
-efficiency from statistical structure. Neural architecture search extends the
-same automation impulse to model topology \cite{elsken2019nas}. \emph{optim-agent}
-does not compete with these methods by proposing a new surrogate. Instead, it
-adds a language-conditioned sampler that can be used through the same objective
-interface and compared against TPE and random search.
+Classical HPO spans random search, Bayesian optimization, TPE, SMAC,
+multi-fidelity bandits, and population-based training
+\cite{bergstra2012random,jones1998efficient,bergstra2011algorithms,hutter2011smb,li2017hyperband,li2020asha,jaderberg2017pbt}.
+Production systems and libraries such as Auto-sklearn, Optuna, Vizier, Ray Tune,
+and Nevergrad turn these ideas into reusable experiment infrastructure
+\cite{feurer2015autosklearn,akiba2019optuna,golovin2017google,liaw2018tune,rapin2018nevergrad,hutter2019automl}.
+Neural architecture search extends the same automation impulse to model topology
+\cite{zoph2017nas,elsken2019nas,liu2019darts}. These methods deliberately treat
+the objective as a black box and derive sample efficiency from statistical
+structure. \emph{optim-agent} does not compete with them by proposing a new
+surrogate. Instead, it adds a language-conditioned sampler that can be used
+through the same objective interface and compared against TPE and random search.
 
 Learning-to-optimize methods train neural optimizers or policies from previous
 tasks \cite{chen2018neuraloptimizer,chen2022optformer}. OptFormer is especially
@@ -134,19 +139,21 @@ training scripts. This trades the statistical efficiency of a trained
 meta-optimizer for deployability and zero training cost.
 
 LLM-agent research studies systems that reason, call tools, keep memory, and
-act in external environments \cite{yao2023react,wang2024surveyagents}. Those
-ideas are usually evaluated on software tasks, web interaction, or planning.
-Here the environment is an HPO study: the agent sees a compact table of trials
-and returns JSON parameters. This narrower interface is useful because every
-agent action has a mechanical consequence: the training objective either
+act in external environments
+\cite{yao2023react,schick2023toolformer,shinn2023reflexion,wang2024surveyagents}.
+Those ideas are usually evaluated on software tasks, web interaction, or
+planning. Here the environment is an HPO study: the agent sees a compact table
+of trials and returns JSON parameters. This narrower interface is useful because
+every agent action has a mechanical consequence: the training objective either
 improves or it does not.
 
 Prompting work has shown that task instructions, exemplars, and structured
-outputs can strongly affect LLM behavior \cite{liu2023surveyprompt}. We adopt
-that lesson but deliberately avoid making prompt engineering the contribution.
-The user provides semantic parameter descriptions; the package handles the
-remaining prompt construction, response parsing, value projection, and fallback
-logic. This boundary is what makes the method a reusable optimizer rather than a
+outputs can strongly affect LLM behavior
+\cite{wei2022cot,kojima2022zeroshot,liu2023surveyprompt}. We adopt that lesson
+but deliberately avoid making prompt engineering the contribution. The user
+provides semantic parameter descriptions; the package handles the remaining
+prompt construction, response parsing, value projection, and fallback logic.
+This boundary is what makes the method a reusable optimizer rather than a
 collection of hand-written prompts for individual experiments.
 
 \section{Method}
@@ -382,9 +389,10 @@ classification HPO, whether reasoning effort changes outcomes, and whether an
 agent pruner can save compute without damaging final quality. The supplement
 contains the executable scripts, raw JSON logs, and plotting utilities used to
 produce all reported figures. Unless stated otherwise, lower is better and
-curves report best value so far. Random search and TPE are included as
-non-agent baselines; all agent methods use the same validation and fallback
-logic described above.
+curves report best value so far. Random search and TPE are included as non-agent
+baselines; TPE is the tree-structured density estimator of
+\cite{bergstra2011algorithms} as exposed through Optuna \cite{akiba2019optuna}.
+All agent methods use the same validation and fallback logic described above.
 
 \begin{table}[t]
 \centering
@@ -420,10 +428,11 @@ methods receive identical trial budgets, dataset splits, and objective code.
 \subsection{Analytic Functions}
 
 The analytic benchmark isolates sample efficiency without the runtime cost of
-training neural networks. We use Branin in two dimensions and Ackley in five
-dimensions. Agents are told only input bounds and trial history, never the
-function name, optimum location, or optimum value. Each method receives ten
-trials over three seeds.
+training neural networks. We use the Branin-Hoo function in two dimensions
+\cite{branin1972method,branin1972widely} and the Ackley function in five
+dimensions \cite{ackley1987connectionist}. Agents are told only input bounds and
+trial history, never the function name, optimum location, or optimum value. Each
+method receives ten trials over three seeds.
 
 For $x=(x_1,x_2)$, Branin is
 \begin{equation}
@@ -688,8 +697,10 @@ guarantee that a future hosted model will make identical suggestions.
 small budget, not final model quality after exhaustive tuning. This is the
 intended construct because the method targets users who can afford only a small
 number of expensive evaluations. For vision tasks, three training epochs measure
-early hyperparameter promise rather than converged accuracy. Longer training
-could change the ranking of individual configurations.
+early hyperparameter promise rather than converged accuracy. The three-seed
+studies are also too small for Dem{\v{s}}ar-style nonparametric benchmark
+rankings \cite{demsar2006statistical}. Longer training could change the ranking
+of individual configurations.
 
 \textbf{External validity.} Branin and Ackley are diagnostic objectives, not
 representative of all ML workloads. MNIST is saturated, and CIFAR-10 is still a
