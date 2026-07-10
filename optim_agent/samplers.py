@@ -144,9 +144,11 @@ class AgentSampler:
         lines += ["- Recent trials:"]
         for t in shown[-5:]:
             lines += [f"  - #{t.number}: value={t.value:.6g}, params={t.params}"]
-        lines += ["- Failed or weak regions to avoid:"]
-        for t in ranked[-3:]:
-            lines += [f"  - #{t.number}: value={t.value:.6g}, params={t.params}"]
+        weak = ranked[5:][-3:]
+        if weak:
+            lines += ["- Failed or weak regions to avoid:"]
+            for t in weak:
+                lines += [f"  - #{t.number}: value={t.value:.6g}, params={t.params}"]
         if best is not None:
             lines += ["", f"Best so far: trial {best.number}, value={best.value:.6g}, params={best.params}"]
         if cfg["notes"] and self.note:
