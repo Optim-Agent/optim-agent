@@ -123,21 +123,6 @@ def test_early_reward_hands_off_after_schema_trial():
     assert calls, "early-reward runs should hand off after discovering the search space"
 
 
-def test_prompt_shows_in_flight_trials():
-    sampler = oa.AgentSampler(
-        backend="mock", effort="medium", n_init=1, context="early reward", seed=0,
-    )
-    study = oa.create_study(sampler=sampler, seed=0)
-    running = study.ask()
-    running.suggest_float("x", -5, 5)
-
-    prompt = sampler._prompt(study, [], samplers.EFFORTS["medium"])
-
-    assert "In-flight trials (results not available yet):" in prompt
-    assert f"#{running.number}: params={running.params}" in prompt
-    assert "materially different high-confidence hypothesis" in prompt
-
-
 def test_anchor_proposals_seed_warmup():
     s = oa.AgentSampler(
         backend="claude", effort="medium", n_init=4, context="early reward", seed=0,
@@ -543,7 +528,6 @@ if __name__ == "__main__":
     for fn in [test_random_study, test_extract_json, test_agent_sampler,
                test_early_reward_local_proposal,
                test_early_reward_hands_off_after_schema_trial,
-               test_prompt_shows_in_flight_trials,
                test_anchor_proposals_seed_warmup,
                test_pruner, test_mock_backend_and_storage, test_concurrency_and_sqlite,
                test_skill_mode_ask_tell, test_hostile_agent_values, test_guardrails,

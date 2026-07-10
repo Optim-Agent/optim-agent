@@ -129,14 +129,6 @@ class AgentSampler:
         lines += ["- Failed or weak regions to avoid:"]
         for t in ranked[-3:]:
             lines += [f"  - #{t.number}: value={t.value:.6g}, params={t.params}"]
-        in_flight = [t for t in study.trials if t.state == "running" and t.params]
-        if in_flight:
-            lines += ["", "In-flight trials (results not available yet):"]
-            for t in in_flight[-5:]:
-                lines += [f"- #{t.number}: params={t.params}"]
-            lines += ["Treat these configurations as already committed, without assuming they "
-                      "are good or bad. Propose a materially different high-confidence hypothesis "
-                      "rather than a small numeric perturbation."]
         if best is not None:
             lines += ["", f"Best so far: trial {best.number}, value={best.value:.6g}, params={best.params}"]
         if cfg["notes"] and self.note:
