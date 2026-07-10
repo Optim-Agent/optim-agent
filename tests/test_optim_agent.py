@@ -123,22 +123,6 @@ def test_early_reward_hands_off_after_schema_trial():
     assert calls, "early-reward runs should hand off after discovering the search space"
 
 
-def test_prompt_builds_initial_parallel_portfolio():
-    sampler = oa.AgentSampler(
-        backend="mock", effort="medium", n_init=1, context="early reward", seed=0,
-    )
-    study = oa.create_study(sampler=sampler, seed=0)
-    running = study.ask()
-    running.suggest_float("x", 1e-5, 1e-1, log=True)
-
-    prompt = sampler._prompt(study, [], samplers.EFFORTS["medium"])
-
-    assert "Initial parallel portfolio (outcomes pending):" in prompt
-    assert f"#{running.number}: params={running.params}" in prompt
-    assert "distinct quantile of an influential scaled parameter" in prompt
-    assert "Preserve otherwise plausible choices" in prompt
-
-
 def test_anchor_proposals_seed_warmup():
     s = oa.AgentSampler(
         backend="claude", effort="medium", n_init=4, context="early reward", seed=0,
@@ -544,7 +528,6 @@ if __name__ == "__main__":
     for fn in [test_random_study, test_extract_json, test_agent_sampler,
                test_early_reward_local_proposal,
                test_early_reward_hands_off_after_schema_trial,
-               test_prompt_builds_initial_parallel_portfolio,
                test_anchor_proposals_seed_warmup,
                test_pruner, test_mock_backend_and_storage, test_concurrency_and_sqlite,
                test_skill_mode_ask_tell, test_hostile_agent_values, test_guardrails,

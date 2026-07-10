@@ -129,15 +129,6 @@ class AgentSampler:
         lines += ["- Failed or weak regions to avoid:"]
         for t in ranked[-3:]:
             lines += [f"  - #{t.number}: value={t.value:.6g}, params={t.params}"]
-        pending = [t for t in study.trials if t.state == "running" and t.params]
-        if (self.context and "early reward" in self.context.lower()
-                and not done and pending):
-            lines += ["", "Initial parallel portfolio (outcomes pending):"]
-            lines += [f"- #{t.number}: params={t.params}" for t in pending[-5:]]
-            lines += ["Fill the next slot with a complementary high-confidence candidate. Cover "
-                      "a distinct quantile of an influential scaled parameter and a meaningful "
-                      "categorical alternative when available. Preserve otherwise plausible choices "
-                      "instead of changing every parameter, and do not assume pending points are good."]
         if best is not None:
             lines += ["", f"Best so far: trial {best.number}, value={best.value:.6g}, params={best.params}"]
         if cfg["notes"] and self.note:
