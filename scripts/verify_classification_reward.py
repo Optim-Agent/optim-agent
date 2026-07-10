@@ -74,11 +74,12 @@ def _complete(root, dataset, label):
         return False
 
 
-def _worker_command(dataset, method, root):
+def _worker_command(dataset, method, root, seed):
     return [
         sys.executable, str(Path(__file__).resolve()), "worker",
         "--dataset", dataset,
         "--method", method,
+        "--seed", str(seed),
         "--assets", str(root / dataset),
         "--storage", str(root / "storage" / dataset / method),
         "--gpus", *map(str, GPU_SPLITS[dataset]),
@@ -96,9 +97,10 @@ def _run_command(command):
 
 
 def _run_pair(method, root):
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        futures = [pool.submit(_run_command, _worker_command(dataset, method, root))
-                   for dataset in GPU_SPLITS]
+    commands = [_worker_command(dataset, method, root, seed)
+                for dataset in GPU_SPLITS for seed in SEEDS]
+    with ThreadPoolExecutor(max_workers=len(commands)) as pool:
+        futures = [pool.submit(_run_command, command) for command in commands]
         for future in futures:
             future.result()
 
@@ -145,12 +147,12 @@ def _metrics():
 
 def _worker(args):
     module = _dataset_module(args.dataset)
-    sampler = module._sampler("codex", 0, EFFORT, TIMEOUT, MODEL)
+    sampler = module._sampler("codex", args.seed, EFFORT, TIMEOUT, MODEL)
     if sampler.anchor_proposals:
         raise SystemExit(f"{args.dataset} benchmark injects anchor proposals")
     module.ASSETS = Path(args.assets)
     module.STORAGE = Path(args.storage)
-    module.run(args.method, list(SEEDS), TRIALS, EPOCHS, WORKERS,
+    module.run(args.method, [args.seed], TRIALS, EPOCHS, WORKERS,
                args.gpus, EFFORT, TIMEOUT, MODEL)
 
 
@@ -160,6 +162,7 @@ def main():
     worker = sub.add_parser("worker")
     worker.add_argument("--dataset", required=True, choices=tuple(GPU_SPLITS))
     worker.add_argument("--method", required=True, choices=tuple(LABELS))
+    worker.add_argument("--seed", type=int, required=True, choices=SEEDS)
     worker.add_argument("--assets", required=True)
     worker.add_argument("--storage", required=True)
     worker.add_argument("--gpus", type=int, nargs="+", required=True)

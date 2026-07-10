@@ -477,6 +477,8 @@ def test_verify_mnist_reward_safe_label():
 
 def test_verify_classification_reward_contract():
     from scripts import verify_classification_reward as verify
+    import threading
+    from types import SimpleNamespace
 
     assert verify.TRIALS == 10
     assert verify.SEEDS == (0, 1, 2, 3, 4)
@@ -484,6 +486,40 @@ def test_verify_classification_reward_contract():
     assert verify.EFFORT == "medium"
     assert verify._reward_curve([3.0, 4.0, 2.0]) == [3.0, 3.0, 2.0]
     assert verify._dataset_module("mnist").__name__ == "examples.mnist"
+    commands = [verify._worker_command(dataset, "codex", verify.GPT_CURRENT, seed)
+                for dataset in verify.GPU_SPLITS for seed in verify.SEEDS]
+    assert len(commands) == 10
+    assert {(cmd[cmd.index("--dataset") + 1], int(cmd[cmd.index("--seed") + 1]))
+            for cmd in commands} == {(dataset, seed) for dataset in verify.GPU_SPLITS
+                                      for seed in verify.SEEDS}
+    for cmd in commands:
+        dataset = cmd[cmd.index("--dataset") + 1]
+        assert cmd[cmd.index("--gpus") + 1:] == list(map(str, verify.GPU_SPLITS[dataset]))
+
+    barrier = threading.Barrier(len(commands), timeout=5)
+    calls = []
+    old_run_command = verify._run_command
+    verify._run_command = lambda command: (calls.append(command), barrier.wait())
+    try:
+        verify._run_pair("codex", verify.GPT_CURRENT)
+    finally:
+        verify._run_command = old_run_command
+    assert len(calls) == len(commands)
+
+    seen = {}
+
+    class FakeModule:
+        _sampler = staticmethod(lambda *args: SimpleNamespace(anchor_proposals=[]))
+        run = staticmethod(lambda method, seeds, *args: seen.update(method=method, seeds=seeds))
+
+    old_dataset_module = verify._dataset_module
+    verify._dataset_module = lambda dataset: FakeModule
+    try:
+        verify._worker(SimpleNamespace(dataset="mnist", method="codex", seed=3,
+                                       assets="/tmp/assets", storage="/tmp/storage", gpus=[0]))
+    finally:
+        verify._dataset_module = old_dataset_module
+    assert seen == {"method": "codex", "seeds": [3]}
 
 
 def test_cifar10_helper_curves_and_labels():
