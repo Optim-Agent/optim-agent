@@ -24,7 +24,7 @@ WORKERS = 4
 EFFORT = "medium"
 MODEL = "gpt-5.5"
 TIMEOUT = 600
-GPU_SPLITS = {"mnist": (0, 1, 2, 3), "cifar10": (4, 5, 6, 7)}
+GPU_SPLITS = {"mnist": tuple(range(8)), "cifar10": tuple(range(8))}
 LABELS = {"Random": "Random", "TPE": "TPE", "codex": "GPT-5.5-medium"}
 
 
@@ -75,6 +75,9 @@ def _complete(root, dataset, label):
 
 
 def _worker_command(dataset, method, root, seed):
+    gpus = GPU_SPLITS[dataset]
+    offset = seed * (WORKERS - 1) % len(gpus)
+    gpus = gpus[offset:] + gpus[:offset]
     return [
         sys.executable, str(Path(__file__).resolve()), "worker",
         "--dataset", dataset,
@@ -82,7 +85,7 @@ def _worker_command(dataset, method, root, seed):
         "--seed", str(seed),
         "--assets", str(root / dataset),
         "--storage", str(root / "storage" / dataset / method),
-        "--gpus", *map(str, GPU_SPLITS[dataset]),
+        "--gpus", *map(str, gpus),
     ]
 
 

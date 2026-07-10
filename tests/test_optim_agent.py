@@ -492,9 +492,14 @@ def test_verify_classification_reward_contract():
     assert {(cmd[cmd.index("--dataset") + 1], int(cmd[cmd.index("--seed") + 1]))
             for cmd in commands} == {(dataset, seed) for dataset in verify.GPU_SPLITS
                                       for seed in verify.SEEDS}
+    assert all(gpus == tuple(range(8)) for gpus in verify.GPU_SPLITS.values())
     for cmd in commands:
         dataset = cmd[cmd.index("--dataset") + 1]
-        assert cmd[cmd.index("--gpus") + 1:] == list(map(str, verify.GPU_SPLITS[dataset]))
+        seed = int(cmd[cmd.index("--seed") + 1])
+        gpus = verify.GPU_SPLITS[dataset]
+        offset = seed * (verify.WORKERS - 1) % len(gpus)
+        expected = gpus[offset:] + gpus[:offset]
+        assert cmd[cmd.index("--gpus") + 1:] == list(map(str, expected))
 
     barrier = threading.Barrier(len(commands), timeout=5)
     calls = []
