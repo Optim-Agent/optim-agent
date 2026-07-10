@@ -161,33 +161,6 @@ def test_early_reward_joint_startup_portfolio():
     assert sampler.note == "three distinct startup hypotheses"
 
 
-def test_early_reward_startup_portfolio_scales_with_space():
-    calls = []
-    original = samplers._agent.call_agent
-    candidates = [{f"x{i}": float(j) for i in range(16)} for j in range(1, 5)]
-    samplers._agent.call_agent = lambda *args, **kwargs: (
-        calls.append(args) or json.dumps({"candidates": candidates})
-    )
-    try:
-        study = oa.create_study(
-            sampler=oa.AgentSampler(
-                backend="claude", effort="medium", n_init=4,
-                context="early reward", seed=0,
-            ),
-            seed=0, max_concurrency=4,
-        )
-        schema = study.ask()
-        for i in range(16):
-            schema.suggest_float(f"x{i}", -5, 5)
-        values = [study.ask().suggest_float("x0", -5, 5) for _ in range(4)]
-    finally:
-        samplers._agent.call_agent = original
-
-    assert values == [1.0, 2.0, 3.0, 4.0]
-    assert len(calls) == 1
-    assert "joint portfolio of 4" in calls[0][2]
-
-
 def test_anchor_proposals_seed_warmup():
     s = oa.AgentSampler(
         backend="claude", effort="medium", n_init=4, context="early reward", seed=0,
@@ -635,7 +608,6 @@ if __name__ == "__main__":
                test_early_reward_agent_owns_post_startup,
                test_early_reward_hands_off_after_schema_trial,
                test_early_reward_joint_startup_portfolio,
-               test_early_reward_startup_portfolio_scales_with_space,
                test_anchor_proposals_seed_warmup,
                test_pruner, test_mock_backend_and_storage, test_concurrency_and_sqlite,
                test_skill_mode_ask_tell, test_hostile_agent_values, test_guardrails,

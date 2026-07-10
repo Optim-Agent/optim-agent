@@ -1,6 +1,5 @@
 """Samplers. AgentSampler asks an LLM agent for the next point; effort trades tokens for depth."""
 
-import math
 import random
 import warnings
 
@@ -73,10 +72,7 @@ class AgentSampler:
         cfg = EFFORTS[self.effort]
         if (early_reward and not done and not self.anchor_proposals
                 and study.max_concurrency > 1):
-            portfolio_size = min(
-                study.max_concurrency,
-                max(3, math.isqrt(len(study.space) - 1) + 1),
-            )
+            portfolio_size = study.max_concurrency - len(study.trials)
             if portfolio_size > 1:
                 prompt = self._prompt(study, done, cfg, portfolio_size)
                 try:
