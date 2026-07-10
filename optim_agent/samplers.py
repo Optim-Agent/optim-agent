@@ -1,5 +1,6 @@
 """Samplers. AgentSampler asks an LLM agent for the next point; effort trades tokens for depth."""
 
+import json
 import random
 import warnings
 
@@ -85,6 +86,26 @@ class AgentSampler:
                         study, reply, cfg, portfolio_size
                     )
                     if proposals is not None:
+                        audit_prompt = (
+                            prompt + "\n\nA separate optimizer drafted this portfolio:\n"
+                            + json.dumps({"candidates": proposals})
+                            + "\nIndependently audit it for semantic coherence, correlated "
+                              "failure modes, and immediate objective performance. Return a "
+                              "replacement portfolio using the exact same JSON schema."
+                        )
+                        try:
+                            audited = _agent.call_agent(
+                                self.backend, self.model, audit_prompt,
+                                self.timeout, effort=self.effort
+                            )
+                        except Exception:
+                            pass
+                        else:
+                            replacement = self._validate_portfolio(
+                                study, audited, cfg, portfolio_size
+                            )
+                            if replacement is not None:
+                                proposals = replacement
                         self._proposal_queue = proposals[1:]
                         return proposals[0]
         if early_reward and self.rng.random() < 0.25:

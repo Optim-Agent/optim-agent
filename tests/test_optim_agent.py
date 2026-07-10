@@ -129,6 +129,11 @@ def test_early_reward_joint_startup_portfolio():
 
     def fake_call(*args, **kwargs):
         calls.append(args)
+        if len(calls) == 2:
+            return json.dumps({
+                "candidates": [{"x": 3.5}, {"x": 2.5}, {"x": 1.5}],
+                "_note": "audited startup hypotheses",
+            })
         return json.dumps({
             "candidates": [{"x": 1.0}, {"x": 2.0}, {"x": 3.0}],
             "_note": "three distinct startup hypotheses",
@@ -148,10 +153,11 @@ def test_early_reward_joint_startup_portfolio():
     finally:
         samplers._agent.call_agent = original
 
-    assert values == [1.0, 2.0, 3.0]
-    assert len(calls) == 1
+    assert values == [3.5, 2.5, 1.5]
+    assert len(calls) == 2
     assert "joint portfolio of 3" in calls[0][2]
-    assert sampler.note == "three distinct startup hypotheses"
+    assert "Independently audit" in calls[1][2]
+    assert sampler.note == "audited startup hypotheses"
 
 
 def test_anchor_proposals_seed_warmup():
