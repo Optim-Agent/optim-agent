@@ -118,6 +118,10 @@ class AgentSampler:
             lines += ["", f"What is being tuned: {self.context}"]
             if cfg["reasoning"]:
                 lines += ["", "Context-derived priors:",
+                          "- Prefer stable, plausible training settings before extreme exploration.",
+                          "- For neural nets, start from moderate learning rates, low-to-moderate "
+                          "regularization/dropout, enough width/depth, and augmentation only when "
+                          "history shows it helps.",
                           "- Treat parameter names and descriptions as semantic hints, not just tokens."]
                 if "early reward" in self.context.lower():
                     lines += ["- This run is scored by the sum of incumbent best errors, so early "
