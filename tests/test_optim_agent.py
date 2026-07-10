@@ -47,7 +47,7 @@ def test_agent_sampler(monkeypatch=None):
     finally:
         samplers._agent.call_agent = original
     assert calls, "agent was never consulted"
-    assert "Search space" in calls[0][0] and "Historical trials ranked best to worst:" in calls[0][0]
+    assert "Search space" in calls[0][0] and "History summary" in calls[0][0]
     assert "centers a parabola" in calls[0][0], "per-param context not shown to agent"
     assert "min near x=2" in calls[-1][0], "note not carried forward"
     assert calls[0][1] == "high", "effort not forwarded to the CLI call"
@@ -66,17 +66,14 @@ def test_agent_sampler(monkeypatch=None):
     }
     low_prompt = s._prompt(study, [t for t in study.trials if t.value is not None],
                            samplers.EFFORTS["low"])
-    assert "Historical trials ranked best to worst:" in low_prompt
-    assert "Rank 1: trial" in low_prompt
+    assert "History summary:" in low_prompt
     assert "Trial history (oldest first):" not in low_prompt
     medium_prompt = s._prompt(study, [t for t in study.trials if t.value is not None],
                               samplers.EFFORTS["medium"])
     assert 'Include a short "_reasoning" field' in medium_prompt
     assert 'Include a "_note" field' in medium_prompt
-    assert "Historical trials ranked best to worst:" in medium_prompt
-    assert "Promising trials:" not in medium_prompt
-    assert "Recent trials:" not in medium_prompt
-    assert "Failed or weak regions to avoid:" not in medium_prompt
+    assert "History summary:" in medium_prompt
+    assert "Promising trials:" in medium_prompt
     assert "Use the task context as priors when available" in medium_prompt
     s.context = "Full MNIST ResNet neural architecture search"
     context_prompt = s._prompt(study, [t for t in study.trials if t.value is not None],
