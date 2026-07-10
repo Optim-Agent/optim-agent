@@ -141,9 +141,7 @@ class AgentSampler:
             lines += ["Because the score rewards fast incumbent-best decrease, pick a "
                       "high-confidence configuration likely to improve the best value now."]
         if cfg["reasoning"]:
-            lines += ["Privately compare at least three materially different candidates, then "
-                      "return the one with the best risk-adjusted expected immediate improvement.",
-                      "Use the task context as priors when available: prefer choices that "
+            lines += ["Use the task context as priors when available: prefer choices that "
                       "make sense for the described setup unless the trial history clearly "
                       "contradicts them."]
         keys = ", ".join(f'"{n}": <value>' for n in names)
