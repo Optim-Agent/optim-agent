@@ -88,7 +88,10 @@ def test_agent_sampler(monkeypatch=None):
         samplers._agent.call_agent = original
 
 
-def test_early_reward_local_proposal():
+def test_early_reward_agent_owns_post_startup():
+    calls = []
+    original = samplers._agent.call_agent
+    samplers._agent.call_agent = lambda *args, **kwargs: calls.append(args) or '{"x": 1.5}'
     s = oa.AgentSampler(backend="claude", effort="medium", n_init=1,
                         context="early reward", seed=0)
     s.rng.random = lambda: 0.0
@@ -97,9 +100,13 @@ def test_early_reward_local_proposal():
     first.suggest_float("x", -5, 5)
     study.tell(first, 0.0)
 
-    proposal = study.sampler.propose(study)
+    try:
+        proposal = study.sampler.propose(study)
+    finally:
+        samplers._agent.call_agent = original
 
-    assert -5 <= proposal["x"] <= 5
+    assert proposal == {"x": 1.5}
+    assert calls
 
 
 def test_early_reward_hands_off_after_schema_trial():
@@ -557,7 +564,7 @@ def test_cifar10_helper_curves_and_labels():
 
 if __name__ == "__main__":
     for fn in [test_random_study, test_extract_json, test_agent_sampler,
-               test_early_reward_local_proposal,
+               test_early_reward_agent_owns_post_startup,
                test_early_reward_hands_off_after_schema_trial,
                test_early_reward_joint_startup_portfolio,
                test_anchor_proposals_seed_warmup,

@@ -87,8 +87,6 @@ class AgentSampler:
                     if proposals is not None:
                         self._proposal_queue = proposals[1:]
                         return proposals[0]
-        if early_reward and self.rng.random() < 0.25:
-            return self._local_around_best(study)
         prompt = self._prompt(study, done, cfg)
         for attempt in range(2):
             try:
