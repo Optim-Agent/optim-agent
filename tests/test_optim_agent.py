@@ -137,8 +137,8 @@ def test_early_reward_joint_startup_portfolio():
     def fake_call(*args, **kwargs):
         calls.append(args)
         return json.dumps({
-            "candidates": [{"x": 1.0}, {"x": 2.0}, {"x": 3.0}],
-            "_note": "three distinct startup hypotheses",
+            "candidates": [{"x": 1.0}, {"x": 2.0}, {"x": 3.0}, {"x": 4.0}],
+            "_note": "four distinct startup hypotheses",
         })
 
     samplers._agent.call_agent = fake_call
@@ -151,14 +151,14 @@ def test_early_reward_joint_startup_portfolio():
         study = oa.create_study(sampler=sampler, seed=0, max_concurrency=4)
         schema = study.ask()
         schema.suggest_float("x", -5, 5)
-        values = [study.ask().suggest_float("x", -5, 5) for _ in range(3)]
+        values = [study.ask().suggest_float("x", -5, 5) for _ in range(4)]
     finally:
         samplers._agent.call_agent = original
 
-    assert values == [1.0, 2.0, 3.0]
+    assert values == [1.0, 2.0, 3.0, 4.0]
     assert len(calls) == 1
-    assert "joint portfolio of 3" in calls[0][2]
-    assert sampler.note == "three distinct startup hypotheses"
+    assert "joint portfolio of 4" in calls[0][2]
+    assert sampler.note == "four distinct startup hypotheses"
 
 
 def test_anchor_proposals_seed_warmup():
