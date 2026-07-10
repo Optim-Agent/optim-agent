@@ -40,11 +40,12 @@ priors such as ``large learning rates destabilize small batches'' while keeping
 runtime dependencies minimal. Across analytic functions, MNIST, CIFAR-10, and
 ablation studies, agent-guided sampling is strongest in the small-budget regime
 where classical methods have little data: GPT-5.5 and Opus-4.8 solve Branin and
-Ackley within ten trials; higher Codex reasoning effort improves CIFAR-10 from
-28.50\% to 26.50\% test error; and moderate agent pruning saves synthetic
-compute without sacrificing the optimum. The package requires no hosted service
-beyond the user's authenticated CLI, stores studies in JSON or SQLite, and is
-submitted with the scripts and logs needed to reproduce the reported experiments.
+Ackley within ten trials; under the legacy prompt ladder, higher Codex reasoning
+effort improves CIFAR-10 from 28.50\% to 26.50\% test error; and moderate agent
+pruning saves synthetic compute without sacrificing the optimum. The package
+requires no hosted service beyond the user's authenticated CLI, stores studies
+in JSON or SQLite, and is submitted with the scripts and logs needed to
+reproduce the reported experiments.
 \end{abstract}
 
 \section{Introduction}
@@ -112,8 +113,8 @@ samplers and pruners through a familiar ask--tell study API;
 \item an effort abstraction that exposes bounded history, explicit reasoning,
 and persistent notes without requiring users to write prompts;
 \item a reproducible empirical study showing strong low-budget analytic results,
-a clear CIFAR-10 effort gain, a saturated MNIST regime, and a conservative
-pruning recommendation.
+a CIFAR-10 effort gain under the legacy ladder, a saturated MNIST regime, and a
+conservative pruning recommendation.
 \end{itemize}
 
 \section{Related Work}
@@ -540,8 +541,8 @@ random search and TPE receive only the typed distributions and observed values.
 \centering
 \includegraphics[width=.48\textwidth]{figures/cifar10_benchmarks.png}
 \includegraphics[width=.48\textwidth]{figures/abl_effort.png}
-\caption{Left: CIFAR-10 effort sweep. Right: legacy five-level analytic effort
-ablation.}
+\caption{Legacy effort experiments. Left: CIFAR-10 sweep. Right: five-level
+analytic ablation.}
 \label{fig:cifar-effort}
 \end{figure*}
 
@@ -558,8 +559,8 @@ GPT-5.5 medium & 0.62\% & 27.10\% \\
 GPT-5.5 xhigh (legacy) & 0.60\% & \textbf{26.50\%} \\
 \bottomrule
 \end{tabular}
-\caption{Mean best test error over three seeds. MNIST is saturated at this
-budget; the retained xhigh row uses the legacy effort ladder.}
+\caption{Mean best test error over three seeds. All GPT-5.5 rows use the legacy
+effort ladder; MNIST is saturated at this budget.}
 \label{tab:vision}
 \end{table}
 
@@ -576,8 +577,8 @@ GPT-5.5 medium & 27.10 & 2.25 \\
 GPT-5.5 xhigh (legacy) & \textbf{26.50} & \textbf{0.32} \\
 \bottomrule
 \end{tabular}
-\caption{CIFAR-10 best test error dispersion across three seeds; xhigh is a
-legacy effort label.}
+\caption{CIFAR-10 best test error dispersion across three seeds. All GPT-5.5
+rows use the legacy effort ladder.}
 \label{tab:cifar-std}
 \end{table}
 
@@ -601,9 +602,9 @@ Using Random as $B$ on CIFAR-10, legacy GPT-5.5-xhigh obtains
 $\Delta\approx(28.06-26.50)/28.06=5.6\%$. Using TPE as $B$, the improvement is
 approximately $5.8\%$. These are modest absolute gains, but they are achieved
 with only 12 trials and no task-specific code changes. The MNIST values do not
-support the same conclusion: TPE and GPT-5.5-low tie at 0.59\%, legacy xhigh is
-0.60\%, and random is 0.66\%. We therefore treat MNIST as a sanity check for
-API functionality and CIFAR-10 as the primary vision evidence.
+support the same conclusion: TPE and legacy GPT-5.5-low tie at 0.59\%, legacy
+xhigh is 0.60\%, and random is 0.66\%. We therefore treat MNIST as a sanity
+check for API functionality and CIFAR-10 as the primary vision evidence.
 
 \subsection{Ablations}
 
@@ -655,8 +656,8 @@ Agent HPO is most compelling when three conditions hold. First, each objective
 evaluation is expensive enough that one agent call is cheap by comparison.
 Second, the search budget is small enough that classical surrogates are still
 data-starved. Third, the knobs have semantics that can be described in language.
-The analytic results isolate the small-budget effect; the CIFAR-10 sweep shows
-the semantic and reasoning-effort effect on a real training task.
+The analytic results isolate the small-budget effect; the legacy CIFAR-10 sweep
+shows a semantic and reasoning-effort effect on a real training task.
 
 The package deliberately avoids hiding failures. Invalid JSON, out-of-range
 values, backend timeouts, and pruner errors fall back to conservative behavior.
@@ -708,7 +709,9 @@ serving versions may change. We reduce this threat by logging every trial,
 including the chosen parameters, seed, effort level, and final value. The study
 also uses deterministic validation after the agent response, so invalid outputs
 cannot silently create a different search space. However, the package cannot
-guarantee that a future hosted model will make identical suggestions.
+guarantee that a future hosted model will make identical suggestions. The
+reported effort sweeps also predate the current three-level prompt ladder, so we
+retain their legacy labels rather than treating them as current-prompt ablations.
 
 \textbf{Construct validity.} The reported score is mean best value under a
 small budget, not final model quality after exhaustive tuning. This is the
@@ -806,5 +809,160 @@ way to test that claim in their own objectives without abandoning familiar HPO
 interfaces.
 
 \bibliography{optim-agent}
+
+\appendix
+\setcounter{secnumdepth}{2}
+\section{Prompt Templates}
+\label{app:prompts}
+
+The package supplies each backend CLI with one flat prompt string. Bracketed
+text below marks runtime substitutions, repeated rows, or conditional blocks;
+these annotations are not sent to the backend. Line breaks within sentences
+are for typesetting only.
+
+\subsection{AgentSampler Prompt}
+
+When it queries a backend CLI after warmup, the sampler uses the following
+parametric template:
+
+\begin{scriptsize}
+\begin{verbatim}
+You are an expert hyperparameter-optimization
+engine. Think both qualitatively (what the trend
+and the meaning of each parameter suggest) and
+quantitatively (the numbers in the history) before
+choosing the next point.
+
+Goal: [DIRECTION] the objective value.
+
+[If study context is present:]
+What is being tuned: [STUDY CONTEXT]
+
+[If context is present and reasoning is enabled:]
+Context-derived priors:
+- Prefer stable, plausible training settings before
+  extreme exploration.
+- For neural nets, start from moderate learning
+  rates, low-to-moderate regularization/dropout,
+  enough width/depth, and augmentation only when
+  history shows it helps.
+- Treat parameter names and descriptions as
+  semantic hints, not just tokens.
+[If context contains "early reward":]
+- This run is scored by the sum of incumbent best
+  errors, so early reliable improvements beat risky
+  late exploration.
+
+Search space:
+- [NAME]: [TYPE, BOUNDS OR CHOICES, LOG SCALE,
+  CONTEXT]
+[Repeated for every active parameter.]
+
+History summary:
+[If a completed best trial exists:]
+- Best trial: #[NUMBER] value=[VALUE]
+  params=[PARAMS]
+- Promising trials:
+  - #[NUMBER]: value=[VALUE], params=[PARAMS]
+  [Up to five, best first, from the effort window.]
+- Recent trials:
+  - #[NUMBER]: value=[VALUE], params=[PARAMS]
+  [Up to five, oldest first.]
+- Failed or weak regions to avoid:
+  - #[NUMBER]: value=[VALUE], params=[PARAMS]
+  [Up to three weak trials.]
+
+[If a completed best trial exists:]
+Best so far: trial [NUMBER], value=[VALUE],
+params=[PARAMS]
+
+[If notes are enabled and a prior note exists:]
+Your notes from previous trials: [NOTE]
+
+Propose the next point to evaluate. Balance
+exploration of unvisited regions against exploitation
+around promising ones; never repeat an
+already-evaluated point exactly.
+[If context contains "early reward":]
+Because the score rewards fast incumbent-best
+decrease, pick a high-confidence configuration likely
+to improve the best value now.
+[If reasoning is enabled:]
+Use the task context as priors when available: prefer
+choices that make sense for the described setup unless
+the trial history clearly contradicts them.
+Reply with ONLY a JSON object:
+{"[NAME]": <value>, ...}.
+[If reasoning is enabled:]
+Include a short "_reasoning" field explaining your
+choice.
+[If notes are enabled:]
+Include a "_note" field: observations about the
+landscape worth carrying forward to the next trial
+(it will be shown back to you).
+\end{verbatim}
+\end{scriptsize}
+
+The effort setting activates the conditional blocks as follows:
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+Effort & Window & Reason & Notes \\
+\midrule
+low & 5 & no & no \\
+medium & 10 & yes & yes \\
+high & 20 & yes & yes \\
+\bottomrule
+\end{tabular}
+\end{center}
+The history pool contains the last 5, 10, or 20 completed/pruned trials with
+values; the completed incumbent is prepended if it falls outside that window.
+Despite the literal ``Failed or weak'' heading, failed trials are not eligible
+for the summary in the current implementation.
+
+After the first invalid response, the sampler appends this corrective suffix:
+
+\begin{scriptsize}
+\begin{verbatim}
+Your previous reply could not be parsed into valid
+parameters. Reply again with ONLY the JSON object,
+values inside the stated ranges.
+\end{verbatim}
+\end{scriptsize}
+
+A second invalid response triggers random fallback.
+
+\subsection{AgentPruner Prompt}
+
+After the level-specific warmup and interval gates, the pruner uses:
+
+\begin{scriptsize}
+\begin{verbatim}
+You are deciding whether to stop (prune) an
+in-progress hyperparameter trial early. Goal:
+[DIRECTION] the objective.
+
+Intermediate curves of the best completed trials
+(step, value):
+- trial [NUMBER] (final [VALUE]):
+  [INTERMEDIATE CURVE]
+[Up to five completed trials, best first.]
+
+Current trial params: [PARAMS]
+Current trial curve so far: [INTERMEDIATE CURVE]
+
+[LEVEL STANCE]
+Reply with ONLY a JSON object: {"prune": true} or
+{"prune": false}.
+\end{verbatim}
+\end{scriptsize}
+
+The stance substituted for each level is:
+\begin{itemize}
+\item \emph{loose}: ``Only prune if the trial is almost certainly hopeless.''
+\item \emph{medium}: ``Prune when the trial is clearly underperforming past trials.''
+\item \emph{tight}: ``Prune aggressively at the first solid sign of underperformance.''
+\end{itemize}
+The pruner keeps the trial if the response is invalid or the backend call fails.
 
 \end{document}
