@@ -14,7 +14,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent.parent
-RUN_ROOT = ROOT / "autoresearch-results" / "classification-n10-s5"
+RUN_ROOT = ROOT / "autoresearch-results" / "classification-stagewise16-n10-s5"
 BASELINES = RUN_ROOT / "baselines"
 GPT_CURRENT = RUN_ROOT / "gpt-current"
 SEEDS = (0, 1, 2, 3, 4)
@@ -49,10 +49,12 @@ def _curve_path(root, dataset, label, seed):
 
 def _reward(root, dataset, label):
     rewards = []
+    expected_space_version = getattr(_dataset_module(dataset), "SPACE_VERSION", None)
     for seed in SEEDS:
         path = _curve_path(root, dataset, label, seed)
         data = json.loads(path.read_text())
-        if data["label"] != label or data["seed"] != seed or data["trials"] != TRIALS:
+        if (data["label"] != label or data["seed"] != seed or data["trials"] != TRIALS
+                or data.get("space_version") != expected_space_version):
             raise ValueError(f"incompatible curve metadata in {path}")
         records = data["records"]
         if len(records) != TRIALS:

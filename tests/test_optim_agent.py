@@ -482,6 +482,7 @@ def test_verify_classification_reward_contract():
 
     assert verify.TRIALS == 10
     assert verify.SEEDS == (0, 1, 2, 3, 4)
+    assert verify.RUN_ROOT.name == "classification-stagewise16-n10-s5"
     assert verify.MODEL == "gpt-5.5"
     assert verify.EFFORT == "medium"
     assert verify._reward_curve([3.0, 4.0, 2.0]) == [3.0, 3.0, 2.0]
@@ -526,6 +527,24 @@ def test_verify_classification_reward_contract():
         verify._dataset_module = old_dataset_module
     assert seen == {"method": "codex", "seeds": [3]}
 
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        label = "Random"
+        for seed in verify.SEEDS:
+            path = verify._curve_path(root, "cifar10", label, seed)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps({
+                "label": label, "seed": seed, "trials": verify.TRIALS,
+                "space_version": "old-space",
+                "records": [{"test_error": 1.0} for _ in range(verify.TRIALS)],
+            }))
+        assert not verify._complete(root, "cifar10", label)
+        for path in (root / "cifar10").glob("*.json"):
+            data = json.loads(path.read_text())
+            data["space_version"] = verify._dataset_module("cifar10").SPACE_VERSION
+            path.write_text(json.dumps(data))
+        assert verify._complete(root, "cifar10", label)
+
 
 def test_cifar10_helper_curves_and_labels():
     from examples import cifar10
@@ -546,12 +565,15 @@ def test_cifar10_helper_curves_and_labels():
     x, y = cifar10._tensor_dataset(fake).tensors
     assert tuple(x.shape) == (2, 3, 32, 32)
     assert y.tolist() == [1, 2]
-    assert cifar10.ResNet.make(16, 0.1, 1)(x).shape == (2, 10)
+    assert cifar10.ResNet.make(64, 128, 256, 1, 1, 1, 0.1, 0.1, 0.1, 0.1)(x).shape == (2, 10)
     assert cifar10.BATCHES == [64, 128]
-    assert cifar10.WIDTHS == [96, 128, 160]
-    assert cifar10.DEPTHS == [2, 3]
+    assert cifar10.STAGE1_WIDTHS == [64, 96, 128, 160]
+    assert cifar10.STAGE2_WIDTHS == [128, 192, 256, 320]
+    assert cifar10.STAGE3_WIDTHS == [256, 384, 512, 640]
+    assert cifar10.DEPTHS == [1, 2, 3]
     assert cifar10.CROP_PADS == [4, 6]
     assert cifar10.FLIP_PROBS == [0.5]
+    assert cifar10.SPACE_VERSION == "cifar10-stagewise-16-v1"
     seen = {}
 
     class Trial:
@@ -578,8 +600,11 @@ def test_cifar10_helper_curves_and_labels():
     finally:
         cifar10._train_once = old
     assert set(seen) == {
-        "lr", "batch_size", "dropout", "width", "weight_decay", "depth",
-        "label_smoothing", "aug_crop", "aug_flip",
+        "lr", "batch_size", "weight_decay", "label_smoothing",
+        "stage1_width", "stage2_width", "stage3_width",
+        "stage1_depth", "stage2_depth", "stage3_depth",
+        "stem_dropout", "stage1_dropout", "stage2_dropout", "head_dropout",
+        "aug_crop", "aug_flip",
     }
     contexts = []
 
