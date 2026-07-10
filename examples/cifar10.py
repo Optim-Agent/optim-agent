@@ -39,11 +39,11 @@ METHODS = {
     "claude": dict(backend="claude", model=None, color="#8b5cf6", style="solid"),
     "opencode": dict(backend="opencode", model=None, color="#16a34a", style=(0, (1, 1.5))),
 }
-BATCHES = [64, 128, 256, 512]
-WIDTHS = [16, 32, 64, 96, 128, 160]
-DEPTHS = [1, 2, 3]
-CROP_PADS = [0, 2, 4, 6]
-FLIP_PROBS = [0.0, 0.5]
+BATCHES = [64, 128]
+WIDTHS = [96, 128, 160]
+DEPTHS = [2, 3]
+CROP_PADS = [4, 6]
+FLIP_PROBS = [0.5]
 ANCHORS = [
     dict(lr=0.000299530947947567, batch_size=64, dropout=0.07886306595758924,
          width=128, weight_decay=8.405570532341082e-05, depth=3,
@@ -325,20 +325,20 @@ def _objective(epochs, seed, gpus, use_context=True):
         with lock:
             slot = next_slot
             next_slot += 1
-        lr = trial.suggest_float("lr", 1e-5, 5e-2, log=True,
+        lr = trial.suggest_float("lr", 1e-4, 8e-4, log=True,
                                  context=ctx("AdamW learning rate for CIFAR-10 ResNet"))
         batch_size = trial.suggest_categorical(
             "batch_size", BATCHES,
             context=ctx("mini-batch size; larger improves GPU use but may need a larger learning rate"),
         )
-        dropout = trial.suggest_float("dropout", 0.0, 0.7,
+        dropout = trial.suggest_float("dropout", 0.0, 0.15,
                                       context=ctx("dropout before the classifier head"))
         width = trial.suggest_categorical(
             "width", WIDTHS,
             context=ctx("base ResNet channel count; later stages use 2x and 4x this width"),
         )
         weight_decay = trial.suggest_float(
-            "weight_decay", 1e-6, 1e-2, log=True,
+            "weight_decay", 1e-5, 1e-3, log=True,
             context=ctx("AdamW weight decay regularization"),
         )
         depth = trial.suggest_categorical(
@@ -346,7 +346,7 @@ def _objective(epochs, seed, gpus, use_context=True):
             context=ctx("residual blocks per ResNet stage"),
         )
         label_smoothing = trial.suggest_float(
-            "label_smoothing", 0.0, 0.2,
+            "label_smoothing", 0.08, 0.16,
             context=ctx("cross-entropy label smoothing"),
         )
         aug_crop = trial.suggest_categorical(

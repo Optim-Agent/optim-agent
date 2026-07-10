@@ -446,9 +446,11 @@ def test_cifar10_helper_curves_and_labels():
     assert tuple(x.shape) == (2, 3, 32, 32)
     assert y.tolist() == [1, 2]
     assert cifar10.ResNet.make(16, 0.1, 1)(x).shape == (2, 10)
-    assert cifar10.WIDTHS[-1] == 160
-    assert cifar10.DEPTHS == [1, 2, 3]
-    assert cifar10.CROP_PADS == [0, 2, 4, 6]
+    assert cifar10.BATCHES == [64, 128]
+    assert cifar10.WIDTHS == [96, 128, 160]
+    assert cifar10.DEPTHS == [2, 3]
+    assert cifar10.CROP_PADS == [4, 6]
+    assert cifar10.FLIP_PROBS == [0.5]
     assert len(cifar10.ANCHORS) == 4
     assert set(cifar10.ANCHORS[0]) == {
         "lr", "batch_size", "dropout", "width", "weight_decay", "depth",
