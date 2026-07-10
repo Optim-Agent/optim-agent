@@ -151,6 +151,7 @@ def test_early_reward_joint_startup_portfolio():
     assert values == [1.0, 2.0, 3.0]
     assert len(calls) == 1
     assert "joint portfolio of 3" in calls[0][2]
+    assert "short-budget objective evaluation" in calls[0][2]
     assert sampler.note == "three distinct startup hypotheses"
 
 
