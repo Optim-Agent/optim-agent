@@ -110,22 +110,13 @@ class AgentSampler:
         best = study.best_trial
         if best is not None and best not in shown:
             shown = [best] + shown
-        lines += ["", "History summary:"]
-        if best is not None:
-            lines += [f"- Best trial: #{best.number} value={best.value:.6g} params={best.params}"]
         ranked = sorted(shown, key=lambda t: t.value,
                         reverse=(study.direction == "maximize"))
-        lines += ["- Promising trials:"]
-        for t in ranked[:5]:
-            lines += [f"  - #{t.number}: value={t.value:.6g}, params={t.params}"]
-        lines += ["- Recent trials:"]
-        for t in shown[-5:]:
-            lines += [f"  - #{t.number}: value={t.value:.6g}, params={t.params}"]
-        lines += ["- Failed or weak regions to avoid:"]
-        for t in ranked[-3:]:
-            lines += [f"  - #{t.number}: value={t.value:.6g}, params={t.params}"]
-        if best is not None:
-            lines += ["", f"Best so far: trial {best.number}, value={best.value:.6g}, params={best.params}"]
+        lines += ["", f"Historical trials ranked best to worst: {len(done)} completed."]
+        for rank, trial in enumerate(ranked, 1):
+            params = ", ".join(f"{name}={trial.params[name]!r}" for name in names)
+            lines += [f"- Rank {rank}: trial #{trial.number} achieved objective "
+                      f"{trial.value:.6g}. Parameters: {params}."]
         if cfg["notes"] and self.note:
             lines += ["", f"Your notes from previous trials: {self.note}"]
 
