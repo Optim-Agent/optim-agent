@@ -49,8 +49,13 @@ class AgentSampler:
 
     def propose(self, study) -> dict:
         done = [t for t in study.trials if t.state in ("complete", "pruned") and t.value is not None]
-        if len([t for t in done if t.state == "complete"]) < self.n_init or not study.space:
-            if self.context and "early reward" in self.context.lower():
+        early_reward = self.context and "early reward" in self.context.lower()
+        warmup_target = self.n_init if self.anchor_proposals or not early_reward else 1
+        warmup_count = len(study.trials) if early_reward else len(
+            [t for t in done if t.state == "complete"]
+        )
+        if warmup_count < warmup_target or not study.space:
+            if early_reward:
                 anchored = self._anchor_proposal(study)
                 if anchored:
                     return anchored
@@ -61,7 +66,7 @@ class AgentSampler:
             return {}
         if self.backend == "mock":
             return self._mock(study, done)
-        if self.context and "early reward" in self.context.lower() and self.rng.random() < 0.25:
+        if early_reward and self.rng.random() < 0.25:
             return self._local_around_best(study)
         cfg = EFFORTS[self.effort]
         prompt = self._prompt(study, done, cfg)
