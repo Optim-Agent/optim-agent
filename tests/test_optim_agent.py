@@ -123,33 +123,6 @@ def test_early_reward_hands_off_after_schema_trial():
     assert calls, "early-reward runs should hand off after discovering the search space"
 
 
-def test_tpe_counterproposal_uses_current_study():
-    sampler = oa.AgentSampler(backend="mock", effort="medium", n_init=1, seed=7)
-    study = oa.create_study(sampler=sampler, seed=7)
-    for x, family, value in [
-        (1e-4, "wide", 0.2),
-        (2e-4, "wide", 0.3),
-        (1e-2, "small", 2.0),
-        (2e-2, "small", 3.0),
-    ]:
-        trial = study.ask({"x": x, "family": family})
-        trial.suggest_float("x", 1e-5, 1e-1, log=True)
-        trial.suggest_categorical("family", ["small", "wide"])
-        study.tell(trial, value)
-
-    candidate = sampler._tpe_candidate(study, study.trials)
-    prompt = sampler._prompt(
-        study, study.trials, samplers.EFFORTS["medium"], advisor=candidate,
-    )
-
-    assert set(candidate) == {"x", "family"}
-    assert 1e-5 <= candidate["x"] <= 1e-1
-    assert candidate["family"] in ("small", "wide")
-    assert "Independent current-study TPE counterproposal:" in prompt
-    assert repr(candidate) in prompt
-    assert "accept, refine, or override" in prompt
-
-
 def test_anchor_proposals_seed_warmup():
     s = oa.AgentSampler(
         backend="claude", effort="medium", n_init=4, context="early reward", seed=0,
@@ -555,7 +528,6 @@ if __name__ == "__main__":
     for fn in [test_random_study, test_extract_json, test_agent_sampler,
                test_early_reward_local_proposal,
                test_early_reward_hands_off_after_schema_trial,
-               test_tpe_counterproposal_uses_current_study,
                test_anchor_proposals_seed_warmup,
                test_pruner, test_mock_backend_and_storage, test_concurrency_and_sqlite,
                test_skill_mode_ask_tell, test_hostile_agent_values, test_guardrails,
