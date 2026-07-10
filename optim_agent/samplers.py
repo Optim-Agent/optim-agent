@@ -44,10 +44,13 @@ class AgentSampler:
         self.context, self.n_init, self.timeout = context, n_init, timeout
         self.anchor_proposals = list(anchor_proposals or [])
         self._anchor_idx = 0
+        self._proposal_queue = []
         self.rng = random.Random(seed)
         self.note = None  # qualitative scratchpad, fed back at high effort
 
     def propose(self, study) -> dict:
+        if self._proposal_queue:
+            return self._proposal_queue.pop(0)
         done = [t for t in study.trials if t.state in ("complete", "pruned") and t.value is not None]
         early_reward = self.context and "early reward" in self.context.lower()
         warmup_target = self.n_init if self.anchor_proposals or not early_reward else 1
@@ -66,9 +69,26 @@ class AgentSampler:
             return {}
         if self.backend == "mock":
             return self._mock(study, done)
+        cfg = EFFORTS[self.effort]
+        if (early_reward and not done and not self.anchor_proposals
+                and study.max_concurrency > 1):
+            portfolio_size = study.max_concurrency - len(study.trials)
+            if portfolio_size > 1:
+                prompt = self._prompt(study, done, cfg, portfolio_size)
+                try:
+                    reply = _agent.call_agent(self.backend, self.model, prompt,
+                                              self.timeout, effort=self.effort)
+                except Exception as e:
+                    warnings.warn(f"agent call failed ({e}); trying one proposal")
+                else:
+                    proposals = self._validate_portfolio(
+                        study, reply, cfg, portfolio_size
+                    )
+                    if proposals is not None:
+                        self._proposal_queue = proposals[1:]
+                        return proposals[0]
         if early_reward and self.rng.random() < 0.25:
             return self._local_around_best(study)
-        cfg = EFFORTS[self.effort]
         prompt = self._prompt(study, done, cfg)
         for attempt in range(2):
             try:
@@ -87,7 +107,7 @@ class AgentSampler:
 
     # -- prompt construction ------------------------------------------------
 
-    def _prompt(self, study, done, cfg) -> str:
+    def _prompt(self, study, done, cfg, portfolio_size=1) -> str:
         names = list(study.space)
         lines = [
             "You are an expert hyperparameter-optimization engine. Think both "
@@ -134,9 +154,14 @@ class AgentSampler:
         if cfg["notes"] and self.note:
             lines += ["", f"Your notes from previous trials: {self.note}"]
 
-        lines += ["", "Propose the next point to evaluate. Balance exploration of unvisited "
-                      "regions against exploitation around promising ones; never repeat an "
-                      "already-evaluated point exactly."]
+        if portfolio_size > 1:
+            lines += ["", f"Propose a joint portfolio of {portfolio_size} complete, mutually "
+                          "distinct points. Design them together so they test different "
+                          "high-confidence hypotheses and avoid correlated failure modes."]
+        else:
+            lines += ["", "Propose the next point to evaluate. Balance exploration of unvisited "
+                          "regions against exploitation around promising ones; never repeat an "
+                          "already-evaluated point exactly."]
         if self.context and "early reward" in self.context.lower():
             lines += ["Because the score rewards fast incumbent-best decrease, pick a "
                       "high-confidence configuration likely to improve the best value now."]
@@ -145,7 +170,12 @@ class AgentSampler:
                       "make sense for the described setup unless the trial history clearly "
                       "contradicts them."]
         keys = ", ".join(f'"{n}": <value>' for n in names)
-        lines += [f'Reply with ONLY a JSON object: {{{keys}}}.']
+        if portfolio_size > 1:
+            candidate = "{" + keys + "}"
+            lines += [f'Reply with ONLY a JSON object: {{"candidates": '
+                      f'[{", ".join([candidate] * portfolio_size)}]}}.']
+        else:
+            lines += [f'Reply with ONLY a JSON object: {{{keys}}}.']
         if cfg["reasoning"]:
             lines += ['Include a short "_reasoning" field explaining your choice.']
         if cfg["notes"]:
@@ -168,6 +198,30 @@ class AgentSampler:
         except (ValueError, TypeError):
             return None
         return None
+
+    def _validate_portfolio(self, study, reply, cfg, size):
+        data = _agent.extract_json(reply)
+        candidates = data.get("candidates") if data else None
+        if not isinstance(candidates, list) or len(candidates) != size:
+            return None
+        used = [{n: t.params[n] for n in study.space if n in t.params}
+                for t in study.trials]
+        proposals = []
+        for candidate in candidates:
+            if not isinstance(candidate, dict) or not all(
+                    name in candidate for name in study.space):
+                return None
+            try:
+                proposal = {name: dist.validate(candidate[name])
+                            for name, dist in study.space.items()}
+            except (ValueError, TypeError):
+                return None
+            if proposal in used or proposal in proposals:
+                return None
+            proposals.append(proposal)
+        if cfg["notes"] and isinstance(data.get("_note"), str):
+            self.note = data["_note"][:2000]
+        return proposals
 
     def _mock(self, study, done) -> dict:
         # ponytail: offline stand-in — gaussian jitter around the best point, ~hill climbing.
