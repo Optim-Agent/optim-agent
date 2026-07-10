@@ -31,7 +31,7 @@ class AgentSampler:
     effort:  one of EFFORTS: "low", "medium", or "high"
     context: optional free-text description of what is being tuned, e.g.
              "learning rate and batch size of a CNN on MNIST"
-    n_init:  random warmup trials before the agent is consulted
+    n_init:  initial random trials to start before the agent is consulted
     """
 
     def __init__(self, backend="claude", model=None, effort="high", context=None,
@@ -49,7 +49,7 @@ class AgentSampler:
 
     def propose(self, study) -> dict:
         done = [t for t in study.trials if t.state in ("complete", "pruned") and t.value is not None]
-        if len([t for t in done if t.state == "complete"]) < self.n_init or not study.space:
+        if len(study.trials) < self.n_init or not study.space:
             if self.context and "early reward" in self.context.lower():
                 anchored = self._anchor_proposal(study)
                 if anchored:

@@ -102,6 +102,25 @@ def test_early_reward_local_proposal():
     assert -5 <= proposal["x"] <= 5
 
 
+def test_agent_warmup_counts_started_trials():
+    calls = []
+    original = samplers._agent.call_agent
+    samplers._agent.call_agent = lambda *args, **kwargs: calls.append(args) or '{"x": 2.0}'
+    try:
+        study = oa.create_study(
+            sampler=oa.AgentSampler(backend="claude", effort="medium", n_init=4, seed=0),
+            seed=0,
+        )
+        for _ in range(4):
+            trial = study.ask()
+            trial.suggest_float("x", -5, 5)
+        fifth = study.ask()
+        assert fifth.suggest_float("x", -5, 5) == 2.0
+    finally:
+        samplers._agent.call_agent = original
+    assert calls, "agent should propose immediately after four warmups have started"
+
+
 def test_anchor_proposals_seed_warmup():
     s = oa.AgentSampler(
         backend="claude", effort="medium", n_init=4, context="early reward", seed=0,
@@ -506,6 +525,7 @@ def test_cifar10_helper_curves_and_labels():
 if __name__ == "__main__":
     for fn in [test_random_study, test_extract_json, test_agent_sampler,
                test_early_reward_local_proposal,
+               test_agent_warmup_counts_started_trials,
                test_anchor_proposals_seed_warmup,
                test_pruner, test_mock_backend_and_storage, test_concurrency_and_sqlite,
                test_skill_mode_ask_tell, test_hostile_agent_values, test_guardrails,
