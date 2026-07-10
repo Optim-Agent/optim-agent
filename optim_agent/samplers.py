@@ -157,7 +157,9 @@ class AgentSampler:
         if portfolio_size > 1:
             lines += ["", f"Propose a joint portfolio of {portfolio_size} complete, mutually "
                           "distinct points. Design them together so they test different "
-                          "high-confidence hypotheses and avoid correlated failure modes."]
+                          "high-confidence hypotheses and avoid correlated failure modes. "
+                          "Return them ordered best-first by predicted objective: candidate 1 "
+                          "is the highest-confidence champion, followed by controlled alternatives."]
         else:
             lines += ["", "Propose the next point to evaluate. Balance exploration of unvisited "
                           "regions against exploitation around promising ones; never repeat an "
