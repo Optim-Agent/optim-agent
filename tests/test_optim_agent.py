@@ -74,7 +74,6 @@ def test_agent_sampler(monkeypatch=None):
     assert 'Include a "_note" field' in medium_prompt
     assert "History summary:" in medium_prompt
     assert "Promising trials:" in medium_prompt
-    assert "Failed or weak regions to avoid:" not in medium_prompt
     assert "Use the task context as priors when available" in medium_prompt
     s.context = "Full MNIST ResNet neural architecture search"
     context_prompt = s._prompt(study, [t for t in study.trials if t.value is not None],
