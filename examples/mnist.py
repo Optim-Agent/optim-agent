@@ -46,33 +46,6 @@ STAGE3_WIDTHS = [32, 64, 96, 128, 160, 192]
 DEPTHS = [1, 2, 3]
 SHIFTS = [0, 1, 2, 3]
 ROTATIONS = [0, 5, 10]
-ANCHORS = [
-    dict(lr=0.0008, batch_size=128, weight_decay=6e-5, label_smoothing=0.10,
-         stage1_width=16, stage2_width=128, stage3_width=160,
-         stage1_depth=3, stage2_depth=2, stage3_depth=2,
-         stem_dropout=0.08, stage1_dropout=0.24, stage2_dropout=0.15,
-         head_dropout=0.78, aug_shift=2, aug_rotate=0),
-    dict(lr=0.0096, batch_size=64, weight_decay=0.00032, label_smoothing=0.095,
-         stage1_width=24, stage2_width=32, stage3_width=64,
-         stage1_depth=1, stage2_depth=3, stage3_depth=2,
-         stem_dropout=0.10, stage1_dropout=0.065, stage2_dropout=0.22,
-         head_dropout=0.03, aug_shift=0, aug_rotate=10),
-    dict(lr=0.0015, batch_size=128, weight_decay=4e-6, label_smoothing=0.007,
-         stage1_width=24, stage2_width=96, stage3_width=192,
-         stage1_depth=3, stage2_depth=3, stage3_depth=1,
-         stem_dropout=0.11, stage1_dropout=0.24, stage2_dropout=0.19,
-         head_dropout=0.44, aug_shift=0, aug_rotate=5),
-    dict(lr=0.0042, batch_size=128, weight_decay=2e-6, label_smoothing=0.14,
-         stage1_width=8, stage2_width=128, stage3_width=96,
-         stage1_depth=2, stage2_depth=1, stage3_depth=2,
-         stem_dropout=0.22, stage1_dropout=0.27, stage2_dropout=0.14,
-         head_dropout=0.18, aug_shift=2, aug_rotate=5),
-    dict(lr=0.0062, batch_size=128, weight_decay=4e-5, label_smoothing=0.018,
-         stage1_width=32, stage2_width=96, stage3_width=160,
-         stage1_depth=1, stage2_depth=3, stage3_depth=2,
-         stem_dropout=0.16, stage1_dropout=0.14, stage2_dropout=0.18,
-         head_dropout=0.34, aug_shift=2, aug_rotate=5),
-]
 PLOT_LABELS = ("Random", "TPE", "GPT-5.5-medium", "GPT-5.5-medium-no-context")
 PLOT_STYLES = {
     "GPT-5.5-medium": dict(style=(0, (4, 2))),
@@ -446,12 +419,10 @@ def _sampler(method, seed, effort, timeout, model):
         backend=preset["backend"], model=model or preset["model"], effort=effort,
         context=(None if preset.get("no_context") else
                  "Full MNIST neural architecture search with early reward: minimize the sum of "
-                 "incumbent best test errors over 24 trials. Prefer fast, reliable drops in test "
-                 "error over risky late exploration. Start near stable MNIST defaults: lr 0.0015-0.003, "
-                 "batch_size 128 or 256, weight_decay <= 1e-4, label_smoothing <= 0.05, dropout <= 0.2, "
-                 "stage widths at least 32/64/96, depths 1-2, aug_shift 1-2, aug_rotate 0-5."),
+                 "incumbent best test errors over 24 trials. Tune learning rate, batch size, weight "
+                 "decay, label smoothing, stage widths, stage depths, stage dropouts, translation "
+                 "and rotation augmentation."),
         n_init=4, timeout=timeout, seed=seed,
-        anchor_proposals=(None if preset.get("no_context") else ANCHORS),
     )
 
 

@@ -280,14 +280,6 @@ def test_mnist_helper_curves_and_labels():
     assert mnist.DEPTHS == [1, 2, 3]
     assert mnist.SHIFTS == [0, 1, 2, 3]
     assert mnist.ROTATIONS == [0, 5, 10]
-    assert len(mnist.ANCHORS) == 5
-    assert set(mnist.ANCHORS[0]) == {
-        "lr", "batch_size", "weight_decay", "label_smoothing",
-        "stage1_width", "stage2_width", "stage3_width",
-        "stage1_depth", "stage2_depth", "stage3_depth",
-        "stem_dropout", "stage1_dropout", "stage2_dropout", "head_dropout",
-        "aug_shift", "aug_rotate",
-    }
     seen = {}
 
     class Trial:
@@ -340,8 +332,6 @@ def test_mnist_helper_curves_and_labels():
         mnist._train_once = old
     assert contexts and all(c is None for c in contexts)
     assert mnist._sampler("codex-no-context", 0, "high", 1, None).context is None
-    assert mnist._sampler("codex", 0, "medium", 1, None).anchor_proposals == mnist.ANCHORS
-    assert mnist._sampler("codex-no-context", 0, "medium", 1, None).anchor_proposals == []
 
 
 def test_mnist_optuna_trial_adapter_ignores_context():
