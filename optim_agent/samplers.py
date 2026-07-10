@@ -1,6 +1,5 @@
 """Samplers. AgentSampler asks an LLM agent for the next point; effort trades tokens for depth."""
 
-import json
 import random
 import warnings
 
@@ -107,38 +106,26 @@ class AgentSampler:
         lines += ["", "Search space:"]
         lines += [f"- {n}: {d.describe()}" for n, d in study.space.items()]
 
-        ordered = sorted(done, key=lambda t: t.number)
-        incumbent = None
-        trajectory = {}
-        for trial in ordered:
-            previous = incumbent
-            if incumbent is None:
-                incumbent = trial.value
-            elif study.direction == "minimize":
-                incumbent = min(incumbent, trial.value)
-            else:
-                incumbent = max(incumbent, trial.value)
-            gain = None if previous is None else (
-                previous - incumbent if study.direction == "minimize"
-                else incumbent - previous
-            )
-            trajectory[trial.number] = (incumbent, gain)
-
-        shown = ordered[-(cfg["history"] or 400):]
+        shown = done[-(cfg["history"] or 400):]
         best = study.best_trial
-        if best is not None and all(t.number != best.number for t in shown):
-            shown = sorted([best] + shown, key=lambda t: t.number)
-        lines += ["", f"Observed trials (chronological): {len(done)} completed.",
-                  "| trial | objective | incumbent | improvement | parameters |",
-                  "|---:|---:|---:|---:|---|"]
-        for trial in shown:
-            current, gain = trajectory[trial.number]
-            improvement = "-" if gain is None else f"{gain:.6g}"
-            params = json.dumps(trial.params, sort_keys=True, separators=(",", ":"))
-            lines += [f"| {trial.number} | {trial.value:.6g} | {current:.6g} | "
-                      f"{improvement} | `{params}` |"]
+        if best is not None and best not in shown:
+            shown = [best] + shown
+        lines += ["", "History summary:"]
         if best is not None:
-            lines += ["", f"Current incumbent: trial {best.number}, objective={best.value:.6g}."]
+            lines += [f"- Best trial: #{best.number} value={best.value:.6g} params={best.params}"]
+        ranked = sorted(shown, key=lambda t: t.value,
+                        reverse=(study.direction == "maximize"))
+        lines += ["- Promising trials:"]
+        for t in ranked[:5]:
+            lines += [f"  - #{t.number}: value={t.value:.6g}, params={t.params}"]
+        lines += ["- Recent trials:"]
+        for t in shown[-5:]:
+            lines += [f"  - #{t.number}: value={t.value:.6g}, params={t.params}"]
+        lines += ["- Failed or weak regions to avoid:"]
+        for t in ranked[-3:]:
+            lines += [f"  - #{t.number}: value={t.value:.6g}, params={t.params}"]
+        if best is not None:
+            lines += ["", f"Best so far: trial {best.number}, value={best.value:.6g}, params={best.params}"]
         if cfg["notes"] and self.note:
             lines += ["", f"Your notes from previous trials: {self.note}"]
 
