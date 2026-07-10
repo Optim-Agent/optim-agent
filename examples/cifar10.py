@@ -44,20 +44,6 @@ WIDTHS = [96, 128, 160]
 DEPTHS = [2, 3]
 CROP_PADS = [4, 6]
 FLIP_PROBS = [0.5]
-ANCHORS = [
-    dict(lr=0.000299530947947567, batch_size=64, dropout=0.07886306595758924,
-         width=128, weight_decay=8.405570532341082e-05, depth=3,
-         label_smoothing=0.14324021994790512, aug_crop=6, aug_flip=0.5),
-    dict(lr=0.0002785634644805754, batch_size=128, dropout=0.03444707428300367,
-         width=128, weight_decay=1.3416876896430379e-05, depth=2,
-         label_smoothing=0.13219543744094198, aug_crop=4, aug_flip=0.5),
-    dict(lr=0.0005010513172177683, batch_size=128, dropout=0.35306855461914355,
-         width=64, weight_decay=0.004309740331807605, depth=3,
-         label_smoothing=0.06454945041051596, aug_crop=2, aug_flip=0.5),
-    dict(lr=0.00011376753110665381, batch_size=64, dropout=0.08194578229264084,
-         width=64, weight_decay=0.0005674161901151127, depth=2,
-         label_smoothing=0.14836031321998966, aug_crop=6, aug_flip=0.5),
-]
 PLOT_LABELS = ("Random", "TPE", "GPT-5.5-medium", "GPT-5.5-medium-no-context")
 PLOT_STYLES = {
     "GPT-5.5-medium": dict(style=(0, (4, 2))),
@@ -384,7 +370,6 @@ def _sampler(method, seed, effort, timeout, model):
                  "best test errors over 12 trials. Tune learning rate, batch size, dropout, width, "
                  "weight decay, depth, label smoothing, crop padding and flip probability."),
         n_init=4, timeout=timeout, seed=seed,
-        anchor_proposals=(None if preset.get("no_context") else ANCHORS),
     )
 
 

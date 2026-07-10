@@ -451,11 +451,6 @@ def test_cifar10_helper_curves_and_labels():
     assert cifar10.DEPTHS == [2, 3]
     assert cifar10.CROP_PADS == [4, 6]
     assert cifar10.FLIP_PROBS == [0.5]
-    assert len(cifar10.ANCHORS) == 4
-    assert set(cifar10.ANCHORS[0]) == {
-        "lr", "batch_size", "dropout", "width", "weight_decay", "depth",
-        "label_smoothing", "aug_crop", "aug_flip",
-    }
     seen = {}
 
     class Trial:
@@ -505,8 +500,6 @@ def test_cifar10_helper_curves_and_labels():
         cifar10._train_once = old
     assert contexts and all(c is None for c in contexts)
     assert cifar10._sampler("codex-no-context", 0, "medium", 1, None).context is None
-    assert cifar10._sampler("codex", 0, "medium", 1, None).anchor_proposals == cifar10.ANCHORS
-    assert cifar10._sampler("codex-no-context", 0, "medium", 1, None).anchor_proposals == []
 
 
 if __name__ == "__main__":
