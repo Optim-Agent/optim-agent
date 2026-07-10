@@ -19,6 +19,7 @@ OUTPUT = ROOT / ".optim-agent-runs" / "cifar10-verify" / "assets"
 STORAGE = ROOT / ".optim-agent-runs" / "cifar10-verify" / "storage"
 SEEDS = (0, 1, 2)
 TRIALS = 12
+MODEL = "gpt-5.5"
 
 
 def _safe(label):
@@ -57,7 +58,7 @@ def main():
     tpe_reward, tpe_seeds = _reward(REFERENCE, "TPE")
     cifar10.ASSETS = OUTPUT
     cifar10.STORAGE = STORAGE
-    cifar10.run("codex", list(SEEDS), TRIALS, 3, 8, list(range(8)), "medium", 600, None)
+    cifar10.run("codex", list(SEEDS), TRIALS, 3, 8, list(range(8)), "medium", 600, MODEL)
     gpt_reward, gpt_seeds = _reward(OUTPUT, "GPT-5.5-medium")
     baseline = min(random_reward, tpe_reward)
     print(json.dumps({
