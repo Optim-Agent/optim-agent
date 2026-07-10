@@ -205,6 +205,7 @@ class Study:
             self.trials.append(t)
 
     def optimize(self, objective, n_trials, catch=(), verbose=True):
+        self._target_trials = len(self.trials) + n_trials
         # ponytail: threads, not processes — the objective is an arbitrary (unpicklable)
         # closure whose heavy work (agent subprocess, model training) releases the GIL.
         # For true multi-process, run several processes against one SQLite `storage`.

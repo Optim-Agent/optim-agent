@@ -47,6 +47,8 @@ def test_agent_sampler(monkeypatch=None):
     finally:
         samplers._agent.call_agent = original
     assert calls, "agent was never consulted"
+    assert any("Evaluation budget: 5 total trials" in prompt and
+               "authoritative" in prompt for prompt, _ in calls)
     assert "Search space" in calls[0][0] and "History summary" in calls[0][0]
     assert "centers a parabola" in calls[0][0], "per-param context not shown to agent"
     assert "min near x=2" in calls[-1][0], "note not carried forward"
