@@ -102,19 +102,6 @@ def test_early_reward_local_proposal():
     assert -5 <= proposal["x"] <= 5
 
 
-def test_early_reward_tpe_branch_is_evaluated():
-    sampler = oa.AgentSampler(
-        backend="claude", effort="medium", n_init=1, context="early reward", seed=0,
-    )
-    sampler.rng.random = lambda: 0.0
-    sampler._tpe_candidate = lambda study, done: {"x": 2.0}
-    study = oa.create_study(sampler=sampler, seed=0)
-    running = study.ask()
-    running.suggest_float("x", -5, 5)
-
-    assert sampler.propose(study) == {"x": 2.0}
-
-
 def test_early_reward_hands_off_after_schema_trial():
     calls = []
     original = samplers._agent.call_agent
@@ -540,7 +527,6 @@ def test_cifar10_helper_curves_and_labels():
 if __name__ == "__main__":
     for fn in [test_random_study, test_extract_json, test_agent_sampler,
                test_early_reward_local_proposal,
-               test_early_reward_tpe_branch_is_evaluated,
                test_early_reward_hands_off_after_schema_trial,
                test_anchor_proposals_seed_warmup,
                test_pruner, test_mock_backend_and_storage, test_concurrency_and_sqlite,

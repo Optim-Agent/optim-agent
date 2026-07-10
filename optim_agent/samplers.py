@@ -42,7 +42,6 @@ class AgentSampler:
             raise ValueError(f"backend must be one of {_agent.BACKENDS + ('mock',)}")
         self.backend, self.model, self.effort = backend, model, effort
         self.context, self.n_init, self.timeout = context, n_init, timeout
-        self.seed = seed
         self.anchor_proposals = list(anchor_proposals or [])
         self._anchor_idx = 0
         self.rng = random.Random(seed)
@@ -68,7 +67,7 @@ class AgentSampler:
         if self.backend == "mock":
             return self._mock(study, done)
         if early_reward and self.rng.random() < 0.25:
-            return self._tpe_candidate(study, done) or self._local_around_best(study)
+            return self._local_around_best(study)
         cfg = EFFORTS[self.effort]
         prompt = self._prompt(study, done, cfg)
         for attempt in range(2):
@@ -155,35 +154,6 @@ class AgentSampler:
         return "\n".join(lines)
 
     # -- reply handling -----------------------------------------------------
-
-    def _tpe_candidate(self, study, done):
-        try:
-            import optuna
-        except ImportError:
-            return None
-        optuna.logging.set_verbosity(optuna.logging.WARNING)
-        distributions = {}
-        for name, dist in study.space.items():
-            if hasattr(dist, "choices"):
-                out = optuna.distributions.CategoricalDistribution(dist.choices)
-            elif type(dist).__name__ == "Int":
-                out = optuna.distributions.IntDistribution(dist.low, dist.high, log=dist.log)
-            else:
-                out = optuna.distributions.FloatDistribution(dist.low, dist.high, log=dist.log)
-            distributions[name] = out
-        base_seed = self.seed if isinstance(self.seed, int) else 0
-        sampler = optuna.samplers.TPESampler(
-            seed=(base_seed * 1009 + len(study.trials)) % (2 ** 32),
-            n_startup_trials=4,
-        )
-        shadow = optuna.create_study(direction=study.direction, sampler=sampler)
-        for trial in done:
-            if trial.state != "complete" or set(trial.params) != set(distributions):
-                continue
-            shadow.add_trial(optuna.trial.create_trial(
-                value=trial.value, params=trial.params, distributions=distributions,
-            ))
-        return shadow.ask(fixed_distributions=distributions).params
 
     def _validate_reply(self, study, reply, cfg):
         data = _agent.extract_json(reply)
