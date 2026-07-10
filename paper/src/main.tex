@@ -109,8 +109,8 @@ Our contributions are:
 \begin{itemize}
 \item a dependency-light HPO package where existing CLI agents act as validated
 samplers and pruners through a familiar ask--tell study API;
-\item an effort abstraction that exposes history length, explicit reasoning,
-persistent notes, and ranked candidates without requiring users to write prompts;
+\item an effort abstraction that exposes bounded history, explicit reasoning,
+and persistent notes without requiring users to write prompts;
 \item a reproducible empirical study showing strong low-budget analytic results,
 a clear CIFAR-10 effort gain, a saturated MNIST regime, and a conservative
 pruning recommendation.
@@ -197,11 +197,11 @@ executed configuration is therefore
 \end{equation}
 For a continuous interval $\mathcal{X}_j=[\ell_j,u_j]$,
 $V_j(z)=\min(u_j,\max(\ell_j,z))$. For a finite categorical set
-$\mathcal{X}_j=\{a_1,\ldots,a_m\}$, $V_j(z)=z$ if $z\in\mathcal{X}_j$ and falls
-back to a random valid category otherwise. If parsing fails completely, the
-whole vector is sampled from the package's random sampler. The final decision
-remains mechanical: the trial is evaluated only by $f$, and the study state is
-updated with the observed $y_{t+1}$.
+$\mathcal{X}_j=\{a_1,\ldots,a_m\}$, $V_j(z)=z$ only if
+$z\in\mathcal{X}_j$; an invalid category rejects the proposal. If parsing or
+validation fails twice, the whole vector is sampled from the package's random
+sampler. The final decision remains mechanical: the trial is evaluated only by
+$f$, and the study state is updated with the observed $y_{t+1}$.
 
 \textbf{Study API.} The package exposes \texttt{create\_study},
 \texttt{Trial.suggest\_*}, \texttt{Study.optimize}, and an ask--tell path for
@@ -226,36 +226,42 @@ important for expensive experiments because evaluation may happen in another
 process, on another device, or after a manual inspection step.
 
 \textbf{AgentSampler.} At each non-warmup trial, the sampler serializes the
-search space, parameter meanings, objective direction, and recent trial history.
-The agent is instructed to return only a JSON object containing candidate values.
-The package validates each value against the registered distribution, clamps
-numeric outliers, rejects invalid categoricals, and falls back to random sampling
-if the agent call fails. The prompt also includes completed, failed, and pruned
-trials separately so the agent can distinguish poor objective values from
-infrastructure failures. This makes the LLM advisory rather than trusted: the
-agent proposes, the package validates, and the objective decides.
+search space, parameter meanings, objective direction, and a summary drawn from
+a bounded window of completed and pruned trials that have objective values. The
+summary reports the incumbent, up to five promising trials, five recent trials,
+and three weak trials; failed trials are not included. The agent is instructed
+to return one JSON object containing every candidate value. The package extracts
+the final decodable object, validates each value against the registered
+distribution, clamps numeric outliers, and rejects an invalid categorical or a
+missing parameter. After one corrective retry, an invalid proposal falls back
+to random sampling. This makes the LLM advisory rather than trusted: the agent
+proposes, the package validates, and the objective decides.
 
 The sampler has three safeguards that are important in unattended experiments.
 First, each study begins with random warmup trials, which provide exploration
 and prevent the first agent call from being based on an empty table. Second,
-the response parser accepts only a single JSON object and ignores free-form
-analysis. Third, invalid output never terminates the study; it produces a
-random valid sample and records the failure in the trial metadata. These choices
-reduce apparent intelligence but make the optimizer robust enough to run inside
-ordinary training scripts.
+the response parser extracts the final decodable JSON object even if a backend
+wraps it in prose or a code fence. Third, invalid output never terminates the
+study: the sampler retries once and then returns a random valid configuration.
+These choices reduce apparent intelligence but make the optimizer robust enough
+to run inside ordinary training scripts.
 
 \textbf{Structured prompt contract.} For a distribution $\mathcal{X}_j$, the
 serialized schema contains the parameter name, type, bounds or choices, log-scale
-flag when relevant, and context sentence $c_j$. Trial history rows contain
-$(x_i,y_i,s_i)$ plus optional intermediate reports. The agent is asked for
+flag when relevant, and context sentence $c_j$. History entries contain trial
+number, parameters, and objective value; the sampler prompt does not serialize
+intermediate curves or failed-trial diagnostics. The agent is asked for
 \begin{equation}
   R_t = \{(j,\tilde{x}_{t+1,j})\}_{j=1}^{d},
 \end{equation}
-a JSON object with exactly one proposed value per active parameter. No natural
-language is required in $R_t$; reasoning, if enabled, happens before the final
-object. The parser discards any response that cannot be reduced to this object.
-Thus the external agent can be stochastic and verbose while the package exposes
-a deterministic sampler interface to the training code.
+a JSON object with one proposed value per active parameter and, when enabled,
+optional \texttt{\_reasoning} and \texttt{\_note} strings. The former is ignored
+after parsing; the latter is retained as a bounded qualitative scratchpad. Thus
+the external agent can be stochastic and verbose while the package exposes a
+validated sampler interface to the training code. Appendix~\ref{app:prompts}
+reproduces the exact parametric sampler and pruner templates. The package passes
+each template to the backend CLI as one flat prompt string rather than creating
+separate system and user messages.
 
 \begin{table}[t]
 \centering
@@ -297,35 +303,31 @@ bad prune & validation & keep trial \\
 
 \begin{table}[t]
 \centering
-\begin{tabular}{lcccc}
+\begin{tabular}{lccc}
 \toprule
-Effort & History & Reason & Notes & Candidates \\
+Effort & History window & Reason & Notes \\
 \midrule
-low & 5 & no & no & 1 \\
-medium & 15 & no & no & 1 \\
-high & all & yes & no & 1 \\
-xhigh & all & yes & yes & 1 \\
-max & all & yes & yes & 3 \\
+low & 5 & no & no \\
+medium & 10 & yes & yes \\
+high & 20 & yes & yes \\
 \bottomrule
 \end{tabular}
-\caption{AgentSampler effort levels. ``All'' history is capped in the implementation
-to avoid oversized prompts.}
+\caption{Current AgentSampler effort levels. Every level requests one candidate.}
 \label{tab:effort}
 \end{table}
 
-Let $h_e(t)$ be the history window used by effort level $e$ and let
-$r_e,n_e,k_e\in\{0,1,\ldots\}$ denote whether explicit reasoning, persistent
-notes, and multiple ranked candidates are enabled. Table~\ref{tab:effort}
-instantiates these controls. The prompt context can be written as
+Let $h_e\in\{5,10,20\}$ be the candidate-history window for effort $e$ and
+let $r_e,n_e\in\{0,1\}$ denote whether explicit reasoning and persistent notes
+are enabled. Table~\ref{tab:effort} instantiates these controls. If $H_{h_e}$
+forms the incumbent, promising, recent, and weak summaries from that window,
+the prompt context is
 \begin{equation}
   P_t^e = \left(\mathcal{X},\{c_j\}_{j=1}^{d},
-  \mathcal{D}_{\max(1,t-h_e(t)):t}, r_e, n_e, k_e \right).
+  H_{h_e}(\mathcal{D}_t),r_e,n_e\right).
 \end{equation}
-Low effort uses a short Markovian window; high and above use the full retained
-history up to an implementation cap. The \emph{max} setting asks for
-$k_e=3$ ranked candidates but still executes a single validated configuration,
-chosen as the agent's first valid recommendation. This keeps the study
-semantics identical across effort levels.
+All levels request one candidate. Medium and high share the same qualitative
+prompt blocks and backend reasoning flag; high differs by retaining twice as
+many candidate trials in the summary pool.
 
 \textbf{AgentPruner.} The optional pruner compares an in-progress learning
 curve with the best completed trials. Levels \emph{loose}, \emph{medium}, and
@@ -377,7 +379,7 @@ evaluation. It also prevents prompt-format brittleness from becoming an
 unreported source of early stopping.
 
 \textbf{Complexity.} For $T$ trials and history window $h_e$, prompt construction
-is $O(\min(t,h_e)d)$ at trial $t$ plus serialization of intermediate reports.
+is $O(\min(t,h_e)d)$ at trial $t$ plus ranking a constant-size bounded window.
 The package does not fit a surrogate model, so local computation is negligible
 relative to neural training. The dominant overhead is the external call to
 $\pi_\theta$. This makes the method inappropriate for microsecond objectives
@@ -538,7 +540,8 @@ random search and TPE receive only the typed distributions and observed values.
 \centering
 \includegraphics[width=.48\textwidth]{figures/cifar10_benchmarks.png}
 \includegraphics[width=.48\textwidth]{figures/abl_effort.png}
-\caption{Left: CIFAR-10 effort sweep. Right: analytic effort ablation.}
+\caption{Left: CIFAR-10 effort sweep. Right: legacy five-level analytic effort
+ablation.}
 \label{fig:cifar-effort}
 \end{figure*}
 
@@ -552,11 +555,11 @@ Random & 0.66\% & 28.06\% \\
 TPE & \textbf{0.59\%} & 28.14\% \\
 GPT-5.5 low & \textbf{0.59\%} & 28.50\% \\
 GPT-5.5 medium & 0.62\% & 27.10\% \\
-GPT-5.5 xhigh & 0.60\% & \textbf{26.50\%} \\
+GPT-5.5 xhigh (legacy) & 0.60\% & \textbf{26.50\%} \\
 \bottomrule
 \end{tabular}
 \caption{Mean best test error over three seeds. MNIST is saturated at this
-budget; CIFAR-10 rewards higher effort more clearly.}
+budget; the retained xhigh row uses the legacy effort ladder.}
 \label{tab:vision}
 \end{table}
 
@@ -570,10 +573,11 @@ Random & 28.06 & 2.09 \\
 TPE & 28.14 & 5.48 \\
 GPT-5.5 low & 28.50 & 1.12 \\
 GPT-5.5 medium & 27.10 & 2.25 \\
-GPT-5.5 xhigh & \textbf{26.50} & \textbf{0.32} \\
+GPT-5.5 xhigh (legacy) & \textbf{26.50} & \textbf{0.32} \\
 \bottomrule
 \end{tabular}
-\caption{CIFAR-10 best test error dispersion across three seeds.}
+\caption{CIFAR-10 best test error dispersion across three seeds; xhigh is a
+legacy effort label.}
 \label{tab:cifar-std}
 \end{table}
 
@@ -581,25 +585,25 @@ The MNIST task is nearly saturated: all methods reach roughly $0.6\%$ error
 within 12 trials, and differences are smaller than the variation one would
 expect from such a short study. This is a useful negative result: when the model
 and dataset are forgiving, random and TPE remain competitive. CIFAR-10 is more
-informative. The xhigh sampler improves mean best error to 26.50\%, ahead of
-medium at 27.10\%, random at 28.06\%, and TPE at 28.14\%. Its seed-to-seed
-spread is also smaller than the baselines (Table~\ref{tab:cifar-std}). This is
-the regime where qualitative priors over optimization and augmentation appear
-useful: high effort steers away from unstable large-learning-rate settings and
-toward moderate regularization/augmentation combinations.
+informative. The legacy xhigh sampler improves mean best error to 26.50\%, ahead
+of legacy medium at 27.10\%, random at 28.06\%, and TPE at 28.14\%. Its
+seed-to-seed spread is also smaller than the baselines
+(Table~\ref{tab:cifar-std}). This is the regime where qualitative priors over
+optimization and augmentation appear useful, although the legacy comparison
+does not directly ablate the current three-level prompts.
 
 For an error metric, the relative improvement of method $A$ over baseline $B$
 can be written as
 \begin{equation}
   \Delta(A,B)=\frac{\bar{B}_T(B)-\bar{B}_T(A)}{\bar{B}_T(B)} .
 \end{equation}
-Using Random as $B$ on CIFAR-10, GPT-5.5-xhigh obtains
+Using Random as $B$ on CIFAR-10, legacy GPT-5.5-xhigh obtains
 $\Delta\approx(28.06-26.50)/28.06=5.6\%$. Using TPE as $B$, the improvement is
 approximately $5.8\%$. These are modest absolute gains, but they are achieved
 with only 12 trials and no task-specific code changes. The MNIST values do not
-support the same conclusion: TPE and GPT-5.5-low tie at 0.59\%, xhigh is 0.60\%,
-and random is 0.66\%. We therefore treat MNIST as a sanity check for API
-functionality and CIFAR-10 as the primary vision evidence.
+support the same conclusion: TPE and GPT-5.5-low tie at 0.59\%, legacy xhigh is
+0.60\%, and random is 0.66\%. We therefore treat MNIST as a sanity check for
+API functionality and CIFAR-10 as the primary vision evidence.
 
 \subsection{Ablations}
 
@@ -611,17 +615,19 @@ tight pruning stops too aggressively.}
 \label{fig:prune}
 \end{figure}
 
-The effort ablation fixes the model to GPT-5.5/Codex and varies the sampler
-settings in Table~\ref{tab:effort}. We track
+The retained effort ablation predates the current three-level ladder in
+Table~\ref{tab:effort}: it varies the legacy low--max sampler settings while
+holding the model at GPT-5.5/Codex. We preserve the original labels rather than
+retroactively mapping them onto the current prompts. We track
 \begin{equation}
   B_t=\min_{1\le i\le t} y_i
 \end{equation}
 for each seed and plot the seed-mean curve. On Branin/Ackley, every effort
 reaches the optimum, indicating that the benchmark is too easy to separate
-reasoning depth once the agent sees a few trials. However, the CIFAR-10 sweep
-shows a monotone gain from low to xhigh. The interpretation is that effort is
-most useful when the search space has enough interacting semantics for the
-additional context to matter.
+reasoning depth once the agent sees a few trials. However, the legacy
+low-to-xhigh CIFAR-10 sweep is monotonic. This suggests that additional context
+can matter when the search space has interacting semantics, but a fresh
+three-level sweep is required to isolate the current prompting structure.
 
 The pruning ablation adds synthetic four-step learning curves to analytic
 function values so that a pruner has intermediate evidence. Loose and medium
