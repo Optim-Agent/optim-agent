@@ -127,9 +127,7 @@ class AgentSampler:
                           "- Treat parameter names and descriptions as semantic hints, not just tokens."]
                 if "early reward" in self.context.lower():
                     lines += ["- This run is scored by the sum of incumbent best errors, so early "
-                              "reliable improvements beat risky late exploration.",
-                              "- Treat each training run as a short-budget objective evaluation: "
-                              "favor settings that converge quickly, not ones that need long training."]
+                              "reliable improvements beat risky late exploration."]
         lines += ["", "Search space:"]
         lines += [f"- {n}: {d.describe()}" for n, d in study.space.items()]
 
