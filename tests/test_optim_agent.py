@@ -416,6 +416,17 @@ def test_verify_mnist_reward_safe_label():
     assert verify._safe("GPT-5.5 medium/no ctx") == "GPT-5.5-medium-no-ctx"
 
 
+def test_verify_classification_reward_contract():
+    from scripts import verify_classification_reward as verify
+
+    assert verify.TRIALS == 10
+    assert verify.SEEDS == (0, 1, 2, 3, 4)
+    assert verify.MODEL == "gpt-5.5"
+    assert verify.EFFORT == "medium"
+    assert verify._reward_curve([3.0, 4.0, 2.0]) == [3.0, 3.0, 2.0]
+    assert verify._dataset_module("mnist").__name__ == "examples.mnist"
+
+
 def test_cifar10_helper_curves_and_labels():
     from examples import cifar10
     import numpy as np
@@ -503,6 +514,7 @@ if __name__ == "__main__":
                test_mnist_trial_record_serializes_metrics,
                test_verify_mnist_prompting_scores_and_prunes,
                test_verify_mnist_reward_safe_label,
+               test_verify_classification_reward_contract,
                test_cifar10_helper_curves_and_labels]:
         fn()
         print(f"ok: {fn.__name__}")
