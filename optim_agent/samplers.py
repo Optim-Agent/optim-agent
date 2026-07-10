@@ -1,6 +1,7 @@
 """Samplers. AgentSampler asks an LLM agent for the next point; effort trades tokens for depth."""
 
 import random
+import statistics
 import warnings
 
 from . import agent as _agent
@@ -129,6 +130,22 @@ class AgentSampler:
         lines += ["- Failed or weak regions to avoid:"]
         for t in ranked[-3:]:
             lines += [f"  - #{t.number}: value={t.value:.6g}, params={t.params}"]
+        if len(ranked) >= 4:
+            elite = ranked[:max(2, len(ranked) // 3)]
+            lines += ["", "Current-study rank advisory:"]
+            for name, dist in study.space.items():
+                elite_values = [t.params[name] for t in elite if name in t.params]
+                all_values = [t.params[name] for t in ranked if name in t.params]
+                if not elite_values or not all_values:
+                    continue
+                if hasattr(dist, "choices"):
+                    mode = max(dist.choices, key=lambda v: elite_values.count(v))
+                    lines += [f"- {name}: elite mode={mode!r} "
+                              f"({elite_values.count(mode)}/{len(elite_values)} elite trials)"]
+                else:
+                    lines += [f"- {name}: elite median={statistics.median(elite_values):.6g}; "
+                              f"overall median={statistics.median(all_values):.6g}"]
+            lines += ["Treat this as noisy evidence from the current study, not a fixed rule."]
         if best is not None:
             lines += ["", f"Best so far: trial {best.number}, value={best.value:.6g}, params={best.params}"]
         if cfg["notes"] and self.note:
