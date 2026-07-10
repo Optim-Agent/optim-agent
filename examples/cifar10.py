@@ -34,6 +34,8 @@ METHODS = {
     "TPE": dict(backend="tpe", model=None, color="#111827", style=(0, (2, 2))),
     "mock": dict(backend="mock", model=None, color="#2563eb", style=(0, (4, 2))),
     "codex": dict(backend="codex", model=None, label="GPT-5.5", color="#10a37f", style=(0, (6, 2))),
+    "codex-no-context": dict(backend="codex", model=None, label="GPT-5.5", no_context=True,
+                             color="#f97316", style=(0, (1, 1.5))),
     "claude": dict(backend="claude", model=None, color="#8b5cf6", style="solid"),
     "opencode": dict(backend="opencode", model=None, color="#16a34a", style=(0, (1, 1.5))),
 }
@@ -42,11 +44,10 @@ WIDTHS = [16, 32, 64, 96, 128, 160]
 DEPTHS = [1, 2, 3]
 CROP_PADS = [0, 2, 4, 6]
 FLIP_PROBS = [0.0, 0.5]
-PLOT_LABELS = ("Random", "TPE", "GPT-5.5-low", "GPT-5.5-medium", "GPT-5.5-high")
+PLOT_LABELS = ("Random", "TPE", "GPT-5.5-medium", "GPT-5.5-medium-no-context")
 PLOT_STYLES = {
-    "GPT-5.5-low": dict(style=(0, (1, 1.5))),
     "GPT-5.5-medium": dict(style=(0, (4, 2))),
-    "GPT-5.5-high": dict(style=(0, (6, 2))),
+    "GPT-5.5-medium-no-context": dict(style=(0, (1, 1.5))),
 }
 
 
@@ -80,7 +81,10 @@ def _sanitize_label(label):
 
 def _run_label(method, effort):
     preset = METHODS[method]
-    return f"{preset.get('label', method)}-{effort}" if preset["backend"] not in (None, "tpe") else method
+    if preset["backend"] in (None, "tpe"):
+        return method
+    suffix = f"-{effort}" + ("-no-context" if preset.get("no_context") else "")
+    return f"{preset.get('label', method)}{suffix}"
 
 
 def _device_for_trial(number, gpus):
@@ -297,9 +301,10 @@ class _OptunaTrialAdapter:
         return self._trial.report(value, step)
 
 
-def _objective(epochs, seed, gpus):
+def _objective(epochs, seed, gpus, use_context=True):
     lock = threading.Lock()
     next_slot = 0
+    ctx = (lambda text: text if use_context else None)
 
     def objective(trial):
         nonlocal next_slot
@@ -307,36 +312,36 @@ def _objective(epochs, seed, gpus):
             slot = next_slot
             next_slot += 1
         lr = trial.suggest_float("lr", 1e-5, 5e-2, log=True,
-                                 context="AdamW learning rate for CIFAR-10 ResNet")
+                                 context=ctx("AdamW learning rate for CIFAR-10 ResNet"))
         batch_size = trial.suggest_categorical(
             "batch_size", BATCHES,
-            context="mini-batch size; larger improves GPU use but may need a larger learning rate",
+            context=ctx("mini-batch size; larger improves GPU use but may need a larger learning rate"),
         )
         dropout = trial.suggest_float("dropout", 0.0, 0.7,
-                                      context="dropout before the classifier head")
+                                      context=ctx("dropout before the classifier head"))
         width = trial.suggest_categorical(
             "width", WIDTHS,
-            context="base ResNet channel count; later stages use 2x and 4x this width",
+            context=ctx("base ResNet channel count; later stages use 2x and 4x this width"),
         )
         weight_decay = trial.suggest_float(
             "weight_decay", 1e-6, 1e-2, log=True,
-            context="AdamW weight decay regularization",
+            context=ctx("AdamW weight decay regularization"),
         )
         depth = trial.suggest_categorical(
             "depth", DEPTHS,
-            context="residual blocks per ResNet stage",
+            context=ctx("residual blocks per ResNet stage"),
         )
         label_smoothing = trial.suggest_float(
             "label_smoothing", 0.0, 0.2,
-            context="cross-entropy label smoothing",
+            context=ctx("cross-entropy label smoothing"),
         )
         aug_crop = trial.suggest_categorical(
             "aug_crop", CROP_PADS,
-            context="random-crop reflection padding in pixels; 0 disables crop augmentation",
+            context=ctx("random-crop reflection padding in pixels; 0 disables crop augmentation"),
         )
         aug_flip = trial.suggest_categorical(
             "aug_flip", FLIP_PROBS,
-            context="horizontal flip probability",
+            context=ctx("horizontal flip probability"),
         )
         device = _device_for_trial(slot, gpus)
         metrics = _train_once(dict(
@@ -360,7 +365,8 @@ def _sampler(method, seed, effort, timeout, model):
         raise ValueError("TPE runs through Optuna's study API, not optim-agent's sampler API")
     return oa.AgentSampler(
         backend=preset["backend"], model=model or preset["model"], effort=effort,
-        context=("Full CIFAR-10 ResNet validation error; tune learning rate, batch size, dropout, "
+        context=(None if preset.get("no_context") else
+                 "Full CIFAR-10 ResNet validation error; tune learning rate, batch size, dropout, "
                  "width, weight decay, depth, label smoothing, crop padding and flip probability."),
         n_init=4, timeout=timeout, seed=seed,
     )
@@ -417,7 +423,8 @@ def run(method, seeds, trials, epochs, workers, gpus, effort, timeout, model):
             print(f"== {method} seed {seed}: {before}/{trials} trials present, "
                   f"epochs={epochs}, workers={workers}, gpus={gpus or ['cpu']} ==")
             if before < trials:
-                study.optimize(_objective(epochs, seed, gpus), n_trials=trials - before)
+                study.optimize(_objective(epochs, seed, gpus, not METHODS[method].get("no_context")),
+                               n_trials=trials - before)
             records = []
             for t in study.trials:
                 metrics = getattr(t, "_cifar10_metrics", None) or {

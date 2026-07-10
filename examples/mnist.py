@@ -73,11 +73,10 @@ ANCHORS = [
          stem_dropout=0.16, stage1_dropout=0.14, stage2_dropout=0.18,
          head_dropout=0.34, aug_shift=2, aug_rotate=5),
 ]
-PLOT_LABELS = ("Random", "TPE", "GPT-5.5-low", "GPT-5.5-medium", "GPT-5.5-high")
+PLOT_LABELS = ("Random", "TPE", "GPT-5.5-medium", "GPT-5.5-medium-no-context")
 PLOT_STYLES = {
-    "GPT-5.5-low": dict(style=(0, (1, 1.5))),
     "GPT-5.5-medium": dict(style=(0, (4, 2))),
-    "GPT-5.5-high": dict(style=(0, (6, 2))),
+    "GPT-5.5-medium-no-context": dict(style=(0, (1, 1.5))),
 }
 
 

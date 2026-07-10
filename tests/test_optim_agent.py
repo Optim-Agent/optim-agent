@@ -260,8 +260,8 @@ def test_mnist_helper_curves_and_labels():
     assert mnist._run_label("Random", "high") == "Random"
     assert mnist._run_label("TPE", "high") == "TPE"
     assert "mock" not in mnist.PLOT_LABELS
-    assert mnist.PLOT_LABELS == ("Random", "TPE", "GPT-5.5-low", "GPT-5.5-medium", "GPT-5.5-high")
-    assert set(mnist.PLOT_STYLES) == {"GPT-5.5-low", "GPT-5.5-medium", "GPT-5.5-high"}
+    assert mnist.PLOT_LABELS == ("Random", "TPE", "GPT-5.5-medium", "GPT-5.5-medium-no-context")
+    assert set(mnist.PLOT_STYLES) == {"GPT-5.5-medium", "GPT-5.5-medium-no-context"}
     fake = type("FakeMNIST", (), {
         "data": np.zeros((2, 28, 28), dtype="uint8"),
         "targets": [1, 2],
@@ -428,9 +428,10 @@ def test_cifar10_helper_curves_and_labels():
 
     assert cifar10.DATA.name == "cifar10-kaggle"
     assert cifar10._run_label("codex", "medium") == "GPT-5.5-medium"
+    assert cifar10._run_label("codex-no-context", "medium") == "GPT-5.5-medium-no-context"
     assert cifar10._run_label("Random", "high") == "Random"
     assert cifar10._run_label("TPE", "high") == "TPE"
-    assert cifar10.PLOT_LABELS == ("Random", "TPE", "GPT-5.5-low", "GPT-5.5-medium", "GPT-5.5-high")
+    assert cifar10.PLOT_LABELS == ("Random", "TPE", "GPT-5.5-medium", "GPT-5.5-medium-no-context")
     assert cifar10._best_error_curve([{"test_error": 70.0}, {"test_error": 75.0},
                                       {"test_error": 60.0}]) == [70.0, 70.0, 60.0]
     fake = type("FakeCIFAR", (), {
@@ -473,6 +474,26 @@ def test_cifar10_helper_curves_and_labels():
         "lr", "batch_size", "dropout", "width", "weight_decay", "depth",
         "label_smoothing", "aug_crop", "aug_flip",
     }
+    contexts = []
+
+    class ContextTrial(Trial):
+        def suggest_float(self, name, low, high, *, log=False, context=None):
+            contexts.append(context)
+            return low
+
+        def suggest_categorical(self, name, choices, *, context=None):
+            contexts.append(context)
+            return choices[0]
+
+    cifar10._train_once = lambda params, device, epochs, seed: {
+        "test_error": 1.0, "test_acc": 99.0, "test_loss": 0.1, "history": [{"epoch": 1, "test_error": 1.0}],
+    }
+    try:
+        assert cifar10._objective(1, 0, [], use_context=False)(ContextTrial()) == 1.0
+    finally:
+        cifar10._train_once = old
+    assert contexts and all(c is None for c in contexts)
+    assert cifar10._sampler("codex-no-context", 0, "medium", 1, None).context is None
 
 
 if __name__ == "__main__":
