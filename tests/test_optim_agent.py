@@ -64,6 +64,10 @@ def test_agent_sampler(monkeypatch=None):
         "medium": dict(history=10, reasoning=True, notes=True),
         "high": dict(history=20, reasoning=True, notes=True),
     }
+    low_prompt = s._prompt(study, [t for t in study.trials if t.value is not None],
+                           samplers.EFFORTS["low"])
+    assert "History summary:" in low_prompt
+    assert "Trial history (oldest first):" not in low_prompt
     medium_prompt = s._prompt(study, [t for t in study.trials if t.value is not None],
                               samplers.EFFORTS["medium"])
     assert 'Include a short "_reasoning" field' in medium_prompt
