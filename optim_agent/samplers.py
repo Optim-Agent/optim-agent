@@ -126,13 +126,6 @@ class AgentSampler:
                 if "early reward" in self.context.lower():
                     lines += ["- This run is scored by the sum of incumbent best errors, so early "
                               "reliable improvements beat risky late exploration."]
-        target_trials = getattr(study, "_target_trials", None)
-        if target_trials is not None:
-            remaining = max(0, target_trials - len(study.trials))
-            lines += ["", f"Evaluation budget: {target_trials} total trials; {remaining} remain "
-                      "including this proposal.",
-                      "Treat this execution budget as authoritative if the task context mentions "
-                      "a different nominal trial count."]
         lines += ["", "Search space:"]
         lines += [f"- {n}: {d.describe()}" for n, d in study.space.items()]
 
