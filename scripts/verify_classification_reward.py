@@ -152,7 +152,7 @@ def _metrics():
 
 def _worker(args):
     module = _dataset_module(args.dataset)
-    sampler = module._sampler("codex", args.seed, EFFORT, TIMEOUT, MODEL)
+    sampler = module._sampler("codex", args.seed, EFFORT, TIMEOUT, MODEL, EPOCHS)
     if sampler.anchor_proposals:
         raise SystemExit(f"{args.dataset} benchmark injects anchor proposals")
     module.ASSETS = Path(args.assets)
