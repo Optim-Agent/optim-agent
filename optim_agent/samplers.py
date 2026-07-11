@@ -72,7 +72,7 @@ class AgentSampler:
         cfg = EFFORTS[self.effort]
         if (early_reward and not done and not self.anchor_proposals
                 and study.max_concurrency > 1):
-            portfolio_size = study.max_concurrency - len(study.trials)
+            portfolio_size = study.max_concurrency
             if portfolio_size > 1:
                 prompt = self._prompt(study, done, cfg, portfolio_size)
                 try:
