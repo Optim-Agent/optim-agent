@@ -165,7 +165,7 @@ def _plot_group(group, by_label, fname):
         ax.xaxis.set_major_locator(MaxNLocator(integer=True))  # trials are integers
         ax.legend(fontsize=8, ncol=2)
     fig.suptitle(f"GPT-5.5 medium context ablation vs. TPE & Random — lower is better, "
-                 f"mean of {nseed} seed(s)", fontsize=12)
+                 f"mean of {nseed} seeds", fontsize=12)
     fig.tight_layout()
     fig.savefig(ASSETS / fname, dpi=130)
     print(f"wrote {ASSETS / fname}")
