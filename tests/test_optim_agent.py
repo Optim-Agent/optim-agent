@@ -8,7 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import optim_agent as oa
-from optim_agent import agent, samplers
+from optim_agent import agent, samplers, space
 
 
 def quadratic(trial):
@@ -74,6 +74,7 @@ def test_agent_sampler(monkeypatch=None):
     assert 'Include a "_note" field' in medium_prompt
     assert "History summary:" in medium_prompt
     assert "Promising trials:" in medium_prompt
+    assert "Failed or weak regions to avoid:" not in medium_prompt
     assert "Use the task context as priors when available" in medium_prompt
     s.context = "Full MNIST ResNet neural architecture search"
     context_prompt = s._prompt(study, [t for t in study.trials if t.value is not None],
@@ -88,7 +89,10 @@ def test_agent_sampler(monkeypatch=None):
         samplers._agent.call_agent = original
 
 
-def test_early_reward_local_proposal():
+def test_early_reward_agent_owns_post_startup():
+    calls = []
+    original = samplers._agent.call_agent
+    samplers._agent.call_agent = lambda *args, **kwargs: calls.append(args) or '{"x": 1.5}'
     s = oa.AgentSampler(backend="claude", effort="medium", n_init=1,
                         context="early reward", seed=0)
     s.rng.random = lambda: 0.0
@@ -97,9 +101,96 @@ def test_early_reward_local_proposal():
     first.suggest_float("x", -5, 5)
     study.tell(first, 0.0)
 
-    proposal = study.sampler.propose(study)
+    try:
+        proposal = study.sampler.propose(study)
+    finally:
+        samplers._agent.call_agent = original
 
-    assert -5 <= proposal["x"] <= 5
+    assert proposal == {"x": 1.5}
+    assert calls
+
+
+def test_early_reward_hands_off_after_schema_trial():
+    calls = []
+    original = samplers._agent.call_agent
+    samplers._agent.call_agent = lambda *args, **kwargs: calls.append(args) or '{"x": 2.0}'
+    try:
+        study = oa.create_study(
+            sampler=oa.AgentSampler(
+                backend="claude", effort="medium", n_init=4,
+                context="early reward", seed=0,
+            ),
+            seed=0,
+        )
+        first = study.ask()
+        first.suggest_float("x", -5, 5)
+        second = study.ask()
+        assert second.suggest_float("x", -5, 5) == 2.0
+    finally:
+        samplers._agent.call_agent = original
+    assert calls, "early-reward runs should hand off after discovering the search space"
+
+
+def test_early_reward_uses_declared_space_on_first_trial():
+    calls = []
+    original = samplers._agent.call_agent
+
+    def fake_call(*args, **kwargs):
+        calls.append(args)
+        return json.dumps({
+            "candidates": [{"x": 1.0}, {"x": 2.0}, {"x": 3.0}, {"x": 4.0}],
+        })
+
+    samplers._agent.call_agent = fake_call
+    try:
+        sampler = oa.AgentSampler(
+            backend="claude", effort="medium", n_init=4,
+            context="early reward", seed=0,
+            initial_space={"x": space.Float(-5, 5, context="test parameter")},
+        )
+        study = oa.create_study(sampler=sampler, seed=0, max_concurrency=4)
+        first = study.ask()
+        value = first.suggest_float("x", -5, 5, context="test parameter")
+    finally:
+        samplers._agent.call_agent = original
+
+    assert value == 1.0
+    assert len(calls) == 1
+    assert "joint portfolio of 4" in calls[0][2]
+    assert "test parameter" in calls[0][2]
+
+
+def test_early_reward_joint_startup_portfolio():
+    calls = []
+    original = samplers._agent.call_agent
+
+    def fake_call(*args, **kwargs):
+        calls.append(args)
+        return json.dumps({
+            "candidates": [{"x": 1.0}, {"x": 2.0}, {"x": 3.0}, {"x": 4.0}],
+            "_note": "four distinct startup hypotheses",
+        })
+
+    samplers._agent.call_agent = fake_call
+    try:
+        sampler = oa.AgentSampler(
+            backend="claude", effort="medium", n_init=4,
+            context="early reward", seed=0,
+        )
+        sampler.rng.random = lambda: 1.0
+        study = oa.create_study(sampler=sampler, seed=0, max_concurrency=4)
+        schema = study.ask()
+        schema.suggest_float("x", -5, 5)
+        values = [study.ask().suggest_float("x", -5, 5) for _ in range(4)]
+    finally:
+        samplers._agent.call_agent = original
+
+    assert values == [1.0, 2.0, 3.0, 4.0]
+    assert len(calls) == 1
+    assert "joint portfolio of 4" in calls[0][2]
+    assert "candidate order is evaluation order" in calls[0][2]
+    assert "not a risky stress test" in calls[0][2]
+    assert sampler.note == "four distinct startup hypotheses"
 
 
 def test_anchor_proposals_seed_warmup():
@@ -331,6 +422,9 @@ def test_mnist_helper_curves_and_labels():
     finally:
         mnist._train_once = old
     assert contexts and all(c is None for c in contexts)
+    assert set(mnist._sampler("codex", 0, "medium", 1, None).initial_space) == set(seen)
+    mnist_context = mnist._sampler("codex", 0, "medium", 1, None).context
+    assert "trial budget" in mnist_context and "24 trials" not in mnist_context
     assert mnist._sampler("codex-no-context", 0, "high", 1, None).context is None
 
 
@@ -416,6 +510,101 @@ def test_verify_mnist_reward_safe_label():
     assert verify._safe("GPT-5.5 medium/no ctx") == "GPT-5.5-medium-no-ctx"
 
 
+def test_verify_classification_reward_contract():
+    from scripts import verify_classification_reward as verify
+    import threading
+    from types import SimpleNamespace
+
+    assert verify.TRIALS == 10
+    assert verify.SEEDS == (0, 1, 2, 3, 4)
+    assert verify.RUN_ROOT.name == "classification-stagewise16-v2-n10-s5"
+    assert verify.MODEL == "gpt-5.5"
+    assert verify.EFFORT == "medium"
+    assert verify.LABELS["codex-no-context"] == "GPT-5.5-medium-no-context"
+    assert verify.GPT_NO_CONTEXT.name == "gpt-no-context"
+    assert verify._reward_curve([3.0, 4.0, 2.0]) == [3.0, 3.0, 2.0]
+    assert verify._dataset_module("mnist").__name__ == "examples.mnist"
+    commands = [verify._worker_command(dataset, "codex", verify.GPT_CURRENT, seed)
+                for dataset in verify.GPU_SPLITS for seed in verify.SEEDS]
+    assert len(commands) == 10
+    assert {(cmd[cmd.index("--dataset") + 1], int(cmd[cmd.index("--seed") + 1]))
+            for cmd in commands} == {(dataset, seed) for dataset in verify.GPU_SPLITS
+                                      for seed in verify.SEEDS}
+    assert all(gpus == tuple(range(8)) for gpus in verify.GPU_SPLITS.values())
+    for cmd in commands:
+        dataset = cmd[cmd.index("--dataset") + 1]
+        seed = int(cmd[cmd.index("--seed") + 1])
+        gpus = verify.GPU_SPLITS[dataset]
+        offset = seed * (verify.WORKERS - 1) % len(gpus)
+        expected = gpus[offset:] + gpus[:offset]
+        assert cmd[cmd.index("--gpus") + 1:] == list(map(str, expected))
+
+    barrier = threading.Barrier(len(commands), timeout=5)
+    calls = []
+    old_run_command = verify._run_command
+    verify._run_command = lambda command: (calls.append(command), barrier.wait())
+    try:
+        verify._run_pair("codex", verify.GPT_CURRENT)
+    finally:
+        verify._run_command = old_run_command
+    assert len(calls) == len(commands)
+
+    seen = {}
+
+    class FakeModule:
+        _sampler = staticmethod(lambda method, *args: (
+            seen.update(sampler_method=method) or SimpleNamespace(anchor_proposals=[])
+        ))
+        run = staticmethod(lambda method, seeds, *args: seen.update(method=method, seeds=seeds))
+
+    old_dataset_module = verify._dataset_module
+    verify._dataset_module = lambda dataset: FakeModule
+    try:
+        verify._worker(SimpleNamespace(dataset="mnist", method="codex-no-context", seed=3,
+                                       assets="/tmp/assets", storage="/tmp/storage", gpus=[0]))
+    finally:
+        verify._dataset_module = old_dataset_module
+    assert seen == {"sampler_method": "codex-no-context",
+                    "method": "codex-no-context", "seeds": [3]}
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        label = "Random"
+        for seed in verify.SEEDS:
+            path = verify._curve_path(root, "cifar10", label, seed)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps({
+                "label": label, "method": "Random", "seed": seed, "trials": verify.TRIALS,
+                "space_version": "old-space",
+                "records": [{"test_error": 1.0} for _ in range(verify.TRIALS)],
+            }))
+        assert not verify._complete(root, "cifar10", label)
+        for path in (root / "cifar10").glob("*.json"):
+            data = json.loads(path.read_text())
+            data["space_version"] = verify._dataset_module("cifar10").SPACE_VERSION
+            path.write_text(json.dumps(data))
+        assert verify._complete(root, "cifar10", label)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        label = "GPT-5.5-medium"
+        for seed in verify.SEEDS:
+            path = verify._curve_path(root, "mnist", label, seed)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps({
+                "label": label, "method": "codex", "model": None,
+                "effort": verify.EFFORT, "seed": seed, "trials": verify.TRIALS,
+                "space_version": getattr(verify._dataset_module("mnist"), "SPACE_VERSION", None),
+                "records": [{"test_error": 1.0} for _ in range(verify.TRIALS)],
+            }))
+        assert not verify._complete(root, "mnist", label)
+        for path in (root / "mnist").glob("*.json"):
+            data = json.loads(path.read_text())
+            data["model"] = verify.MODEL
+            path.write_text(json.dumps(data))
+        assert verify._complete(root, "mnist", label)
+
+
 def test_cifar10_helper_curves_and_labels():
     from examples import cifar10
     import numpy as np
@@ -435,12 +624,15 @@ def test_cifar10_helper_curves_and_labels():
     x, y = cifar10._tensor_dataset(fake).tensors
     assert tuple(x.shape) == (2, 3, 32, 32)
     assert y.tolist() == [1, 2]
-    assert cifar10.ResNet.make(16, 0.1, 1)(x).shape == (2, 10)
+    assert cifar10.ResNet.make(64, 128, 256, 1, 1, 1, 0.1, 0.1, 0.1, 0.1)(x).shape == (2, 10)
     assert cifar10.BATCHES == [64, 128]
-    assert cifar10.WIDTHS == [96, 128, 160]
-    assert cifar10.DEPTHS == [2, 3]
+    assert cifar10.STAGE1_WIDTHS == [64, 96, 128, 160]
+    assert cifar10.STAGE2_WIDTHS == [128, 192, 256, 320]
+    assert cifar10.STAGE3_WIDTHS == [256, 384, 512, 640]
+    assert cifar10.DEPTHS == [1, 2, 3]
     assert cifar10.CROP_PADS == [4, 6]
-    assert cifar10.FLIP_PROBS == [0.5]
+    assert cifar10.FLIP_PROBS == [0.0, 0.5]
+    assert cifar10.SPACE_VERSION == "cifar10-stagewise-16-v2"
     seen = {}
 
     class Trial:
@@ -467,8 +659,11 @@ def test_cifar10_helper_curves_and_labels():
     finally:
         cifar10._train_once = old
     assert set(seen) == {
-        "lr", "batch_size", "dropout", "width", "weight_decay", "depth",
-        "label_smoothing", "aug_crop", "aug_flip",
+        "lr", "batch_size", "weight_decay", "label_smoothing",
+        "stage1_width", "stage2_width", "stage3_width",
+        "stage1_depth", "stage2_depth", "stage3_depth",
+        "stem_dropout", "stage1_dropout", "stage2_dropout", "head_dropout",
+        "aug_crop", "aug_flip",
     }
     contexts = []
 
@@ -489,12 +684,72 @@ def test_cifar10_helper_curves_and_labels():
     finally:
         cifar10._train_once = old
     assert contexts and all(c is None for c in contexts)
+    assert set(cifar10._sampler("codex", 0, "medium", 1, None).initial_space) == set(seen)
     assert cifar10._sampler("codex-no-context", 0, "medium", 1, None).context is None
+
+
+def test_hard_functions_distributed_contract():
+    from examples import hard_functions as hard
+    import threading
+
+    assert tuple(hard.POOL) == (
+        "Random", "TPE", "GPT-5.5-medium", "GPT-5.5-medium-no-context",
+    )
+    assert hard.POOL["GPT-5.5-medium"]["model"] == "gpt-5.5"
+    assert hard.POOL["GPT-5.5-medium-no-context"]["no_context"] is True
+
+    barrier = threading.Barrier(5, timeout=5)
+    calls = []
+    old_run = hard.run
+    hard.run = lambda label, trials, seed, timeout: (
+        calls.append((label, trials, seed, timeout)), barrier.wait()
+    )
+    try:
+        hard.run_distributed(["Random"], 10, [0, 1, 2, 3, 4], 600)
+    finally:
+        hard.run = old_run
+    assert {call[2] for call in calls} == {0, 1, 2, 3, 4}
+
+    hard.run = lambda label, trials, seed, timeout: (
+        (_ for _ in ()).throw(RuntimeError("worker failed")) if seed == 2 else None
+    )
+    try:
+        try:
+            hard.run_distributed(["Random"], 10, [0, 1, 2, 3, 4], 600)
+        except RuntimeError as error:
+            assert str(error) == "worker failed"
+        else:
+            raise AssertionError("distributed worker failure was swallowed")
+    finally:
+        hard.run = old_run
+
+
+def test_plotters_reject_incomplete_publication_data():
+    from examples import cifar10, hard_functions, mnist
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        old_mnist, old_cifar, old_hard = mnist.ASSETS, cifar10.ASSETS, hard_functions.ASSETS
+        mnist.ASSETS = cifar10.ASSETS = hard_functions.ASSETS = root
+        try:
+            for loader in (mnist._load_plot_runs, cifar10._load_plot_runs,
+                           hard_functions._load_plot_runs):
+                try:
+                    loader()
+                except SystemExit:
+                    pass
+                else:
+                    raise AssertionError("incomplete publication data was accepted")
+        finally:
+            mnist.ASSETS, cifar10.ASSETS, hard_functions.ASSETS = old_mnist, old_cifar, old_hard
 
 
 if __name__ == "__main__":
     for fn in [test_random_study, test_extract_json, test_agent_sampler,
-               test_early_reward_local_proposal,
+               test_early_reward_agent_owns_post_startup,
+               test_early_reward_hands_off_after_schema_trial,
+               test_early_reward_uses_declared_space_on_first_trial,
+               test_early_reward_joint_startup_portfolio,
                test_anchor_proposals_seed_warmup,
                test_pruner, test_mock_backend_and_storage, test_concurrency_and_sqlite,
                test_skill_mode_ask_tell, test_hostile_agent_values, test_guardrails,
@@ -503,7 +758,10 @@ if __name__ == "__main__":
                test_mnist_trial_record_serializes_metrics,
                test_verify_mnist_prompting_scores_and_prunes,
                test_verify_mnist_reward_safe_label,
-               test_cifar10_helper_curves_and_labels]:
+               test_verify_classification_reward_contract,
+               test_cifar10_helper_curves_and_labels,
+               test_hard_functions_distributed_contract,
+               test_plotters_reject_incomplete_publication_data]:
         fn()
         print(f"ok: {fn.__name__}")
     print("all checks passed")

@@ -23,6 +23,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import optim_agent as oa
+from optim_agent import space as oa_space
 
 ROOT = Path(__file__).resolve().parent.parent
 ASSETS = ROOT / "docs" / "assets"
@@ -40,10 +41,45 @@ METHODS = {
     "opencode": dict(backend="opencode", model=None, color="#16a34a", style=(0, (1, 1.5))),
 }
 BATCHES = [64, 128]
-WIDTHS = [96, 128, 160]
-DEPTHS = [2, 3]
+STAGE1_WIDTHS = [64, 96, 128, 160]
+STAGE2_WIDTHS = [128, 192, 256, 320]
+STAGE3_WIDTHS = [256, 384, 512, 640]
+DEPTHS = [1, 2, 3]
 CROP_PADS = [4, 6]
-FLIP_PROBS = [0.5]
+FLIP_PROBS = [0.0, 0.5]
+SEARCH_SPACE = {
+    "lr": oa_space.Float(1e-4, 8e-4, log=True,
+                         context="AdamW learning rate for CIFAR-10 ResNet"),
+    "batch_size": oa_space.Categorical(
+        BATCHES, context="mini-batch size; larger improves GPU use but may need a larger learning rate"),
+    "weight_decay": oa_space.Float(1e-5, 1e-3, log=True,
+                                   context="AdamW weight decay regularization"),
+    "label_smoothing": oa_space.Float(0.08, 0.16,
+                                      context="cross-entropy label smoothing"),
+    "stage1_width": oa_space.Categorical(STAGE1_WIDTHS,
+                                          context="channel count for the first residual stage"),
+    "stage2_width": oa_space.Categorical(STAGE2_WIDTHS,
+                                          context="channel count for the second residual stage"),
+    "stage3_width": oa_space.Categorical(STAGE3_WIDTHS,
+                                          context="channel count for the third residual stage"),
+    "stage1_depth": oa_space.Categorical(DEPTHS,
+                                          context="residual blocks in the first stage"),
+    "stage2_depth": oa_space.Categorical(DEPTHS,
+                                          context="residual blocks in the second stage"),
+    "stage3_depth": oa_space.Categorical(DEPTHS,
+                                          context="residual blocks in the third stage"),
+    "stem_dropout": oa_space.Float(0.0, 0.4, context="dropout after the input stem"),
+    "stage1_dropout": oa_space.Float(0.0, 0.5,
+                                     context="dropout inside first-stage residual blocks"),
+    "stage2_dropout": oa_space.Float(0.0, 0.6,
+                                     context="dropout inside second-stage residual blocks"),
+    "head_dropout": oa_space.Float(0.0, 0.8,
+                                   context="dropout before the classifier head"),
+    "aug_crop": oa_space.Categorical(
+        CROP_PADS, context="random-crop reflection padding in pixels; 0 disables crop augmentation"),
+    "aug_flip": oa_space.Categorical(FLIP_PROBS, context="horizontal flip probability"),
+}
+SPACE_VERSION = "cifar10-stagewise-16-v2"
 PLOT_LABELS = ("Random", "TPE", "GPT-5.5-medium", "GPT-5.5-medium-no-context")
 PLOT_STYLES = {
     "GPT-5.5-medium": dict(style=(0, (4, 2))),
@@ -134,14 +170,16 @@ class ResNet:
     """Factory wrapper so importing this module does not require torch."""
 
     @staticmethod
-    def make(width, dropout, depth):
+    def make(stage1_width, stage2_width, stage3_width, stage1_depth, stage2_depth,
+             stage3_depth, stem_dropout, stage1_dropout, stage2_dropout, head_dropout):
         torch, nn, F = _torch()
 
         class Block(nn.Module):
-            def __init__(self, in_ch, out_ch, stride=1):
+            def __init__(self, in_ch, out_ch, stride=1, dropout=0.0):
                 super().__init__()
                 self.conv1 = nn.Conv2d(in_ch, out_ch, 3, stride=stride, padding=1, bias=False)
                 self.bn1 = nn.BatchNorm2d(out_ch)
+                self.drop = nn.Dropout2d(float(dropout))
                 self.conv2 = nn.Conv2d(out_ch, out_ch, 3, padding=1, bias=False)
                 self.bn2 = nn.BatchNorm2d(out_ch)
                 self.skip = nn.Identity() if stride == 1 and in_ch == out_ch else nn.Sequential(
@@ -151,6 +189,7 @@ class ResNet:
 
             def forward(self, x):
                 y = F.relu(self.bn1(self.conv1(x)))
+                y = self.drop(y)
                 y = self.bn2(self.conv2(y))
                 return F.relu(y + self.skip(x))
 
@@ -158,21 +197,25 @@ class ResNet:
             def __init__(self):
                 super().__init__()
                 self.stem = nn.Sequential(
-                    nn.Conv2d(3, width, 3, padding=1, bias=False),
-                    nn.BatchNorm2d(width),
+                    nn.Conv2d(3, stage1_width, 3, padding=1, bias=False),
+                    nn.BatchNorm2d(stage1_width),
                     nn.ReLU(inplace=True),
+                    nn.Dropout2d(float(stem_dropout)),
                 )
-                self.layer1 = self._stage(width, width, depth, stride=1)
-                self.layer2 = self._stage(width, width * 2, depth, stride=2)
-                self.layer3 = self._stage(width * 2, width * 4, depth, stride=2)
-                self.drop = nn.Dropout(float(dropout))
-                self.fc = nn.Linear(width * 4, 10)
+                self.layer1 = self._stage(stage1_width, stage1_width, stage1_depth, stride=1,
+                                          dropout=stage1_dropout)
+                self.layer2 = self._stage(stage1_width, stage2_width, stage2_depth, stride=2,
+                                          dropout=stage2_dropout)
+                self.layer3 = self._stage(stage2_width, stage3_width, stage3_depth, stride=2,
+                                          dropout=0.0)
+                self.drop = nn.Dropout(float(head_dropout))
+                self.fc = nn.Linear(stage3_width, 10)
 
             @staticmethod
-            def _stage(in_ch, out_ch, depth, stride):
+            def _stage(in_ch, out_ch, depth, stride, dropout):
                 return nn.Sequential(
-                    Block(in_ch, out_ch, stride=stride),
-                    *[Block(out_ch, out_ch) for _ in range(depth - 1)],
+                    Block(in_ch, out_ch, stride=stride, dropout=dropout),
+                    *[Block(out_ch, out_ch, dropout=dropout) for _ in range(depth - 1)],
                 )
 
             def forward(self, x):
@@ -256,7 +299,12 @@ def _train_once(params, device, epochs, seed):
     train_ds, test_ds = map(_tensor_dataset, _datasets(download=False))
     train_loader = _loader(train_ds, int(params["batch_size"]), True, seed)
     test_loader = _loader(test_ds, 1024, False, seed)
-    model = ResNet.make(int(params["width"]), float(params["dropout"]), int(params["depth"])).to(device)
+    model = ResNet.make(
+        int(params["stage1_width"]), int(params["stage2_width"]), int(params["stage3_width"]),
+        int(params["stage1_depth"]), int(params["stage2_depth"]), int(params["stage3_depth"]),
+        float(params["stem_dropout"]), float(params["stage1_dropout"]),
+        float(params["stage2_dropout"]), float(params["head_dropout"]),
+    ).to(device)
     opt = torch.optim.AdamW(
         model.parameters(), lr=float(params["lr"]), weight_decay=float(params["weight_decay"])
     )
@@ -317,23 +365,53 @@ def _objective(epochs, seed, gpus, use_context=True):
             "batch_size", BATCHES,
             context=ctx("mini-batch size; larger improves GPU use but may need a larger learning rate"),
         )
-        dropout = trial.suggest_float("dropout", 0.0, 0.15,
-                                      context=ctx("dropout before the classifier head"))
-        width = trial.suggest_categorical(
-            "width", WIDTHS,
-            context=ctx("base ResNet channel count; later stages use 2x and 4x this width"),
-        )
         weight_decay = trial.suggest_float(
             "weight_decay", 1e-5, 1e-3, log=True,
             context=ctx("AdamW weight decay regularization"),
         )
-        depth = trial.suggest_categorical(
-            "depth", DEPTHS,
-            context=ctx("residual blocks per ResNet stage"),
-        )
         label_smoothing = trial.suggest_float(
             "label_smoothing", 0.08, 0.16,
             context=ctx("cross-entropy label smoothing"),
+        )
+        stage1_width = trial.suggest_categorical(
+            "stage1_width", STAGE1_WIDTHS,
+            context=ctx("channel count for the first residual stage"),
+        )
+        stage2_width = trial.suggest_categorical(
+            "stage2_width", STAGE2_WIDTHS,
+            context=ctx("channel count for the second residual stage"),
+        )
+        stage3_width = trial.suggest_categorical(
+            "stage3_width", STAGE3_WIDTHS,
+            context=ctx("channel count for the third residual stage"),
+        )
+        stage1_depth = trial.suggest_categorical(
+            "stage1_depth", DEPTHS,
+            context=ctx("residual blocks in the first stage"),
+        )
+        stage2_depth = trial.suggest_categorical(
+            "stage2_depth", DEPTHS,
+            context=ctx("residual blocks in the second stage"),
+        )
+        stage3_depth = trial.suggest_categorical(
+            "stage3_depth", DEPTHS,
+            context=ctx("residual blocks in the third stage"),
+        )
+        stem_dropout = trial.suggest_float(
+            "stem_dropout", 0.0, 0.4,
+            context=ctx("dropout after the input stem"),
+        )
+        stage1_dropout = trial.suggest_float(
+            "stage1_dropout", 0.0, 0.5,
+            context=ctx("dropout inside first-stage residual blocks"),
+        )
+        stage2_dropout = trial.suggest_float(
+            "stage2_dropout", 0.0, 0.6,
+            context=ctx("dropout inside second-stage residual blocks"),
+        )
+        head_dropout = trial.suggest_float(
+            "head_dropout", 0.0, 0.8,
+            context=ctx("dropout before the classifier head"),
         )
         aug_crop = trial.suggest_categorical(
             "aug_crop", CROP_PADS,
@@ -345,8 +423,12 @@ def _objective(epochs, seed, gpus, use_context=True):
         )
         device = _device_for_trial(slot, gpus)
         metrics = _train_once(dict(
-            lr=lr, batch_size=batch_size, dropout=dropout, width=width,
-            weight_decay=weight_decay, depth=depth, label_smoothing=label_smoothing,
+            lr=lr, batch_size=batch_size, weight_decay=weight_decay,
+            label_smoothing=label_smoothing,
+            stage1_width=stage1_width, stage2_width=stage2_width, stage3_width=stage3_width,
+            stage1_depth=stage1_depth, stage2_depth=stage2_depth, stage3_depth=stage3_depth,
+            stem_dropout=stem_dropout, stage1_dropout=stage1_dropout,
+            stage2_dropout=stage2_dropout, head_dropout=head_dropout,
             aug_crop=aug_crop, aug_flip=aug_flip,
         ), device, epochs, seed + slot)
         metrics["device"] = device
@@ -367,9 +449,11 @@ def _sampler(method, seed, effort, timeout, model):
         backend=preset["backend"], model=model or preset["model"], effort=effort,
         context=(None if preset.get("no_context") else
                  "Full CIFAR-10 ResNet search with early reward: minimize the sum of incumbent "
-                 "best test errors over 12 trials. Tune learning rate, batch size, dropout, width, "
-                 "weight decay, depth, label smoothing, crop padding and flip probability."),
+                 "best test errors over the trial budget. Tune learning rate, batch size, weight decay, "
+                 "label smoothing, stage widths, stage depths, stage dropouts, crop padding and "
+                 "flip probability."),
         n_init=4, timeout=timeout, seed=seed,
+        initial_space=(None if preset.get("no_context") else SEARCH_SPACE),
     )
 
 
@@ -436,6 +520,8 @@ def run(method, seeds, trials, epochs, workers, gpus, effort, timeout, model):
             best_value, best_params = study.best_value, study.best_params
         out = {
             "label": label, "method": method, "effort": effort,
+            "model": model if METHODS[method]["backend"] == "codex" else None,
+            "space_version": SPACE_VERSION,
             "seed": seed, "epochs": epochs, "trials": trials,
             "workers": workers, "gpus": gpus, "records": records,
             "best_error": best_value, "best_params": best_params,
@@ -445,6 +531,29 @@ def run(method, seeds, trials, epochs, workers, gpus, effort, timeout, model):
         print(f"wrote {path} best_error={best_value:.4g}")
 
 
+def _load_plot_runs():
+    by_label = {}
+    for path in sorted(ASSETS.glob("cifar10_curves_*_s*.json")):
+        run_data = json.loads(path.read_text())
+        by_label.setdefault(run_data["label"], []).append(run_data)
+    if set(by_label) != set(PLOT_LABELS):
+        raise SystemExit(f"CIFAR-10 plot requires exactly {PLOT_LABELS}")
+    methods = dict(zip(PLOT_LABELS, ("Random", "TPE", "codex", "codex-no-context")))
+    for label, runs in by_label.items():
+        if len(runs) != 5 or {run.get("seed") for run in runs} != set(range(5)):
+            raise SystemExit(f"CIFAR-10 plot requires seeds 0..4 for {label}")
+        for run in runs:
+            if (run.get("method") != methods[label] or run.get("trials") != 10
+                    or run.get("space_version") != SPACE_VERSION
+                    or len(run.get("records", ())) != 10
+                    or any(record.get("state", "complete") != "complete"
+                           or record.get("test_error") is None for record in run["records"])
+                    or (label.startswith("GPT")
+                        and (run.get("model") != "gpt-5.5" or run.get("effort") != "medium"))):
+                raise SystemExit(f"incompatible CIFAR-10 plot data for {label}")
+    return by_label
+
+
 def plot():
     import matplotlib
     matplotlib.use("Agg")
@@ -452,12 +561,7 @@ def plot():
     import numpy as np
     from matplotlib.ticker import MaxNLocator
 
-    by_label = {}
-    for path in sorted(ASSETS.glob("cifar10_curves_*_s*.json")):
-        run_data = json.loads(path.read_text())
-        by_label.setdefault(run_data["label"], []).append(run_data)
-    if not by_label:
-        raise SystemExit("no cifar10_curves_*_s*.json in docs/assets — run an experiment first")
+    by_label = _load_plot_runs()
 
     fig, ax = plt.subplots(figsize=(7.2, 4.5))
     for label in PLOT_LABELS:
@@ -490,7 +594,7 @@ def selfcheck():
     assert _best_error_curve([{"test_error": 4}, {"test_error": 5}, {"test_error": 3}]) == [4, 4, 3]
     assert _device_for_trial(9, [0, 1, 2, 3]) == "cuda:1"
     torch, _, _ = _torch()
-    model = ResNet.make(16, 0.1, 1)
+    model = ResNet.make(64, 128, 256, 1, 1, 1, 0.1, 0.1, 0.1, 0.1)
     with torch.no_grad():
         y = model(torch.zeros(2, 3, 32, 32))
     assert tuple(y.shape) == (2, 10)

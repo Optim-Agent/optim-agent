@@ -23,6 +23,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import optim_agent as oa
+from optim_agent import space as oa_space
 
 ROOT = Path(__file__).resolve().parent.parent
 ASSETS = ROOT / "docs" / "assets"
@@ -46,6 +47,39 @@ STAGE3_WIDTHS = [32, 64, 96, 128, 160, 192]
 DEPTHS = [1, 2, 3]
 SHIFTS = [0, 1, 2, 3]
 ROTATIONS = [0, 5, 10]
+SEARCH_SPACE = {
+    "lr": oa_space.Float(1e-5, 5e-2, log=True,
+                         context="AdamW learning rate for MNIST ResNet"),
+    "batch_size": oa_space.Categorical(
+        BATCHES, context="mini-batch size; larger improves GPU use but may need a larger learning rate"),
+    "weight_decay": oa_space.Float(1e-6, 1e-2, log=True,
+                                   context="AdamW weight decay regularization"),
+    "label_smoothing": oa_space.Float(0.0, 0.2,
+                                      context="cross-entropy label smoothing"),
+    "stage1_width": oa_space.Categorical(STAGE1_WIDTHS,
+                                          context="channel count for the first residual stage"),
+    "stage2_width": oa_space.Categorical(STAGE2_WIDTHS,
+                                          context="channel count for the second residual stage"),
+    "stage3_width": oa_space.Categorical(STAGE3_WIDTHS,
+                                          context="channel count for the third residual stage"),
+    "stage1_depth": oa_space.Categorical(DEPTHS,
+                                          context="residual blocks in the first stage"),
+    "stage2_depth": oa_space.Categorical(DEPTHS,
+                                          context="residual blocks in the second stage"),
+    "stage3_depth": oa_space.Categorical(DEPTHS,
+                                          context="residual blocks in the third stage"),
+    "stem_dropout": oa_space.Float(0.0, 0.4, context="dropout after the input stem"),
+    "stage1_dropout": oa_space.Float(0.0, 0.5,
+                                     context="dropout inside first-stage residual blocks"),
+    "stage2_dropout": oa_space.Float(0.0, 0.6,
+                                     context="dropout inside second-stage residual blocks"),
+    "head_dropout": oa_space.Float(0.0, 0.8,
+                                   context="dropout before the classifier head"),
+    "aug_shift": oa_space.Categorical(
+        SHIFTS, context="random translation radius in pixels; 0 disables shift augmentation"),
+    "aug_rotate": oa_space.Categorical(
+        ROTATIONS, context="random rotation range in degrees; 0 disables rotation augmentation"),
+}
 PLOT_LABELS = ("Random", "TPE", "GPT-5.5-medium", "GPT-5.5-medium-no-context")
 PLOT_STYLES = {
     "GPT-5.5-medium": dict(style=(0, (4, 2))),
@@ -419,10 +453,11 @@ def _sampler(method, seed, effort, timeout, model):
         backend=preset["backend"], model=model or preset["model"], effort=effort,
         context=(None if preset.get("no_context") else
                  "Full MNIST neural architecture search with early reward: minimize the sum of "
-                 "incumbent best test errors over 24 trials. Tune learning rate, batch size, weight "
+                 "incumbent best test errors over the trial budget. Tune learning rate, batch size, weight "
                  "decay, label smoothing, stage widths, stage depths, stage dropouts, translation "
                  "and rotation augmentation."),
         n_init=4, timeout=timeout, seed=seed,
+        initial_space=(None if preset.get("no_context") else SEARCH_SPACE),
     )
 
 
@@ -489,6 +524,7 @@ def run(method, seeds, trials, epochs, workers, gpus, effort, timeout, model):
             best_value, best_params = study.best_value, study.best_params
         out = {
             "label": label, "method": method, "effort": effort,
+            "model": model if METHODS[method]["backend"] == "codex" else None,
             "seed": seed, "epochs": epochs, "trials": trials,
             "workers": workers, "gpus": gpus, "records": records,
             "best_error": best_value, "best_params": best_params,
@@ -498,6 +534,28 @@ def run(method, seeds, trials, epochs, workers, gpus, effort, timeout, model):
         print(f"wrote {path} best_error={best_value:.4g}")
 
 
+def _load_plot_runs():
+    by_label = {}
+    for path in sorted(ASSETS.glob("mnist_curves_*_s*.json")):
+        run_data = json.loads(path.read_text())
+        by_label.setdefault(run_data["label"], []).append(run_data)
+    if set(by_label) != set(PLOT_LABELS):
+        raise SystemExit(f"MNIST plot requires exactly {PLOT_LABELS}")
+    methods = dict(zip(PLOT_LABELS, ("Random", "TPE", "codex", "codex-no-context")))
+    for label, runs in by_label.items():
+        if len(runs) != 5 or {run.get("seed") for run in runs} != set(range(5)):
+            raise SystemExit(f"MNIST plot requires seeds 0..4 for {label}")
+        for run in runs:
+            if (run.get("method") != methods[label] or run.get("trials") != 10
+                    or len(run.get("records", ())) != 10
+                    or any(record.get("state", "complete") != "complete"
+                           or record.get("test_error") is None for record in run["records"])
+                    or (label.startswith("GPT")
+                        and (run.get("model") != "gpt-5.5" or run.get("effort") != "medium"))):
+                raise SystemExit(f"incompatible MNIST plot data for {label}")
+    return by_label
+
+
 def plot():
     import matplotlib
     matplotlib.use("Agg")
@@ -505,12 +563,7 @@ def plot():
     import numpy as np
     from matplotlib.ticker import MaxNLocator
 
-    by_label = {}
-    for path in sorted(ASSETS.glob("mnist_curves_*_s*.json")):
-        run_data = json.loads(path.read_text())
-        by_label.setdefault(run_data["label"], []).append(run_data)
-    if not by_label:
-        raise SystemExit("no mnist_curves_*_s*.json in docs/assets — run an experiment first")
+    by_label = _load_plot_runs()
 
     fig, ax = plt.subplots(figsize=(7.2, 4.5))
     for label in PLOT_LABELS:
