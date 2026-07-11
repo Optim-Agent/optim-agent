@@ -14,7 +14,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent.parent
-RUN_ROOT = ROOT / "autoresearch-results" / "classification-stagewise16-n10-s5"
+RUN_ROOT = ROOT / "autoresearch-results" / "classification-stagewise16-v2-n10-s5"
 BASELINES = RUN_ROOT / "baselines"
 GPT_CURRENT = RUN_ROOT / "gpt-current"
 SEEDS = (0, 1, 2, 3, 4)

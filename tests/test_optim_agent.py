@@ -514,7 +514,7 @@ def test_verify_classification_reward_contract():
 
     assert verify.TRIALS == 10
     assert verify.SEEDS == (0, 1, 2, 3, 4)
-    assert verify.RUN_ROOT.name == "classification-stagewise16-n10-s5"
+    assert verify.RUN_ROOT.name == "classification-stagewise16-v2-n10-s5"
     assert verify.MODEL == "gpt-5.5"
     assert verify.EFFORT == "medium"
     assert verify._reward_curve([3.0, 4.0, 2.0]) == [3.0, 3.0, 2.0]
@@ -604,8 +604,8 @@ def test_cifar10_helper_curves_and_labels():
     assert cifar10.STAGE3_WIDTHS == [256, 384, 512, 640]
     assert cifar10.DEPTHS == [1, 2, 3]
     assert cifar10.CROP_PADS == [4, 6]
-    assert cifar10.FLIP_PROBS == [0.5]
-    assert cifar10.SPACE_VERSION == "cifar10-stagewise-16-v1"
+    assert cifar10.FLIP_PROBS == [0.0, 0.5]
+    assert cifar10.SPACE_VERSION == "cifar10-stagewise-16-v2"
     seen = {}
 
     class Trial:

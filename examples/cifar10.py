@@ -46,7 +46,7 @@ STAGE2_WIDTHS = [128, 192, 256, 320]
 STAGE3_WIDTHS = [256, 384, 512, 640]
 DEPTHS = [1, 2, 3]
 CROP_PADS = [4, 6]
-FLIP_PROBS = [0.5]
+FLIP_PROBS = [0.0, 0.5]
 SEARCH_SPACE = {
     "lr": oa_space.Float(1e-4, 8e-4, log=True,
                          context="AdamW learning rate for CIFAR-10 ResNet"),
@@ -79,7 +79,7 @@ SEARCH_SPACE = {
         CROP_PADS, context="random-crop reflection padding in pixels; 0 disables crop augmentation"),
     "aug_flip": oa_space.Categorical(FLIP_PROBS, context="horizontal flip probability"),
 }
-SPACE_VERSION = "cifar10-stagewise-16-v1"
+SPACE_VERSION = "cifar10-stagewise-16-v2"
 PLOT_LABELS = ("Random", "TPE", "GPT-5.5-medium", "GPT-5.5-medium-no-context")
 PLOT_STYLES = {
     "GPT-5.5-medium": dict(style=(0, (4, 2))),
