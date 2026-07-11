@@ -63,6 +63,38 @@ def test_public_governance_files_are_substantive():
         assert all(section in text for section in sections), filename
 
 
+def test_cpu_first_examples_have_runnable_search_spaces():
+    import subprocess
+
+    from examples import quickstart, sklearn_tuning
+
+    study = quickstart.run(trials=4, seed=3)
+    assert len(study.trials) == 4
+    assert study.best_value is not None
+
+    trial = oa.create_study().ask({
+        "n_estimators": 100,
+        "max_depth": 8,
+        "min_samples_split": 4,
+        "max_features": "sqrt",
+    })
+    params = sklearn_tuning.suggest_params(trial)
+    assert params == trial.params
+    assert set(params) == {
+        "n_estimators", "max_depth", "min_samples_split", "max_features",
+    }
+
+    root = Path(__file__).resolve().parent.parent
+    result = subprocess.run(
+        [sys.executable, str(root / "examples/quickstart.py"), "--trials", "2"],
+        cwd=tempfile.gettempdir(),
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "best params:" in result.stdout
+
+
 def quadratic(trial):
     x = trial.suggest_float("x", -5, 5, context="knob that centers a parabola at x=2")
     return (x - 2) ** 2

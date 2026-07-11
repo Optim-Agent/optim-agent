@@ -30,6 +30,7 @@ Changelog = "https://github.com/Optim-Agent/optim-agent/blob/main/CHANGELOG.md"
 examples = ["numpy", "matplotlib", "optuna"]  # optuna only for the TPE benchmark baseline
 dev = ["pytest>=8"]
 vision = ["torch>=2.2", "torchvision>=0.17"]
+ml = ["scikit-learn>=1.3"]
 
 [tool.setuptools]
 packages = ["optim_agent"]
