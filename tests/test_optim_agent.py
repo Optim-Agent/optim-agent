@@ -119,6 +119,28 @@ def test_quant_example_uses_leakage_safe_walk_forward_folds():
     assert math.isfinite(score)
 
 
+def test_inference_example_exposes_quality_latency_and_cost():
+    from examples import inference_tuning
+
+    trial = oa.create_study().ask({
+        "quantization": "int8",
+        "batch_size": 8,
+        "max_tokens": 256,
+        "speculative_decoding": True,
+    })
+    params = inference_tuning.suggest_params(trial)
+    metrics = inference_tuning.evaluate_configuration(params)
+    utility = inference_tuning.utility(metrics)
+
+    assert set(metrics) == {
+        "quality", "p95_latency_ms", "cost_per_1k_requests_usd",
+    }
+    assert 0 <= metrics["quality"] <= 1
+    assert metrics["p95_latency_ms"] > 0
+    assert metrics["cost_per_1k_requests_usd"] > 0
+    assert isinstance(utility, float)
+
+
 def quadratic(trial):
     x = trial.suggest_float("x", -5, 5, context="knob that centers a parabola at x=2")
     return (x - 2) ** 2
