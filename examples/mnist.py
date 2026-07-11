@@ -443,7 +443,7 @@ def _objective(epochs, seed, gpus, use_context=True):
     return objective
 
 
-def _sampler(method, seed, effort, timeout, model):
+def _sampler(method, seed, effort, timeout, model, epochs=None):
     preset = METHODS[method]
     if preset["backend"] is None:
         return oa.RandomSampler()

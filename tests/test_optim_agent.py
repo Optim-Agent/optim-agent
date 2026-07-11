@@ -545,9 +545,12 @@ def test_verify_classification_reward_contract():
     assert len(calls) == len(commands)
 
     seen = {}
+    sampler_args = []
 
     class FakeModule:
-        _sampler = staticmethod(lambda *args: SimpleNamespace(anchor_proposals=[]))
+        _sampler = staticmethod(
+            lambda *args: sampler_args.append(args) or SimpleNamespace(anchor_proposals=[])
+        )
         run = staticmethod(lambda method, seeds, *args: seen.update(method=method, seeds=seeds))
 
     old_dataset_module = verify._dataset_module
@@ -558,6 +561,7 @@ def test_verify_classification_reward_contract():
     finally:
         verify._dataset_module = old_dataset_module
     assert seen == {"method": "codex", "seeds": [3]}
+    assert sampler_args[0][-1] == verify.EPOCHS
 
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
@@ -658,6 +662,7 @@ def test_cifar10_helper_curves_and_labels():
         cifar10._train_once = old
     assert contexts and all(c is None for c in contexts)
     assert set(cifar10._sampler("codex", 0, "medium", 1, None).initial_space) == set(seen)
+    assert "only 3 epochs" in cifar10._sampler("codex", 0, "medium", 1, None, 3).context
     assert cifar10._sampler("codex-no-context", 0, "medium", 1, None).context is None
 
 

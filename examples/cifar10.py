@@ -439,19 +439,23 @@ def _objective(epochs, seed, gpus, use_context=True):
     return objective
 
 
-def _sampler(method, seed, effort, timeout, model):
+def _sampler(method, seed, effort, timeout, model, epochs=None):
     preset = METHODS[method]
     if preset["backend"] is None:
         return oa.RandomSampler()
     if preset["backend"] == "tpe":
         raise ValueError("TPE runs through Optuna's study API, not optim-agent's sampler API")
+    context = (None if preset.get("no_context") else
+               "Full CIFAR-10 ResNet search with early reward: minimize the sum of incumbent "
+               "best test errors over 10 trials. Tune learning rate, batch size, weight decay, "
+               "label smoothing, stage widths, stage depths, stage dropouts, crop padding and "
+               "flip probability.")
+    if context and epochs is not None:
+        context += (f" Each objective evaluation trains for only {epochs} epochs, so prioritize "
+                    "rapid optimization without relying on long-horizon regularization.")
     return oa.AgentSampler(
         backend=preset["backend"], model=model or preset["model"], effort=effort,
-        context=(None if preset.get("no_context") else
-                 "Full CIFAR-10 ResNet search with early reward: minimize the sum of incumbent "
-                 "best test errors over 10 trials. Tune learning rate, batch size, weight decay, "
-                 "label smoothing, stage widths, stage depths, stage dropouts, crop padding and "
-                 "flip probability."),
+        context=context,
         n_init=4, timeout=timeout, seed=seed,
         initial_space=(None if preset.get("no_context") else SEARCH_SPACE),
     )
@@ -501,7 +505,7 @@ def run(method, seeds, trials, epochs, workers, gpus, effort, timeout, model):
             records, best_value, best_params = _run_tpe(seed, trials, epochs, workers, gpus)
         else:
             db = STORAGE / f"cifar10_{safe}_s{seed}.json"
-            sampler = _sampler(method, seed, effort, timeout, model)
+            sampler = _sampler(method, seed, effort, timeout, model, epochs)
             study = oa.create_study(direction="minimize", sampler=sampler, storage=db,
                                     seed=seed, max_concurrency=workers)
             before = len(study.trials)
