@@ -76,6 +76,7 @@ footer { margin-top: 64px; padding-top: 16px; border-top: 1px solid var(--border
   <ul>
     <li><a href="#install">Installation</a></li>
     <li><a href="#quickstart">Quickstart</a></li>
+    <li><a href="#tutorials">Tutorials</a></li>
     <li><a href="#how-it-works">How it works</a></li>
     <li><a href="#search-space">Search space</a></li>
     <li><a href="#samplers">Samplers</a></li>
@@ -151,6 +152,37 @@ it you declare parameters with <code>suggest_*</code> calls
 (define-by-run — the search space is discovered as trials execute), and the
 sampler decides what values those calls return.</p>
 
+<h2 id="tutorials">Tutorials</h2>
+
+<p>Start offline, then move to the domain closest to your workload. Each
+example keeps its objective and trade-offs visible.</p>
+
+<table>
+<tr><th>Path</th><th>What it demonstrates</th><th>Requirements</th></tr>
+<tr><td><a href="https://github.com/Optim-Agent/optim-agent/blob/main/examples/quickstart.py">General quickstart</a></td>
+    <td>A complete black-box study with the token-free mock backend.</td><td>stdlib only</td></tr>
+<tr><td><a href="https://github.com/Optim-Agent/optim-agent/blob/main/examples/sklearn_tuning.py">Classical ML</a></td>
+    <td>Random-forest accuracy on a built-in sklearn dataset.</td><td><code>.[ml]</code></td></tr>
+<tr><td><a href="https://github.com/Optim-Agent/optim-agent/blob/main/examples/quant_walk_forward.py">Quant walk-forward</a></td>
+    <td>Past-only signals, transaction costs, turnover, and drawdown.</td><td>stdlib only</td></tr>
+<tr><td><a href="https://github.com/Optim-Agent/optim-agent/blob/main/examples/inference_tuning.py">AI inference</a></td>
+    <td>An explicit quality floor with p95 latency and request cost.</td><td>stdlib only</td></tr>
+</table>
+
+<p>The <a href="https://colab.research.google.com/github/Optim-Agent/optim-agent/blob/main/tutorials/quickstart.ipynb">quickstart notebook</a> is
+Colab-ready. It uses the mock backend because hosted runtimes do not carry
+your local agent CLI authentication.</p>
+
+<h3>Optimization trajectory</h3>
+
+<img src="assets/optimization_trajectory.gif"
+     alt="Animated Branin sampling trajectories and incumbent values for GPT-5.5 and TPE">
+
+<p>This seed-0 trace uses the same 10-trial budget for both methods. It is an
+illustration of the search path; the <a href="#benchmarks">multi-seed
+benchmarks</a> carry the comparative claim. Regenerate it with
+<code>python scripts/render_trajectory.py</code>.</p>
+
 <h2 id="how-it-works">How it works</h2>
 
 <p>Each trial runs this loop:</p>
@@ -207,7 +239,7 @@ back to random sampling.</li>
 <pre><code>oa.AgentSampler(
     backend="claude",   # "claude" | "codex" | "opencode" | "mock"
     model=None,         # passed to the CLI's model flag; None = CLI default
-    effort="high",      # "low" | "medium" | "high" | "xhigh" | "max"
+    effort="high",      # "low" | "medium" | "high"
     context=None,       # free-text: what is being tuned
     n_init=2,           # random warmup trials before the agent is consulted
     timeout=300,        # seconds per CLI call
@@ -226,30 +258,22 @@ more tokens per trial.</p>
 <table>
 <tr><th>Effort</th><th>History shown</th><th>Explicit reasoning</th><th>Qualitative notes</th><th>Candidates</th></tr>
 <tr><td><code>low</code></td><td>last 5 trials</td><td>–</td><td>–</td><td>1</td></tr>
-<tr><td><code>medium</code></td><td>last 15 trials</td><td>–</td><td>–</td><td>1</td></tr>
-<tr><td><code>high</code></td><td>all<sup>†</sup></td><td>✓</td><td>–</td><td>1</td></tr>
-<tr><td><code>xhigh</code></td><td>all<sup>†</sup></td><td>✓</td><td>✓</td><td>1</td></tr>
-<tr><td><code>max</code></td><td>all<sup>†</sup></td><td>✓</td><td>✓</td><td>3, ranked</td></tr>
+<tr><td><code>medium</code></td><td>last 10 trials</td><td>✓</td><td>✓</td><td>1</td></tr>
+<tr><td><code>high</code></td><td>last 20 trials</td><td>✓</td><td>✓</td><td>1</td></tr>
 </table>
-
-<p><sup>†</sup> capped at the 400 most recent trials (plus the best trial,
-always included) so the prompt stays within OS argument-size limits.</p>
 
 <ul>
 <li><strong>Explicit reasoning</strong> asks the agent to include a short
 <code>_reasoning</code> field justifying its choice — this measurably changes
 <em>how</em> the point is chosen, not just what is logged.</li>
-<li><strong>Qualitative notes</strong> (<code>xhigh</code>, <code>max</code>):
+<li><strong>Qualitative notes</strong> (<code>medium</code>, <code>high</code>):
 the agent writes a <code>_note</code> — observations about the landscape worth
 remembering — which is fed back to it on the next trial. This is the agent's
 persistent scratchpad across the study.</li>
-<li><strong>Candidates</strong> (<code>max</code>): the agent proposes its top
-3 points ranked best-first; the first one that validates against the space is
-used, so a single out-of-range candidate doesn't waste the call.</li>
 </ul>
 
 <p>Rule of thumb: if one trial of your objective costs minutes of training,
-<code>max</code> is cheap by comparison — use it. For sub-second objectives,
+<code>high</code> is usually cheap by comparison. For sub-second objectives,
 agent latency dominates; use <code>low</code>, or
 <code>RandomSampler()</code>, or a classical optimizer.</p>
 
@@ -369,7 +393,9 @@ collision.</li>
 <code>ask(params=...)</code> are unwrapped, so what you load is what you saved.</li>
 </ul>
 
-<p>Storage is single-writer by design: one study process per file.</p>
+<p>JSON storage is single-writer. Use a <code>.db</code>, <code>.sqlite</code>,
+or <code>.sqlite3</code> path for SQLite WAL storage shared by concurrent
+processes; trial numbers are allocated atomically.</p>
 
 <h2 id="skill-mode">Skill mode</h2>
 

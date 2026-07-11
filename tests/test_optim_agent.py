@@ -5,10 +5,221 @@ import sys
 import tempfile
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import optim_agent as oa
 from optim_agent import agent, samplers, space
+
+
+def test_packaging_declares_development_and_vision_extras():
+    try:
+        import tomllib
+    except ModuleNotFoundError:  # Python 3.10
+        from setuptools._vendor import tomli as tomllib
+
+    pyproject = tomllib.loads(
+        (Path(__file__).resolve().parent.parent / "pyproject.toml").read_text()
+    )
+    extras = pyproject["project"]["optional-dependencies"]
+    assert any(requirement.startswith("pytest") for requirement in extras["dev"])
+    assert any(requirement.startswith("torch") for requirement in extras["vision"])
+    assert any(requirement.startswith("torchvision") for requirement in extras["vision"])
+
+
+def test_public_repository_metadata_and_ignore_contract():
+    try:
+        import tomllib
+    except ModuleNotFoundError:  # Python 3.10
+        from setuptools._vendor import tomli as tomllib
+
+    root = Path(__file__).resolve().parent.parent
+    pyproject = tomllib.loads((root / "pyproject.toml").read_text())
+    assert set(pyproject["project"]["urls"]) >= {
+        "Homepage", "Documentation", "Repository", "Issues", "Changelog",
+    }
+
+    ignored = (root / ".gitignore").read_text().splitlines()
+    for pattern in (
+        "graphify-out/", "autoresearch-results/", ".codex-autoresearch/",
+        ".coverage", ".mypy_cache/", ".ruff_cache/", ".ipynb_checkpoints/",
+    ):
+        assert pattern in ignored
+    assert "paper/src/" not in ignored
+
+
+def test_public_governance_files_are_substantive():
+    root = Path(__file__).resolve().parent.parent
+    required_sections = {
+        "CONTRIBUTING.md": ("Development setup", "Pull requests", "Benchmarks"),
+        "SECURITY.md": ("Supported versions", "Reporting", "Response"),
+        "CODE_OF_CONDUCT.md": ("Standards", "Enforcement"),
+        "CHANGELOG.md": ("Unreleased", "0.1.0"),
+        "ROADMAP.md": ("Public launch", "Research", "Non-goals"),
+    }
+    for filename, sections in required_sections.items():
+        text = (root / filename).read_text()
+        assert all(section in text for section in sections), filename
+    changelog = (root / "CHANGELOG.md").read_text()
+    assert "/releases/tag/v0.1.0" not in changelog
+
+
+def test_cpu_first_examples_have_runnable_search_spaces():
+    import subprocess
+
+    from examples import quickstart, sklearn_tuning
+
+    study = quickstart.run(trials=4, seed=3)
+    assert len(study.trials) == 4
+    assert study.best_value is not None
+
+    trial = oa.create_study().ask({
+        "n_estimators": 100,
+        "max_depth": 8,
+        "min_samples_split": 4,
+        "max_features": "sqrt",
+    })
+    params = sklearn_tuning.suggest_params(trial)
+    assert params == trial.params
+    assert set(params) == {
+        "n_estimators", "max_depth", "min_samples_split", "max_features",
+    }
+
+    root = Path(__file__).resolve().parent.parent
+    result = subprocess.run(
+        [sys.executable, str(root / "examples/quickstart.py"), "--trials", "2"],
+        cwd=tempfile.gettempdir(),
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "best params:" in result.stdout
+
+
+def test_quant_example_uses_leakage_safe_walk_forward_folds():
+    import math
+
+    from examples import quant_walk_forward as quant
+
+    folds = quant.walk_forward_slices(320, train_size=120, test_size=40)
+    assert folds
+    assert all(train_end == test_start
+               for _, train_end, test_start, _ in folds)
+    assert all(test_end <= 320 for _, _, _, test_end in folds)
+
+    trial = oa.create_study().ask({
+        "lookback": 20,
+        "entry_threshold": 0.002,
+        "rebalance_every": 5,
+    })
+    params = quant.suggest_params(trial)
+    returns = quant.synthetic_returns(320, seed=4)
+    score = quant.walk_forward_score(returns, params)
+    assert set(params) == {"lookback", "entry_threshold", "rebalance_every"}
+    assert isinstance(score, float)
+    assert math.isfinite(score)
+
+
+def test_inference_example_exposes_quality_latency_and_cost():
+    from examples import inference_tuning
+
+    trial = oa.create_study().ask({
+        "quantization": "int8",
+        "batch_size": 8,
+        "max_tokens": 256,
+        "speculative_decoding": True,
+    })
+    params = inference_tuning.suggest_params(trial)
+    metrics = inference_tuning.evaluate_configuration(params)
+    utility = inference_tuning.utility(metrics)
+
+    assert set(metrics) == {
+        "quality", "p95_latency_ms", "cost_per_1k_requests_usd",
+    }
+    assert 0 <= metrics["quality"] <= 1
+    assert metrics["p95_latency_ms"] > 0
+    assert metrics["cost_per_1k_requests_usd"] > 0
+    assert isinstance(utility, float)
+
+
+def test_documentation_portal_is_deployable_and_matches_sampler_api():
+    root = Path(__file__).resolve().parent.parent
+    docs = (root / "docs/index.html").read_text()
+    workflow = (root / ".github/workflows/docs.yml").read_text()
+    notebook = json.loads((root / "tutorials/quickstart.ipynb").read_text())
+
+    assert "actions/deploy-pages" in workflow
+    assert "Tutorials" in docs
+    assert 'href="../examples/' not in docs
+    assert 'href="../tutorials/' not in docs
+    assert "github.com/Optim-Agent/optim-agent/blob/main/examples/" in docs
+    assert "colab.research.google.com/github/Optim-Agent/optim-agent" in docs
+    for example in (
+        "quickstart.py", "sklearn_tuning.py", "quant_walk_forward.py",
+        "inference_tuning.py",
+    ):
+        assert example in docs
+    assert "xhigh" not in docs and "max</code>" not in docs
+    assert all(f'<code>{effort}</code>' in docs for effort in samplers.EFFORTS)
+    notebook_text = "\n".join(
+        "".join(cell.get("source", [])) for cell in notebook["cells"]
+    )
+    assert "colab.research.google.com" in notebook_text
+    assert 'backend="mock"' in notebook_text
+
+
+def test_benchmark_manifest_records_reproduction_contract():
+    root = Path(__file__).resolve().parent.parent
+    guide = (root / "benchmarks/README.md").read_text()
+    manifest = json.loads((root / "benchmarks/manifest.json").read_text())
+
+    assert all(term in guide for term in (
+        "Provenance", "Publication gate", "no supplied task context",
+    ))
+    assert {suite["id"] for suite in manifest["suites"]} == {
+        "mnist", "cifar10", "hard-functions", "ablations",
+    }
+    for suite in manifest["suites"]:
+        assert suite["result_glob"].startswith("docs/assets/")
+        assert suite["seeds"]
+        assert suite["trials"] > 0
+
+
+def test_trajectory_renderer_uses_committed_runs_and_emits_animation():
+    from PIL import Image
+    from scripts import render_trajectory
+
+    root = Path(__file__).resolve().parent.parent
+    baseline, agent_run = render_trajectory.load_runs(root / "docs/assets", seed=0)
+    assert baseline["label"] == "TPE"
+    assert agent_run["label"].startswith("GPT-5.5")
+    assert len(baseline["functions"]["branin"]["params"]) == 10
+    assert len(agent_run["functions"]["branin"]["params"]) == 10
+
+    with tempfile.TemporaryDirectory() as tmp:
+        output = Path(tmp) / "trajectory.gif"
+        render_trajectory.render(output, baseline, agent_run, dpi=60)
+        with Image.open(output) as animation:
+            assert animation.n_frames >= 10
+            assert animation.width >= 700
+            assert animation.height >= 400
+
+
+def test_chinese_readme_covers_primary_user_paths():
+    root = Path(__file__).resolve().parent.parent
+    english = (root / "README.md").read_text()
+    chinese = (root / "README.zh-CN.md").read_text()
+
+    assert "README.zh-CN.md" in english
+    for term in ("安装", "快速开始", "机器学习", "量化", "推理", "基准", "贡献"):
+        assert term in chinese
+    for target in (
+        "README.md", "examples/quickstart.py", "examples/sklearn_tuning.py",
+        "examples/quant_walk_forward.py", "examples/inference_tuning.py",
+        "tutorials/quickstart.ipynb",
+    ):
+        assert target in chinese
 
 
 def quadratic(trial):
@@ -357,6 +568,7 @@ def test_mnist_helper_curves_and_labels():
     assert "mock" not in mnist.PLOT_LABELS
     assert mnist.PLOT_LABELS == ("Random", "TPE", "GPT-5.5-medium", "GPT-5.5-medium-no-context")
     assert set(mnist.PLOT_STYLES) == {"GPT-5.5-medium", "GPT-5.5-medium-no-context"}
+    pytest.importorskip("torch", reason="install the vision extra to test tensor helpers")
     fake = type("FakeMNIST", (), {
         "data": np.zeros((2, 28, 28), dtype="uint8"),
         "targets": [1, 2],
@@ -617,6 +829,7 @@ def test_cifar10_helper_curves_and_labels():
     assert cifar10.PLOT_LABELS == ("Random", "TPE", "GPT-5.5-medium", "GPT-5.5-medium-no-context")
     assert cifar10._best_error_curve([{"test_error": 70.0}, {"test_error": 75.0},
                                       {"test_error": 60.0}]) == [70.0, 70.0, 60.0]
+    pytest.importorskip("torch", reason="install the vision extra to test tensor helpers")
     fake = type("FakeCIFAR", (), {
         "data": np.zeros((2, 32, 32, 3), dtype="uint8"),
         "targets": [1, 2],

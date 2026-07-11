@@ -19,6 +19,10 @@
   <img alt="Zero runtime deps" src="https://img.shields.io/badge/runtime%20deps-0-brightgreen">
 </p>
 
+<p align="center">
+  <strong>English</strong> | <a href="README.zh-CN.md">简体中文</a>
+</p>
+
 Instead of an evolutionary algorithm or a Bayesian surrogate, optim-agent hands
 the *choose-the-next-point* decision to a coding agent (Claude Code, Codex, or
 OpenCode) that reasons both **qualitatively** — what a learning rate or a
@@ -58,6 +62,16 @@ optim-agent can drive it.
   objective decides; invalid agent output falls back to safe sampling.
 - **Drop-in deployment** — Optuna-style API, JSON/SQLite storage, local
   authenticated CLI backends, and zero runtime dependencies.
+
+## Watch the search unfold
+
+![Agent optimization trajectory compared with TPE](docs/assets/optimization_trajectory.gif)
+
+This seed-0 Branin trace shows where TPE and GPT-5.5 sample under the same
+10-trial budget, alongside the incumbent objective after each trial. It is a
+trajectory illustration, not the aggregate benchmark; the multi-seed results
+and reproduction commands are below. Regenerate it from committed JSON with
+`python scripts/render_trajectory.py`.
 
 **Full documentation:** [docs/index.html](docs/index.html) — served as a
 website via GitHub Pages (Settings → Pages → deploy from branch, `main` /`docs`).
