@@ -163,6 +163,23 @@ def test_documentation_portal_is_deployable_and_matches_sampler_api():
     assert 'backend="mock"' in notebook_text
 
 
+def test_benchmark_manifest_records_reproduction_contract():
+    root = Path(__file__).resolve().parent.parent
+    guide = (root / "benchmarks/README.md").read_text()
+    manifest = json.loads((root / "benchmarks/manifest.json").read_text())
+
+    assert all(term in guide for term in (
+        "Provenance", "Publication gate", "no supplied task context",
+    ))
+    assert {suite["id"] for suite in manifest["suites"]} == {
+        "mnist", "cifar10", "hard-functions", "ablations",
+    }
+    for suite in manifest["suites"]:
+        assert suite["result_glob"].startswith("docs/assets/")
+        assert suite["seeds"]
+        assert suite["trials"] > 0
+
+
 def quadratic(trial):
     x = trial.suggest_float("x", -5, 5, context="knob that centers a parabola at x=2")
     return (x - 2) ** 2
