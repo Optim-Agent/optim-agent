@@ -6,13 +6,11 @@ optimize. Two baselines: uniform Random (weak) and Optuna's TPE (strong,
 classical Bayesian). With a tight budget of 10 trials this is a sample-
 efficiency race, which is where agent reasoning is meant to pay off.
 
-Pools:
-  - "tier": GPT-5.5 (codex), Opus-4.8 (claude), GLM-5.2 (opencode default)
-  - "free": free models served by opencode — no paid API needed, for students
+Candidates: Random, TPE, GPT-5.5 medium, and GPT-5.5 medium without context.
 
-    python examples/hard_functions.py run --agent Opus-4.8 --trials 10
+    python examples/hard_functions.py distributed --trials 10 --seeds 0 1 2 3 4
     python examples/hard_functions.py run --agent TPE --trials 10
-    python examples/hard_functions.py plot        # one figure per pool
+    python examples/hard_functions.py plot
     python examples/hard_functions.py selfcheck   # verify the function values
 """
 
@@ -20,6 +18,7 @@ import argparse
 import json
 import math
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -29,23 +28,14 @@ ASSETS = Path(__file__).resolve().parent.parent / "docs" / "assets"
 
 # label -> backend/model + plotting group/color/style.
 # backend: real CLI name, None (uniform Random), or "tpe" (Optuna TPE baseline).
-# The free roster rotates — check `opencode models | grep -E 'free|pickle'` and swap.
 POOL = {
-    # -- headline agents --
-    "GPT-5.5":  dict(backend="codex",    model=None, group="tier", color="#10a37f", style=(0, (6, 2))),
-    "Opus-4.8": dict(backend="claude",   model="claude-opus-4-8", group="tier", color="#8b5cf6", style="solid"),
-    "GLM-5.2":  dict(backend="opencode", model=None, group="tier", color="#2563eb", style=(0, (4, 2, 1, 2))),
-    # -- free models via opencode (no paid API) --
-    # Excluded for latency (respond too slowly to act as a sampler in a bounded
-    # timeout): opencode/north-mini-code-free, opencode/nemotron-3-ultra-free.
-    # Add them back to benchmark if their serving speeds up.
-    "Big-pickle":  dict(backend="opencode", model="opencode/big-pickle",            group="free", color="#16a34a", style="solid"),
-    "DeepSeek-V4": dict(backend="opencode", model="opencode/deepseek-v4-flash-free", group="free", color="#0891b2", style=(0, (6, 2))),
-    "Hy3":         dict(backend="opencode", model="opencode/hy3-free",               group="free", color="#db2777", style=(0, (1, 1.5))),
-    "MiMo-v2.5":   dict(backend="opencode", model="opencode/mimo-v2.5-free",         group="free", color="#ca8a04", style=(0, (4, 2, 1, 2))),
-    # -- baselines, shown in both pools --
-    "TPE":     dict(backend="tpe",  model=None, group="both", color="#111827", style=(0, (2, 2))),
-    "Random":  dict(backend=None,   model=None, group="both", color="#9ca3af", style="solid"),
+    "Random": dict(backend=None, model=None, group="both", color="#9ca3af", style="solid"),
+    "TPE": dict(backend="tpe", model=None, group="both", color="#111827", style=(0, (2, 2))),
+    "GPT-5.5-medium": dict(backend="codex", model="gpt-5.5", group="tier",
+                           color="#10a37f", style=(0, (4, 2))),
+    "GPT-5.5-medium-no-context": dict(backend="codex", model="gpt-5.5",
+                                      no_context=True, group="tier",
+                                      color="#10a37f", style=(0, (1, 1.5))),
 }
 
 
@@ -97,9 +87,11 @@ def _agent_curve(preset, spec, trials, seed, timeout):
     if preset["backend"] is None:
         sampler = oa.RandomSampler()
     else:
-        sampler = oa.AgentSampler(backend=preset["backend"], model=preset["model"],
-                                  effort="high", context=_context(spec),
-                                  n_init=3, timeout=timeout, seed=seed)
+        sampler = oa.AgentSampler(
+            backend=preset["backend"], model=preset["model"], effort="medium",
+            context=None if preset.get("no_context") else _context(spec),
+            n_init=3, timeout=timeout, seed=seed,
+        )
     study = oa.create_study(sampler=sampler, seed=seed)
     study.optimize(make_objective(spec), n_trials=trials)
     return [t.value for t in study.trials], [t.params for t in study.trials]
@@ -107,7 +99,14 @@ def _agent_curve(preset, spec, trials, seed, timeout):
 
 def run(label, trials, seed, timeout):
     preset = POOL[label]
-    out = {"label": label, "seed": seed, "functions": {}}
+    out = {
+        "label": label,
+        "seed": seed,
+        "trials": trials,
+        "model": preset["model"],
+        "effort": "medium" if preset["backend"] == "codex" else None,
+        "functions": {},
+    }
     for name, spec in FUNCTIONS.items():
         print(f"== {label} on {name} (seed {seed}) ==")
         if preset["backend"] == "tpe":
@@ -120,6 +119,14 @@ def run(label, trials, seed, timeout):
     path = ASSETS / f"hard_curves_{label}_s{seed}.json"  # one file per (method, seed)
     path.write_text(json.dumps(out, indent=1))
     print(f"wrote {path}")
+
+
+def run_distributed(labels, trials, seeds, timeout):
+    for label in labels:
+        with ThreadPoolExecutor(max_workers=len(seeds)) as pool:
+            futures = [pool.submit(run, label, trials, seed, timeout) for seed in seeds]
+            for future in futures:
+                future.result()
 
 
 def _mean_best_curve(seed_runs, name):
@@ -157,8 +164,8 @@ def _plot_group(group, by_label, fname):
         ax.set_title(TITLES[name], fontsize=11)
         ax.xaxis.set_major_locator(MaxNLocator(integer=True))  # trials are integers
         ax.legend(fontsize=8, ncol=2)
-    fig.suptitle(f"{'Headline agents' if group == 'tier' else 'Free models via opencode'}"
-                 f" vs. TPE & Random — lower is better, mean of {nseed} seed(s)", fontsize=12)
+    fig.suptitle(f"GPT-5.5 medium context ablation vs. TPE & Random — lower is better, "
+                 f"mean of {nseed} seed(s)", fontsize=12)
     fig.tight_layout()
     fig.savefig(ASSETS / fname, dpi=130)
     print(f"wrote {ASSETS / fname}")
@@ -174,7 +181,6 @@ def plot():
     if not by_label:
         sys.exit("no hard_curves_*_s*.json in docs/assets — run some agents first")
     _plot_group("tier", by_label, "hard_benchmarks_tier.png")
-    _plot_group("free", by_label, "hard_benchmarks_free.png")
 
 
 def selfcheck():
@@ -193,9 +199,15 @@ if __name__ == "__main__":
     p_run.add_argument("--trials", type=int, default=10)
     p_run.add_argument("--seed", type=int, default=0)
     p_run.add_argument("--timeout", type=float, default=600,
-                       help="seconds per agent call; high default so slow reasoning backends survive")
+                       help="seconds per agent call")
+    p_dist = sub.add_parser("distributed")
+    p_dist.add_argument("--agents", nargs="+", choices=list(POOL), default=list(POOL))
+    p_dist.add_argument("--trials", type=int, default=10)
+    p_dist.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2, 3, 4])
+    p_dist.add_argument("--timeout", type=float, default=600)
     sub.add_parser("plot")
     sub.add_parser("selfcheck")
     args = ap.parse_args()
     {"run": lambda: run(args.agent, args.trials, args.seed, args.timeout),
+     "distributed": lambda: run_distributed(args.agents, args.trials, args.seeds, args.timeout),
      "plot": plot, "selfcheck": selfcheck}[args.cmd]()

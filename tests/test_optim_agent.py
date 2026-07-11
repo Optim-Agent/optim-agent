@@ -667,6 +667,29 @@ def test_cifar10_helper_curves_and_labels():
     assert cifar10._sampler("codex-no-context", 0, "medium", 1, None).context is None
 
 
+def test_hard_functions_distributed_contract():
+    from examples import hard_functions as hard
+    import threading
+
+    assert tuple(hard.POOL) == (
+        "Random", "TPE", "GPT-5.5-medium", "GPT-5.5-medium-no-context",
+    )
+    assert hard.POOL["GPT-5.5-medium"]["model"] == "gpt-5.5"
+    assert hard.POOL["GPT-5.5-medium-no-context"]["no_context"] is True
+
+    barrier = threading.Barrier(5, timeout=5)
+    calls = []
+    old_run = hard.run
+    hard.run = lambda label, trials, seed, timeout: (
+        calls.append((label, trials, seed, timeout)), barrier.wait()
+    )
+    try:
+        hard.run_distributed(["Random"], 10, [0, 1, 2, 3, 4], 600)
+    finally:
+        hard.run = old_run
+    assert {call[2] for call in calls} == {0, 1, 2, 3, 4}
+
+
 if __name__ == "__main__":
     for fn in [test_random_study, test_extract_json, test_agent_sampler,
                test_early_reward_agent_owns_post_startup,
@@ -682,7 +705,8 @@ if __name__ == "__main__":
                test_verify_mnist_prompting_scores_and_prunes,
                test_verify_mnist_reward_safe_label,
                test_verify_classification_reward_contract,
-               test_cifar10_helper_curves_and_labels]:
+               test_cifar10_helper_curves_and_labels,
+               test_hard_functions_distributed_contract]:
         fn()
         print(f"ok: {fn.__name__}")
     print("all checks passed")
