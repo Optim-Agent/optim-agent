@@ -95,6 +95,30 @@ def test_cpu_first_examples_have_runnable_search_spaces():
     assert "best params:" in result.stdout
 
 
+def test_quant_example_uses_leakage_safe_walk_forward_folds():
+    import math
+
+    from examples import quant_walk_forward as quant
+
+    folds = quant.walk_forward_slices(320, train_size=120, test_size=40)
+    assert folds
+    assert all(train_end == test_start
+               for _, train_end, test_start, _ in folds)
+    assert all(test_end <= 320 for _, _, _, test_end in folds)
+
+    trial = oa.create_study().ask({
+        "lookback": 20,
+        "entry_threshold": 0.002,
+        "rebalance_every": 5,
+    })
+    params = quant.suggest_params(trial)
+    returns = quant.synthetic_returns(320, seed=4)
+    score = quant.walk_forward_score(returns, params)
+    assert set(params) == {"lookback", "entry_threshold", "rebalance_every"}
+    assert isinstance(score, float)
+    assert math.isfinite(score)
+
+
 def quadratic(trial):
     x = trial.suggest_float("x", -5, 5, context="knob that centers a parabola at x=2")
     return (x - 2) ** 2
