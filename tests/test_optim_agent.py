@@ -8,7 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import optim_agent as oa
-from optim_agent import agent, samplers
+from optim_agent import agent, samplers, space
 
 
 def quadratic(trial):
@@ -128,6 +128,35 @@ def test_early_reward_hands_off_after_schema_trial():
     finally:
         samplers._agent.call_agent = original
     assert calls, "early-reward runs should hand off after discovering the search space"
+
+
+def test_early_reward_uses_declared_space_on_first_trial():
+    calls = []
+    original = samplers._agent.call_agent
+
+    def fake_call(*args, **kwargs):
+        calls.append(args)
+        return json.dumps({
+            "candidates": [{"x": 1.0}, {"x": 2.0}, {"x": 3.0}, {"x": 4.0}],
+        })
+
+    samplers._agent.call_agent = fake_call
+    try:
+        sampler = oa.AgentSampler(
+            backend="claude", effort="medium", n_init=4,
+            context="early reward", seed=0,
+            initial_space={"x": space.Float(-5, 5, context="test parameter")},
+        )
+        study = oa.create_study(sampler=sampler, seed=0, max_concurrency=4)
+        first = study.ask()
+        value = first.suggest_float("x", -5, 5, context="test parameter")
+    finally:
+        samplers._agent.call_agent = original
+
+    assert value == 1.0
+    assert len(calls) == 1
+    assert "joint portfolio of 4" in calls[0][2]
+    assert "test parameter" in calls[0][2]
 
 
 def test_early_reward_joint_startup_portfolio():
@@ -390,6 +419,7 @@ def test_mnist_helper_curves_and_labels():
     finally:
         mnist._train_once = old
     assert contexts and all(c is None for c in contexts)
+    assert set(mnist._sampler("codex", 0, "medium", 1, None).initial_space) == set(seen)
     assert mnist._sampler("codex-no-context", 0, "high", 1, None).context is None
 
 
@@ -625,6 +655,7 @@ def test_cifar10_helper_curves_and_labels():
     finally:
         cifar10._train_once = old
     assert contexts and all(c is None for c in contexts)
+    assert set(cifar10._sampler("codex", 0, "medium", 1, None).initial_space) == set(seen)
     assert cifar10._sampler("codex-no-context", 0, "medium", 1, None).context is None
 
 
@@ -632,6 +663,7 @@ if __name__ == "__main__":
     for fn in [test_random_study, test_extract_json, test_agent_sampler,
                test_early_reward_agent_owns_post_startup,
                test_early_reward_hands_off_after_schema_trial,
+               test_early_reward_uses_declared_space_on_first_trial,
                test_early_reward_joint_startup_portfolio,
                test_anchor_proposals_seed_warmup,
                test_pruner, test_mock_backend_and_storage, test_concurrency_and_sqlite,

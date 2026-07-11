@@ -23,6 +23,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import optim_agent as oa
+from optim_agent import space as oa_space
 
 ROOT = Path(__file__).resolve().parent.parent
 ASSETS = ROOT / "docs" / "assets"
@@ -46,6 +47,38 @@ STAGE3_WIDTHS = [256, 384, 512, 640]
 DEPTHS = [1, 2, 3]
 CROP_PADS = [4, 6]
 FLIP_PROBS = [0.5]
+SEARCH_SPACE = {
+    "lr": oa_space.Float(1e-4, 8e-4, log=True,
+                         context="AdamW learning rate for CIFAR-10 ResNet"),
+    "batch_size": oa_space.Categorical(
+        BATCHES, context="mini-batch size; larger improves GPU use but may need a larger learning rate"),
+    "weight_decay": oa_space.Float(1e-5, 1e-3, log=True,
+                                   context="AdamW weight decay regularization"),
+    "label_smoothing": oa_space.Float(0.08, 0.16,
+                                      context="cross-entropy label smoothing"),
+    "stage1_width": oa_space.Categorical(STAGE1_WIDTHS,
+                                          context="channel count for the first residual stage"),
+    "stage2_width": oa_space.Categorical(STAGE2_WIDTHS,
+                                          context="channel count for the second residual stage"),
+    "stage3_width": oa_space.Categorical(STAGE3_WIDTHS,
+                                          context="channel count for the third residual stage"),
+    "stage1_depth": oa_space.Categorical(DEPTHS,
+                                          context="residual blocks in the first stage"),
+    "stage2_depth": oa_space.Categorical(DEPTHS,
+                                          context="residual blocks in the second stage"),
+    "stage3_depth": oa_space.Categorical(DEPTHS,
+                                          context="residual blocks in the third stage"),
+    "stem_dropout": oa_space.Float(0.0, 0.4, context="dropout after the input stem"),
+    "stage1_dropout": oa_space.Float(0.0, 0.5,
+                                     context="dropout inside first-stage residual blocks"),
+    "stage2_dropout": oa_space.Float(0.0, 0.6,
+                                     context="dropout inside second-stage residual blocks"),
+    "head_dropout": oa_space.Float(0.0, 0.8,
+                                   context="dropout before the classifier head"),
+    "aug_crop": oa_space.Categorical(
+        CROP_PADS, context="random-crop reflection padding in pixels; 0 disables crop augmentation"),
+    "aug_flip": oa_space.Categorical(FLIP_PROBS, context="horizontal flip probability"),
+}
 SPACE_VERSION = "cifar10-stagewise-16-v1"
 PLOT_LABELS = ("Random", "TPE", "GPT-5.5-medium", "GPT-5.5-medium-no-context")
 PLOT_STYLES = {
@@ -420,6 +453,7 @@ def _sampler(method, seed, effort, timeout, model):
                  "label smoothing, stage widths, stage depths, stage dropouts, crop padding and "
                  "flip probability."),
         n_init=4, timeout=timeout, seed=seed,
+        initial_space=(None if preset.get("no_context") else SEARCH_SPACE),
     )
 
 

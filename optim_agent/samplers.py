@@ -35,7 +35,8 @@ class AgentSampler:
     """
 
     def __init__(self, backend="claude", model=None, effort="high", context=None,
-                 n_init=2, timeout=300, seed=None, anchor_proposals=None):
+                 n_init=2, timeout=300, seed=None, anchor_proposals=None,
+                 initial_space=None):
         if effort not in EFFORTS:
             raise ValueError(f"effort must be one of {list(EFFORTS)}")
         if backend != "mock" and backend not in _agent.BACKENDS:
@@ -43,17 +44,21 @@ class AgentSampler:
         self.backend, self.model, self.effort = backend, model, effort
         self.context, self.n_init, self.timeout = context, n_init, timeout
         self.anchor_proposals = list(anchor_proposals or [])
+        self.initial_space = dict(initial_space or {})
         self._anchor_idx = 0
         self._proposal_queue = []
         self.rng = random.Random(seed)
         self.note = None  # qualitative scratchpad, fed back at high effort
 
     def propose(self, study) -> dict:
+        if not study.space and self.initial_space:
+            study.space.update(self.initial_space)
         if self._proposal_queue:
             return self._proposal_queue.pop(0)
         done = [t for t in study.trials if t.state in ("complete", "pruned") and t.value is not None]
         early_reward = self.context and "early reward" in self.context.lower()
-        warmup_target = self.n_init if self.anchor_proposals or not early_reward else 1
+        warmup_target = (0 if early_reward and self.initial_space else
+                         self.n_init if self.anchor_proposals or not early_reward else 1)
         warmup_count = len(study.trials) if early_reward else len(
             [t for t in done if t.state == "complete"]
         )
