@@ -1,6 +1,5 @@
 """Samplers. AgentSampler asks an LLM agent for the next point; effort trades tokens for depth."""
 
-import json
 import random
 import warnings
 
@@ -91,29 +90,6 @@ class AgentSampler:
                         study, reply, cfg, portfolio_size
                     )
                     if proposals is not None:
-                        rank_prompt = (
-                            prompt + "\n\nThe candidate set below is fixed. Independently rank "
-                            "the fixed candidate indices from most to least likely to achieve an "
-                            "immediate low objective; do not change any parameter values.\n"
-                            + json.dumps({"candidates": proposals})
-                            + f'\nReply with ONLY JSON: {{"order": <a permutation of '
-                              f'0..{portfolio_size - 1}>}}.'
-                        )
-                        try:
-                            ranked_reply = _agent.call_agent(
-                                self.backend, self.model, rank_prompt,
-                                self.timeout, effort=self.effort
-                            )
-                        except Exception:
-                            pass
-                        else:
-                            ranked_data = _agent.extract_json(ranked_reply)
-                            order = ranked_data.get("order") if ranked_data else None
-                            if (isinstance(order, list)
-                                    and sorted(order) == list(range(portfolio_size))):
-                                proposals = [proposals[i] for i in order]
-                                if cfg["notes"] and isinstance(ranked_data.get("_note"), str):
-                                    self.note = ranked_data["_note"][:2000]
                         self._proposal_queue = proposals[1:]
                         return proposals[0]
         prompt = self._prompt(study, done, cfg)
