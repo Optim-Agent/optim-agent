@@ -1,0 +1,492 @@
+{
+ "label": "GPT-5.5-medium",
+ "method": "codex",
+ "effort": "medium",
+ "space_version": "cifar10-stagewise-16-v2",
+ "seed": 2,
+ "epochs": 3,
+ "trials": 10,
+ "workers": 4,
+ "gpus": [
+  6,
+  7,
+  0,
+  1,
+  2,
+  3,
+  4,
+  5
+ ],
+ "records": [
+  {
+   "trial": 0,
+   "state": "complete",
+   "params": {
+    "lr": 0.00045,
+    "batch_size": 128,
+    "weight_decay": 0.0001,
+    "label_smoothing": 0.1,
+    "stage1_width": 96,
+    "stage2_width": 192,
+    "stage3_width": 384,
+    "stage1_depth": 2,
+    "stage2_depth": 2,
+    "stage3_depth": 2,
+    "stem_dropout": 0.02,
+    "stage1_dropout": 0.03,
+    "stage2_dropout": 0.05,
+    "head_dropout": 0.1,
+    "aug_crop": 4,
+    "aug_flip": 0.5
+   },
+   "test_error": 23.700000000000003,
+   "test_acc": 76.3,
+   "test_loss": 0.7339761352539063,
+   "history": [
+    {
+     "test_loss": 1.2811734375,
+     "test_acc": 54.95,
+     "test_error": 45.05,
+     "epoch": 1
+    },
+    {
+     "test_loss": 0.9494584167480469,
+     "test_acc": 67.06,
+     "test_error": 32.94,
+     "epoch": 2
+    },
+    {
+     "test_loss": 0.7339761352539063,
+     "test_acc": 76.3,
+     "test_error": 23.700000000000003,
+     "epoch": 3
+    }
+   ]
+  },
+  {
+   "trial": 1,
+   "state": "complete",
+   "params": {
+    "lr": 0.00038,
+    "batch_size": 128,
+    "weight_decay": 0.00015,
+    "label_smoothing": 0.11,
+    "stage1_width": 128,
+    "stage2_width": 256,
+    "stage3_width": 512,
+    "stage1_depth": 2,
+    "stage2_depth": 2,
+    "stage3_depth": 2,
+    "stem_dropout": 0.0,
+    "stage1_dropout": 0.02,
+    "stage2_dropout": 0.06,
+    "head_dropout": 0.12,
+    "aug_crop": 4,
+    "aug_flip": 0.5
+   },
+   "test_error": 24.159999999999997,
+   "test_acc": 75.84,
+   "test_loss": 0.75415361328125,
+   "history": [
+    {
+     "test_loss": 1.079523712158203,
+     "test_acc": 63.25,
+     "test_error": 36.75,
+     "epoch": 1
+    },
+    {
+     "test_loss": 1.005730450439453,
+     "test_acc": 66.52,
+     "test_error": 33.480000000000004,
+     "epoch": 2
+    },
+    {
+     "test_loss": 0.75415361328125,
+     "test_acc": 75.84,
+     "test_error": 24.159999999999997,
+     "epoch": 3
+    }
+   ]
+  },
+  {
+   "trial": 2,
+   "state": "complete",
+   "params": {
+    "lr": 0.00032,
+    "batch_size": 64,
+    "weight_decay": 0.00012,
+    "label_smoothing": 0.1,
+    "stage1_width": 96,
+    "stage2_width": 192,
+    "stage3_width": 384,
+    "stage1_depth": 2,
+    "stage2_depth": 2,
+    "stage3_depth": 3,
+    "stem_dropout": 0.02,
+    "stage1_dropout": 0.04,
+    "stage2_dropout": 0.08,
+    "head_dropout": 0.15,
+    "aug_crop": 4,
+    "aug_flip": 0.5
+   },
+   "test_error": 22.560000000000002,
+   "test_acc": 77.44,
+   "test_loss": 0.6926928771972656,
+   "history": [
+    {
+     "test_loss": 1.0455280212402345,
+     "test_acc": 63.82,
+     "test_error": 36.18,
+     "epoch": 1
+    },
+    {
+     "test_loss": 0.8678086547851562,
+     "test_acc": 70.99,
+     "test_error": 29.010000000000005,
+     "epoch": 2
+    },
+    {
+     "test_loss": 0.6926928771972656,
+     "test_acc": 77.44,
+     "test_error": 22.560000000000002,
+     "epoch": 3
+    }
+   ]
+  },
+  {
+   "trial": 3,
+   "state": "complete",
+   "params": {
+    "lr": 0.00055,
+    "batch_size": 128,
+    "weight_decay": 7e-05,
+    "label_smoothing": 0.09,
+    "stage1_width": 96,
+    "stage2_width": 256,
+    "stage3_width": 512,
+    "stage1_depth": 2,
+    "stage2_depth": 2,
+    "stage3_depth": 2,
+    "stem_dropout": 0.0,
+    "stage1_dropout": 0.02,
+    "stage2_dropout": 0.04,
+    "head_dropout": 0.08,
+    "aug_crop": 6,
+    "aug_flip": 0.5
+   },
+   "test_error": 28.39,
+   "test_acc": 71.61,
+   "test_loss": 0.8553776306152344,
+   "history": [
+    {
+     "test_loss": 1.3221648193359374,
+     "test_acc": 53.45,
+     "test_error": 46.55,
+     "epoch": 1
+    },
+    {
+     "test_loss": 0.9995362976074219,
+     "test_acc": 65.3,
+     "test_error": 34.7,
+     "epoch": 2
+    },
+    {
+     "test_loss": 0.8553776306152344,
+     "test_acc": 71.61,
+     "test_error": 28.39,
+     "epoch": 3
+    }
+   ]
+  },
+  {
+   "trial": 4,
+   "state": "complete",
+   "params": {
+    "lr": 0.00045,
+    "batch_size": 128,
+    "weight_decay": 0.00012,
+    "label_smoothing": 0.1,
+    "stage1_width": 128,
+    "stage2_width": 256,
+    "stage3_width": 512,
+    "stage1_depth": 2,
+    "stage2_depth": 2,
+    "stage3_depth": 2,
+    "stem_dropout": 0.0,
+    "stage1_dropout": 0.01,
+    "stage2_dropout": 0.04,
+    "head_dropout": 0.08,
+    "aug_crop": 4,
+    "aug_flip": 0.5
+   },
+   "test_error": 25.930000000000007,
+   "test_acc": 74.07,
+   "test_loss": 0.7904049865722657,
+   "history": [
+    {
+     "test_loss": 1.1924667541503906,
+     "test_acc": 58.38,
+     "test_error": 41.62,
+     "epoch": 1
+    },
+    {
+     "test_loss": 0.8810440856933593,
+     "test_acc": 69.54,
+     "test_error": 30.459999999999994,
+     "epoch": 2
+    },
+    {
+     "test_loss": 0.7904049865722657,
+     "test_acc": 74.07,
+     "test_error": 25.930000000000007,
+     "epoch": 3
+    }
+   ]
+  },
+  {
+   "trial": 5,
+   "state": "complete",
+   "params": {
+    "lr": 0.00029,
+    "batch_size": 64,
+    "weight_decay": 0.00012,
+    "label_smoothing": 0.1,
+    "stage1_width": 96,
+    "stage2_width": 192,
+    "stage3_width": 384,
+    "stage1_depth": 2,
+    "stage2_depth": 2,
+    "stage3_depth": 3,
+    "stem_dropout": 0.02,
+    "stage1_dropout": 0.04,
+    "stage2_dropout": 0.08,
+    "head_dropout": 0.15,
+    "aug_crop": 4,
+    "aug_flip": 0.5
+   },
+   "test_error": 22.409999999999997,
+   "test_acc": 77.59,
+   "test_loss": 0.7002283935546875,
+   "history": [
+    {
+     "test_loss": 1.1684253295898437,
+     "test_acc": 57.93,
+     "test_error": 42.07,
+     "epoch": 1
+    },
+    {
+     "test_loss": 0.8712625244140625,
+     "test_acc": 71.46,
+     "test_error": 28.540000000000006,
+     "epoch": 2
+    },
+    {
+     "test_loss": 0.7002283935546875,
+     "test_acc": 77.59,
+     "test_error": 22.409999999999997,
+     "epoch": 3
+    }
+   ]
+  },
+  {
+   "trial": 6,
+   "state": "complete",
+   "params": {
+    "lr": 0.00029,
+    "batch_size": 64,
+    "weight_decay": 0.00012,
+    "label_smoothing": 0.1,
+    "stage1_width": 96,
+    "stage2_width": 192,
+    "stage3_width": 384,
+    "stage1_depth": 2,
+    "stage2_depth": 2,
+    "stage3_depth": 3,
+    "stem_dropout": 0.02,
+    "stage1_dropout": 0.04,
+    "stage2_dropout": 0.08,
+    "head_dropout": 0.15,
+    "aug_crop": 4,
+    "aug_flip": 0.5
+   },
+   "test_error": 22.28,
+   "test_acc": 77.72,
+   "test_loss": 0.6858502014160156,
+   "history": [
+    {
+     "test_loss": 1.0747821655273437,
+     "test_acc": 61.34,
+     "test_error": 38.66,
+     "epoch": 1
+    },
+    {
+     "test_loss": 0.8204774169921875,
+     "test_acc": 72.15,
+     "test_error": 27.849999999999994,
+     "epoch": 2
+    },
+    {
+     "test_loss": 0.6858502014160156,
+     "test_acc": 77.72,
+     "test_error": 22.28,
+     "epoch": 3
+    }
+   ]
+  },
+  {
+   "trial": 7,
+   "state": "complete",
+   "params": {
+    "lr": 0.00035,
+    "batch_size": 64,
+    "weight_decay": 0.00012,
+    "label_smoothing": 0.1,
+    "stage1_width": 96,
+    "stage2_width": 192,
+    "stage3_width": 384,
+    "stage1_depth": 2,
+    "stage2_depth": 2,
+    "stage3_depth": 3,
+    "stem_dropout": 0.02,
+    "stage1_dropout": 0.04,
+    "stage2_dropout": 0.08,
+    "head_dropout": 0.13,
+    "aug_crop": 4,
+    "aug_flip": 0.5
+   },
+   "test_error": 21.72,
+   "test_acc": 78.28,
+   "test_loss": 0.6742279724121094,
+   "history": [
+    {
+     "test_loss": 1.1269936096191406,
+     "test_acc": 61.06,
+     "test_error": 38.94,
+     "epoch": 1
+    },
+    {
+     "test_loss": 0.8643889892578125,
+     "test_acc": 71.04,
+     "test_error": 28.959999999999994,
+     "epoch": 2
+    },
+    {
+     "test_loss": 0.6742279724121094,
+     "test_acc": 78.28,
+     "test_error": 21.72,
+     "epoch": 3
+    }
+   ]
+  },
+  {
+   "trial": 8,
+   "state": "complete",
+   "params": {
+    "lr": 0.0003,
+    "batch_size": 64,
+    "weight_decay": 0.00012,
+    "label_smoothing": 0.1,
+    "stage1_width": 96,
+    "stage2_width": 192,
+    "stage3_width": 384,
+    "stage1_depth": 2,
+    "stage2_depth": 2,
+    "stage3_depth": 3,
+    "stem_dropout": 0.02,
+    "stage1_dropout": 0.035,
+    "stage2_dropout": 0.075,
+    "head_dropout": 0.13,
+    "aug_crop": 4,
+    "aug_flip": 0.5
+   },
+   "test_error": 21.549999999999997,
+   "test_acc": 78.45,
+   "test_loss": 0.6945406188964843,
+   "history": [
+    {
+     "test_loss": 1.0143984924316407,
+     "test_acc": 64.79,
+     "test_error": 35.209999999999994,
+     "epoch": 1
+    },
+    {
+     "test_loss": 0.7384973022460938,
+     "test_acc": 76.01,
+     "test_error": 23.989999999999995,
+     "epoch": 2
+    },
+    {
+     "test_loss": 0.6945406188964843,
+     "test_acc": 78.45,
+     "test_error": 21.549999999999997,
+     "epoch": 3
+    }
+   ]
+  },
+  {
+   "trial": 9,
+   "state": "complete",
+   "params": {
+    "lr": 0.00028,
+    "batch_size": 64,
+    "weight_decay": 0.00012,
+    "label_smoothing": 0.1,
+    "stage1_width": 96,
+    "stage2_width": 192,
+    "stage3_width": 384,
+    "stage1_depth": 2,
+    "stage2_depth": 2,
+    "stage3_depth": 3,
+    "stem_dropout": 0.02,
+    "stage1_dropout": 0.04,
+    "stage2_dropout": 0.08,
+    "head_dropout": 0.15,
+    "aug_crop": 4,
+    "aug_flip": 0.5
+   },
+   "test_error": 22.010000000000005,
+   "test_acc": 77.99,
+   "test_loss": 0.6872097839355469,
+   "history": [
+    {
+     "test_loss": 1.13905380859375,
+     "test_acc": 60.41,
+     "test_error": 39.59,
+     "epoch": 1
+    },
+    {
+     "test_loss": 0.9185371520996094,
+     "test_acc": 69.54,
+     "test_error": 30.459999999999994,
+     "epoch": 2
+    },
+    {
+     "test_loss": 0.6872097839355469,
+     "test_acc": 77.99,
+     "test_error": 22.010000000000005,
+     "epoch": 3
+    }
+   ]
+  }
+ ],
+ "best_error": 21.549999999999997,
+ "best_params": {
+  "lr": 0.0003,
+  "batch_size": 64,
+  "weight_decay": 0.00012,
+  "label_smoothing": 0.1,
+  "stage1_width": 96,
+  "stage2_width": 192,
+  "stage3_width": 384,
+  "stage1_depth": 2,
+  "stage2_depth": 2,
+  "stage3_depth": 3,
+  "stem_dropout": 0.02,
+  "stage1_dropout": 0.035,
+  "stage2_dropout": 0.075,
+  "head_dropout": 0.13,
+  "aug_crop": 4,
+  "aug_flip": 0.5
+ },
+ "model": "gpt-5.5"
+}
