@@ -61,6 +61,8 @@ def test_public_governance_files_are_substantive():
     for filename, sections in required_sections.items():
         text = (root / filename).read_text()
         assert all(section in text for section in sections), filename
+    changelog = (root / "CHANGELOG.md").read_text()
+    assert "/releases/tag/v0.1.0" not in changelog
 
 
 def test_cpu_first_examples_have_runnable_search_spaces():
@@ -149,6 +151,10 @@ def test_documentation_portal_is_deployable_and_matches_sampler_api():
 
     assert "actions/deploy-pages" in workflow
     assert "Tutorials" in docs
+    assert 'href="../examples/' not in docs
+    assert 'href="../tutorials/' not in docs
+    assert "github.com/Optim-Agent/optim-agent/blob/main/examples/" in docs
+    assert "colab.research.google.com/github/Optim-Agent/optim-agent" in docs
     for example in (
         "quickstart.py", "sklearn_tuning.py", "quant_walk_forward.py",
         "inference_tuning.py",

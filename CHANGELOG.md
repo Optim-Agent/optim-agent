@@ -24,5 +24,4 @@ All notable changes to optim-agent are documented here. The format follows
 - Agent-guided pruning, JSON and SQLite storage, and distributed workers.
 - Reproducible optimization and image-classification benchmarks.
 
-[Unreleased]: https://github.com/Optim-Agent/optim-agent/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/Optim-Agent/optim-agent/releases/tag/v0.1.0
+[Unreleased]: https://github.com/Optim-Agent/optim-agent/commits/main
