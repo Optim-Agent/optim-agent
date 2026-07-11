@@ -130,10 +130,10 @@ receives none of those additions. Neither run uses hand-picked anchors.
 |---|---:|---:|
 | Random | 9.174 | 0.648% |
 | TPE | 7.166 | 0.580% |
-| **GPT-5.5 medium** | **5.674** | **0.504%** |
+| **GPT-5.5 medium** | **5.668** | **0.506%** |
 | GPT-5.5 medium, no context | 8.910 | 0.632% |
 
-GPT-5.5 medium reduces reward by **20.8%** relative to the best baseline, TPE.
+GPT-5.5 medium reduces reward by **20.9%** relative to the best baseline, TPE.
 Without context it is 24.3% worse than TPE, isolating the value of semantic
 parameter information rather than model identity.
 

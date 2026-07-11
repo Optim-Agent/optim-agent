@@ -423,8 +423,8 @@ def test_mnist_helper_curves_and_labels():
         mnist._train_once = old
     assert contexts and all(c is None for c in contexts)
     assert set(mnist._sampler("codex", 0, "medium", 1, None).initial_space) == set(seen)
-    assert "trial budget" in mnist._sampler("codex", 0, "medium", 1, None).context
-    assert "24 trials" not in mnist._sampler("codex", 0, "medium", 1, None).context
+    mnist_context = mnist._sampler("codex", 0, "medium", 1, None).context
+    assert "trial budget" in mnist_context and "24 trials" not in mnist_context
     assert mnist._sampler("codex-no-context", 0, "high", 1, None).context is None
 
 
