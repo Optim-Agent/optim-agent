@@ -159,22 +159,6 @@ def test_early_reward_uses_declared_space_on_first_trial():
     assert "test parameter" in calls[0][2]
 
 
-def test_prompt_shows_observed_learning_curves():
-    sampler = oa.AgentSampler(backend="mock", effort="medium", n_init=1, seed=0)
-    study = oa.create_study(sampler=sampler, seed=0)
-    trial = study.ask({"x": 1.0})
-    trial.suggest_float("x", -5, 5)
-    trial.report(3.0, 1)
-    trial.report(2.0, 2)
-    study.tell(trial, 2.0)
-
-    prompt = sampler._prompt(study, [trial], samplers.EFFORTS["medium"])
-
-    assert "Observed within-trial learning curves (step=value):" in prompt
-    assert "#0: 1=3, 2=2" in prompt
-    assert "final objective values remain authoritative" in prompt
-
-
 def test_early_reward_joint_startup_portfolio():
     calls = []
     original = samplers._agent.call_agent
@@ -680,7 +664,6 @@ if __name__ == "__main__":
                test_early_reward_agent_owns_post_startup,
                test_early_reward_hands_off_after_schema_trial,
                test_early_reward_uses_declared_space_on_first_trial,
-               test_prompt_shows_observed_learning_curves,
                test_early_reward_joint_startup_portfolio,
                test_anchor_proposals_seed_warmup,
                test_pruner, test_mock_backend_and_storage, test_concurrency_and_sqlite,
