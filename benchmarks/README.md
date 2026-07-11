@@ -42,6 +42,7 @@ pytest
 python scripts/verify_classification_reward.py
 python examples/hard_functions.py selfcheck
 python examples/hard_functions.py plot
+python scripts/render_trajectory.py
 ```
 
 Plotters must reject missing, stale, mixed-budget, or mixed-provenance data.

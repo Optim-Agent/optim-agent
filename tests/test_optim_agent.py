@@ -180,6 +180,26 @@ def test_benchmark_manifest_records_reproduction_contract():
         assert suite["trials"] > 0
 
 
+def test_trajectory_renderer_uses_committed_runs_and_emits_animation():
+    from PIL import Image
+    from scripts import render_trajectory
+
+    root = Path(__file__).resolve().parent.parent
+    baseline, agent_run = render_trajectory.load_runs(root / "docs/assets", seed=0)
+    assert baseline["label"] == "TPE"
+    assert agent_run["label"].startswith("GPT-5.5")
+    assert len(baseline["functions"]["branin"]["params"]) == 10
+    assert len(agent_run["functions"]["branin"]["params"]) == 10
+
+    with tempfile.TemporaryDirectory() as tmp:
+        output = Path(tmp) / "trajectory.gif"
+        render_trajectory.render(output, baseline, agent_run, dpi=60)
+        with Image.open(output) as animation:
+            assert animation.n_frames >= 10
+            assert animation.width >= 700
+            assert animation.height >= 400
+
+
 def quadratic(trial):
     x = trial.suggest_float("x", -5, 5, context="knob that centers a parabola at x=2")
     return (x - 2) ** 2

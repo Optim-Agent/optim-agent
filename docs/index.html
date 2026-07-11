@@ -173,6 +173,16 @@ example keeps its objective and trade-offs visible.</p>
 Colab-ready. It uses the mock backend because hosted runtimes do not carry
 your local agent CLI authentication.</p>
 
+<h3>Optimization trajectory</h3>
+
+<img src="assets/optimization_trajectory.gif"
+     alt="Animated Branin sampling trajectories and incumbent values for GPT-5.5 and TPE">
+
+<p>This seed-0 trace uses the same 10-trial budget for both methods. It is an
+illustration of the search path; the <a href="#benchmarks">multi-seed
+benchmarks</a> carry the comparative claim. Regenerate it with
+<code>python scripts/render_trajectory.py</code>.</p>
+
 <h2 id="how-it-works">How it works</h2>
 
 <p>Each trial runs this loop:</p>
