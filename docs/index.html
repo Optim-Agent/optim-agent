@@ -399,41 +399,64 @@ package when you just want a better blackbox optimizer.</p>
 
 <h2 id="benchmarks">Benchmarks</h2>
 
-<p>Two standard test functions — <strong>Branin</strong> (2D) and
-<strong>Ackley</strong> (5D) — minimized in a budget of <strong>10 trials</strong>,
-averaged over <strong>3 seeds</strong>. Agents see only the input bounds and the
-trial history, <em>never the function name</em>, so they cannot recall a known
-optimum and must genuinely optimize. Baselines: uniform <strong>random
-search</strong> and <strong>Optuna's TPE</strong> (classical Bayesian). Every
-agent curve is a real run through the corresponding CLI.</p>
+<p>Every refreshed comparison uses the same four candidates: Random, Optuna
+TPE, GPT-5.5 medium, and GPT-5.5 medium without context. Curves average five
+fresh seeds (<code>0..4</code>) at 10 trials. Codex is explicitly invoked with
+<code>-m gpt-5.5 -c model_reasoning_effort=medium</code>.</p>
 
-<p>Headline agents — Opus-4.8 (claude) and GPT-5.5 (codex) reach the optimum of
-both functions within the budget, well ahead of TPE and random:</p>
-<p><img src="assets/hard_benchmarks_tier.png" alt="Opus-4.8 and GPT-5.5 reach the optimum of Branin and Ackley-5D in 10 trials, ahead of TPE and random"></p>
+<p>Classification uses the early-optimization reward
+<code>sum(best_test_error_so_far_at_i for i in 1..10)</code>. Lower is better.
+The context-enabled run receives the study description, declared
+16-dimensional space, and parameter meanings; the no-context run receives none
+of those additions. Neither run uses hand-picked anchors.</p>
 
-<p>Free models via opencode — no paid API needed. Big-pickle and DeepSeek-V4
-solve Ackley-5D outright and beat random search on Branin, so students and
-hobbyists can run optim-agent at zero model cost:</p>
-<p><img src="assets/hard_benchmarks_free.png" alt="Free opencode models Big-pickle and DeepSeek-V4 solve Ackley-5D and beat random on Branin"></p>
+<h3>MNIST ResNet, 16 dimensions</h3>
+<p><img src="assets/mnist_benchmarks.png" alt="MNIST five-seed comparison of Random, TPE, GPT-5.5 medium, and GPT-5.5 medium without context"></p>
+<table>
+<tr><th>Method</th><th>Mean reward ↓</th><th>Mean final best error ↓</th></tr>
+<tr><td>Random</td><td>9.174</td><td>0.648%</td></tr>
+<tr><td>TPE</td><td>7.166</td><td>0.580%</td></tr>
+<tr><td><strong>GPT-5.5 medium</strong></td><td><strong>5.674</strong></td><td><strong>0.504%</strong></td></tr>
+<tr><td>GPT-5.5 medium, no context</td><td>8.910</td><td>0.632%</td></tr>
+</table>
+<p>GPT-5.5 medium reduces reward by <strong>20.8%</strong> relative to TPE, the
+best baseline. Without context it is 24.3% worse than TPE.</p>
+<p>The 16 dimensions are learning rate, batch size, weight decay, label
+smoothing, three stage widths, three stage depths, four dropout controls,
+translation radius, and rotation range.</p>
 
-<div class="note">At a 10-trial budget TPE has too little data to fit a useful
-surrogate, so it does not yet beat random — exactly the low-sample regime where
-an agent's prior knowledge pays off. This is a small-budget demonstration (10
-trials, 3 seeds, still noisy); a fuller study with more trials, more seeds, and
-ML tasks (MNIST, ARIMA) is planned for the paper.</div>
+<h3>CIFAR-10 ResNet, 16 dimensions</h3>
+<p><img src="assets/cifar10_benchmarks.png" alt="CIFAR-10 five-seed comparison of Random, TPE, GPT-5.5 medium, and GPT-5.5 medium without context"></p>
+<table>
+<tr><th>Method</th><th>Mean reward ↓</th><th>Mean final best error ↓</th></tr>
+<tr><td>Random</td><td>278.920</td><td>25.072%</td></tr>
+<tr><td>TPE</td><td>279.936</td><td>25.596%</td></tr>
+<tr><td><strong>GPT-5.5 medium</strong></td><td><strong>220.994</strong></td><td><strong>21.322%</strong></td></tr>
+<tr><td>GPT-5.5 medium, no context</td><td>281.466</td><td>25.960%</td></tr>
+</table>
+<p>GPT-5.5 medium reduces reward by <strong>20.8%</strong> relative to Random,
+the best baseline. Without context it is 0.9% worse than Random.</p>
+<p>The matched 16 dimensions replace translation and rotation with crop padding
+and flip probability while retaining the optimizer, stage, and dropout
+controls.</p>
 
-<p>Reproduce from a repo clone (the <code>examples</code> extra pulls in
-<code>optuna</code> for the TPE baseline); each <code>run</code> writes one
-per-seed curve and <code>plot</code> averages whatever exists:</p>
+<h3>Branin and Ackley-5D</h3>
+<p><img src="assets/hard_benchmarks_tier.png" alt="Five-seed Branin and Ackley-5D comparison of Random, TPE, and GPT-5.5 medium with and without context"></p>
+<table>
+<tr><th>Method</th><th>Mean best Branin ↓</th><th>Mean best Ackley-5D ↓</th></tr>
+<tr><td>Random</td><td>5.008</td><td>19.639</td></tr>
+<tr><td>TPE</td><td>8.219</td><td>19.419</td></tr>
+<tr><td>GPT-5.5 medium</td><td><strong>0.398</strong></td><td><strong>0.000</strong></td></tr>
+<tr><td>GPT-5.5 medium, no context</td><td><strong>0.398</strong></td><td><strong>0.000</strong></td></tr>
+</table>
+<div class="note">Both GPT variants solve the standard functions, so the
+classification tasks provide the meaningful context ablation.</div>
 
+<p>Reproduce the distributed runs:</p>
 <pre><code>pip install -e ".[examples]"
-for s in 0 1 2; do
-  python examples/hard_functions.py run --agent Opus-4.8   --seed $s
-  python examples/hard_functions.py run --agent GPT-5.5    --seed $s   # codex; slow, add --timeout 600
-  python examples/hard_functions.py run --agent Big-pickle --seed $s   # free, via opencode
-  python examples/hard_functions.py run --agent TPE        --seed $s
-  python examples/hard_functions.py run --agent Random     --seed $s
-done
+python scripts/verify_classification_reward.py run-no-context
+python scripts/verify_classification_reward.py
+python examples/hard_functions.py distributed --trials 10 --seeds 0 1 2 3 4
 python examples/hard_functions.py plot</code></pre>
 
 <h2 id="api">API reference</h2>
@@ -531,9 +554,10 @@ GPU-hour of a mis-tuned training run.</p>
 parameter names, bounds, your <code>context</code> string, and the numeric
 history. In skill mode, yes by design: the session agent reads your project.</p>
 
-<p><strong>Parallel trials?</strong> Not supported; the design point is that
-each decision uses all history so far. Run independent studies for coarse
-parallelism.</p>
+<p><strong>Parallel trials?</strong> Set <code>max_concurrency</code> to run
+objective evaluations concurrently inside one study. For coarse parallelism,
+run independent seeded studies as the benchmark scripts do; SQLite storage can
+also coordinate workers across processes.</p>
 
 <p><strong>Multi-objective?</strong> Not yet. Combine objectives into a
 scalar for now.</p>
@@ -544,8 +568,8 @@ stochastic. Persist the study JSON — it is the full record of every point
 sampled and its outcome, so any run can be audited after the fact.</p>
 
 <footer>
-<p>MIT licensed. Extended experiments (MNIST, ARIMA) are in preparation for
-the accompanying paper. Sources, issues, and contributions:
+<p>MIT licensed. Five-seed MNIST, CIFAR-10, and hard-function results are
+published above. Sources, issues, and contributions:
 <a href="https://github.com/Optim-Agent/optim-agent">GitHub</a>.</p>
 </footer>
 
