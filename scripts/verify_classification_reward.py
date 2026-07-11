@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parent.parent
 RUN_ROOT = ROOT / "autoresearch-results" / "classification-stagewise16-v2-n10-s5"
 BASELINES = RUN_ROOT / "baselines"
 GPT_CURRENT = RUN_ROOT / "gpt-current"
+GPT_NO_CONTEXT = RUN_ROOT / "gpt-no-context"
 SEEDS = (0, 1, 2, 3, 4)
 TRIALS = 10
 EPOCHS = 3
@@ -25,7 +26,12 @@ EFFORT = "medium"
 MODEL = "gpt-5.5"
 TIMEOUT = 600
 GPU_SPLITS = {"mnist": tuple(range(8)), "cifar10": tuple(range(8))}
-LABELS = {"Random": "Random", "TPE": "TPE", "codex": "GPT-5.5-medium"}
+LABELS = {
+    "Random": "Random",
+    "TPE": "TPE",
+    "codex": "GPT-5.5-medium",
+    "codex-no-context": "GPT-5.5-medium-no-context",
+}
 
 
 def _dataset_module(dataset):
@@ -132,6 +138,8 @@ def _metrics():
         random_reward, random_seeds = _reward(BASELINES, dataset, "Random")
         tpe_reward, tpe_seeds = _reward(BASELINES, dataset, "TPE")
         gpt_reward, gpt_seeds = _reward(GPT_CURRENT, dataset, "GPT-5.5-medium")
+        no_context_reward, no_context_seeds = _reward(
+            GPT_NO_CONTEXT, dataset, LABELS["codex-no-context"])
         baseline = min(random_reward, tpe_reward)
         ratio = gpt_reward / baseline
         ratios.append(ratio)
@@ -141,18 +149,21 @@ def _metrics():
             f"{prefix}_random_reward": random_reward,
             f"{prefix}_tpe_reward": tpe_reward,
             f"{prefix}_gpt_reward": gpt_reward,
+            f"{prefix}_gpt_no_context_reward": no_context_reward,
         })
         for label, values in (("random", random_seeds), ("tpe", tpe_seeds),
                               ("gpt", gpt_seeds)):
             metrics.update({f"{prefix}_{label}_s{i}": value
                             for i, value in enumerate(values)})
+        metrics.update({f"{prefix}_gpt_no_context_s{i}": value
+                        for i, value in enumerate(no_context_seeds)})
     metrics["max_ratio"] = max(ratios)
     return metrics
 
 
 def _worker(args):
     module = _dataset_module(args.dataset)
-    sampler = module._sampler("codex", args.seed, EFFORT, TIMEOUT, MODEL)
+    sampler = module._sampler(args.method, args.seed, EFFORT, TIMEOUT, MODEL)
     if sampler.anchor_proposals:
         raise SystemExit(f"{args.dataset} benchmark injects anchor proposals")
     module.ASSETS = Path(args.assets)
@@ -164,6 +175,7 @@ def _worker(args):
 def main():
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command")
+    sub.add_parser("run-no-context")
     worker = sub.add_parser("worker")
     worker.add_argument("--dataset", required=True, choices=tuple(GPU_SPLITS))
     worker.add_argument("--method", required=True, choices=tuple(LABELS))
@@ -174,6 +186,10 @@ def main():
     args = parser.parse_args()
     if args.command == "worker":
         _worker(args)
+        return
+    if args.command == "run-no-context":
+        shutil.rmtree(GPT_NO_CONTEXT, ignore_errors=True)
+        _run_pair("codex-no-context", GPT_NO_CONTEXT)
         return
     _prepare_baselines()
     _run_gpt()

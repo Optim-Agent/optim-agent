@@ -518,6 +518,8 @@ def test_verify_classification_reward_contract():
     assert verify.RUN_ROOT.name == "classification-stagewise16-v2-n10-s5"
     assert verify.MODEL == "gpt-5.5"
     assert verify.EFFORT == "medium"
+    assert verify.LABELS["codex-no-context"] == "GPT-5.5-medium-no-context"
+    assert verify.GPT_NO_CONTEXT.name == "gpt-no-context"
     assert verify._reward_curve([3.0, 4.0, 2.0]) == [3.0, 3.0, 2.0]
     assert verify._dataset_module("mnist").__name__ == "examples.mnist"
     commands = [verify._worker_command(dataset, "codex", verify.GPT_CURRENT, seed)
@@ -548,17 +550,20 @@ def test_verify_classification_reward_contract():
     seen = {}
 
     class FakeModule:
-        _sampler = staticmethod(lambda *args: SimpleNamespace(anchor_proposals=[]))
+        _sampler = staticmethod(lambda method, *args: (
+            seen.update(sampler_method=method) or SimpleNamespace(anchor_proposals=[])
+        ))
         run = staticmethod(lambda method, seeds, *args: seen.update(method=method, seeds=seeds))
 
     old_dataset_module = verify._dataset_module
     verify._dataset_module = lambda dataset: FakeModule
     try:
-        verify._worker(SimpleNamespace(dataset="mnist", method="codex", seed=3,
+        verify._worker(SimpleNamespace(dataset="mnist", method="codex-no-context", seed=3,
                                        assets="/tmp/assets", storage="/tmp/storage", gpus=[0]))
     finally:
         verify._dataset_module = old_dataset_module
-    assert seen == {"method": "codex", "seeds": [3]}
+    assert seen == {"sampler_method": "codex-no-context",
+                    "method": "codex-no-context", "seeds": [3]}
 
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)

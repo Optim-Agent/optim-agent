@@ -520,6 +520,7 @@ def run(method, seeds, trials, epochs, workers, gpus, effort, timeout, model):
             best_value, best_params = study.best_value, study.best_params
         out = {
             "label": label, "method": method, "effort": effort,
+            "model": model if METHODS[method]["backend"] == "codex" else None,
             "space_version": SPACE_VERSION,
             "seed": seed, "epochs": epochs, "trials": trials,
             "workers": workers, "gpus": gpus, "records": records,
