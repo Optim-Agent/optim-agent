@@ -49,6 +49,20 @@ def test_public_repository_metadata_and_ignore_contract():
     assert "paper/src/" not in ignored
 
 
+def test_public_governance_files_are_substantive():
+    root = Path(__file__).resolve().parent.parent
+    required_sections = {
+        "CONTRIBUTING.md": ("Development setup", "Pull requests", "Benchmarks"),
+        "SECURITY.md": ("Supported versions", "Reporting", "Response"),
+        "CODE_OF_CONDUCT.md": ("Standards", "Enforcement"),
+        "CHANGELOG.md": ("Unreleased", "0.1.0"),
+        "ROADMAP.md": ("Public launch", "Research", "Non-goals"),
+    }
+    for filename, sections in required_sections.items():
+        text = (root / filename).read_text()
+        assert all(section in text for section in sections), filename
+
+
 def quadratic(trial):
     x = trial.suggest_float("x", -5, 5, context="knob that centers a parabola at x=2")
     return (x - 2) ** 2
