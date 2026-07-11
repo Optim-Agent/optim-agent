@@ -200,6 +200,22 @@ def test_trajectory_renderer_uses_committed_runs_and_emits_animation():
             assert animation.height >= 400
 
 
+def test_chinese_readme_covers_primary_user_paths():
+    root = Path(__file__).resolve().parent.parent
+    english = (root / "README.md").read_text()
+    chinese = (root / "README.zh-CN.md").read_text()
+
+    assert "README.zh-CN.md" in english
+    for term in ("安装", "快速开始", "机器学习", "量化", "推理", "基准", "贡献"):
+        assert term in chinese
+    for target in (
+        "README.md", "examples/quickstart.py", "examples/sklearn_tuning.py",
+        "examples/quant_walk_forward.py", "examples/inference_tuning.py",
+        "tutorials/quickstart.ipynb",
+    ):
+        assert target in chinese
+
+
 def quadratic(trial):
     x = trial.suggest_float("x", -5, 5, context="knob that centers a parabola at x=2")
     return (x - 2) ** 2

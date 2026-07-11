@@ -19,6 +19,10 @@
   <img alt="Zero runtime deps" src="https://img.shields.io/badge/runtime%20deps-0-brightgreen">
 </p>
 
+<p align="center">
+  <strong>English</strong> | <a href="README.zh-CN.md">简体中文</a>
+</p>
+
 Instead of an evolutionary algorithm or a Bayesian surrogate, optim-agent hands
 the *choose-the-next-point* decision to a coding agent (Claude Code, Codex, or
 OpenCode) that reasons both **qualitatively** — what a learning rate or a
