@@ -187,6 +187,8 @@ def test_early_reward_joint_startup_portfolio():
     assert values == [1.0, 2.0, 3.0, 4.0]
     assert len(calls) == 1
     assert "joint portfolio of 4" in calls[0][2]
+    assert "candidate order is evaluation order" in calls[0][2]
+    assert "not a risky stress test" in calls[0][2]
     assert sampler.note == "four distinct startup hypotheses"
 
 
