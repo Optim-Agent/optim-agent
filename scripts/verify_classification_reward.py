@@ -56,11 +56,16 @@ def _curve_path(root, dataset, label, seed):
 def _reward(root, dataset, label):
     rewards = []
     expected_space_version = getattr(_dataset_module(dataset), "SPACE_VERSION", None)
+    expected_method = next(method for method, expected_label in LABELS.items()
+                           if expected_label == label)
     for seed in SEEDS:
         path = _curve_path(root, dataset, label, seed)
         data = json.loads(path.read_text())
         if (data["label"] != label or data["seed"] != seed or data["trials"] != TRIALS
-                or data.get("space_version") != expected_space_version):
+                or data.get("space_version") != expected_space_version
+                or data.get("method") != expected_method
+                or (expected_method.startswith("codex")
+                    and (data.get("model") != MODEL or data.get("effort") != EFFORT))):
             raise ValueError(f"incompatible curve metadata in {path}")
         records = data["records"]
         if len(records) != TRIALS:

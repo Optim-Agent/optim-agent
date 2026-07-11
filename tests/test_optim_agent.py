@@ -423,6 +423,8 @@ def test_mnist_helper_curves_and_labels():
         mnist._train_once = old
     assert contexts and all(c is None for c in contexts)
     assert set(mnist._sampler("codex", 0, "medium", 1, None).initial_space) == set(seen)
+    assert "trial budget" in mnist._sampler("codex", 0, "medium", 1, None).context
+    assert "24 trials" not in mnist._sampler("codex", 0, "medium", 1, None).context
     assert mnist._sampler("codex-no-context", 0, "high", 1, None).context is None
 
 
@@ -572,7 +574,7 @@ def test_verify_classification_reward_contract():
             path = verify._curve_path(root, "cifar10", label, seed)
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps({
-                "label": label, "seed": seed, "trials": verify.TRIALS,
+                "label": label, "method": "Random", "seed": seed, "trials": verify.TRIALS,
                 "space_version": "old-space",
                 "records": [{"test_error": 1.0} for _ in range(verify.TRIALS)],
             }))
@@ -582,6 +584,25 @@ def test_verify_classification_reward_contract():
             data["space_version"] = verify._dataset_module("cifar10").SPACE_VERSION
             path.write_text(json.dumps(data))
         assert verify._complete(root, "cifar10", label)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        label = "GPT-5.5-medium"
+        for seed in verify.SEEDS:
+            path = verify._curve_path(root, "mnist", label, seed)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps({
+                "label": label, "method": "codex", "model": None,
+                "effort": verify.EFFORT, "seed": seed, "trials": verify.TRIALS,
+                "space_version": getattr(verify._dataset_module("mnist"), "SPACE_VERSION", None),
+                "records": [{"test_error": 1.0} for _ in range(verify.TRIALS)],
+            }))
+        assert not verify._complete(root, "mnist", label)
+        for path in (root / "mnist").glob("*.json"):
+            data = json.loads(path.read_text())
+            data["model"] = verify.MODEL
+            path.write_text(json.dumps(data))
+        assert verify._complete(root, "mnist", label)
 
 
 def test_cifar10_helper_curves_and_labels():
@@ -689,6 +710,39 @@ def test_hard_functions_distributed_contract():
         hard.run = old_run
     assert {call[2] for call in calls} == {0, 1, 2, 3, 4}
 
+    hard.run = lambda label, trials, seed, timeout: (
+        (_ for _ in ()).throw(RuntimeError("worker failed")) if seed == 2 else None
+    )
+    try:
+        try:
+            hard.run_distributed(["Random"], 10, [0, 1, 2, 3, 4], 600)
+        except RuntimeError as error:
+            assert str(error) == "worker failed"
+        else:
+            raise AssertionError("distributed worker failure was swallowed")
+    finally:
+        hard.run = old_run
+
+
+def test_plotters_reject_incomplete_publication_data():
+    from examples import cifar10, hard_functions, mnist
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        old_mnist, old_cifar, old_hard = mnist.ASSETS, cifar10.ASSETS, hard_functions.ASSETS
+        mnist.ASSETS = cifar10.ASSETS = hard_functions.ASSETS = root
+        try:
+            for loader in (mnist._load_plot_runs, cifar10._load_plot_runs,
+                           hard_functions._load_plot_runs):
+                try:
+                    loader()
+                except SystemExit:
+                    pass
+                else:
+                    raise AssertionError("incomplete publication data was accepted")
+        finally:
+            mnist.ASSETS, cifar10.ASSETS, hard_functions.ASSETS = old_mnist, old_cifar, old_hard
+
 
 if __name__ == "__main__":
     for fn in [test_random_study, test_extract_json, test_agent_sampler,
@@ -706,7 +760,8 @@ if __name__ == "__main__":
                test_verify_mnist_reward_safe_label,
                test_verify_classification_reward_contract,
                test_cifar10_helper_curves_and_labels,
-               test_hard_functions_distributed_contract]:
+               test_hard_functions_distributed_contract,
+               test_plotters_reject_incomplete_publication_data]:
         fn()
         print(f"ok: {fn.__name__}")
     print("all checks passed")

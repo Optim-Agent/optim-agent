@@ -453,7 +453,7 @@ def _sampler(method, seed, effort, timeout, model):
         backend=preset["backend"], model=model or preset["model"], effort=effort,
         context=(None if preset.get("no_context") else
                  "Full MNIST neural architecture search with early reward: minimize the sum of "
-                 "incumbent best test errors over 24 trials. Tune learning rate, batch size, weight "
+                 "incumbent best test errors over the trial budget. Tune learning rate, batch size, weight "
                  "decay, label smoothing, stage widths, stage depths, stage dropouts, translation "
                  "and rotation augmentation."),
         n_init=4, timeout=timeout, seed=seed,
@@ -534,6 +534,28 @@ def run(method, seeds, trials, epochs, workers, gpus, effort, timeout, model):
         print(f"wrote {path} best_error={best_value:.4g}")
 
 
+def _load_plot_runs():
+    by_label = {}
+    for path in sorted(ASSETS.glob("mnist_curves_*_s*.json")):
+        run_data = json.loads(path.read_text())
+        by_label.setdefault(run_data["label"], []).append(run_data)
+    if set(by_label) != set(PLOT_LABELS):
+        raise SystemExit(f"MNIST plot requires exactly {PLOT_LABELS}")
+    methods = dict(zip(PLOT_LABELS, ("Random", "TPE", "codex", "codex-no-context")))
+    for label, runs in by_label.items():
+        if len(runs) != 5 or {run.get("seed") for run in runs} != set(range(5)):
+            raise SystemExit(f"MNIST plot requires seeds 0..4 for {label}")
+        for run in runs:
+            if (run.get("method") != methods[label] or run.get("trials") != 10
+                    or len(run.get("records", ())) != 10
+                    or any(record.get("state", "complete") != "complete"
+                           or record.get("test_error") is None for record in run["records"])
+                    or (label.startswith("GPT")
+                        and (run.get("model") != "gpt-5.5" or run.get("effort") != "medium"))):
+                raise SystemExit(f"incompatible MNIST plot data for {label}")
+    return by_label
+
+
 def plot():
     import matplotlib
     matplotlib.use("Agg")
@@ -541,12 +563,7 @@ def plot():
     import numpy as np
     from matplotlib.ticker import MaxNLocator
 
-    by_label = {}
-    for path in sorted(ASSETS.glob("mnist_curves_*_s*.json")):
-        run_data = json.loads(path.read_text())
-        by_label.setdefault(run_data["label"], []).append(run_data)
-    if not by_label:
-        raise SystemExit("no mnist_curves_*_s*.json in docs/assets — run an experiment first")
+    by_label = _load_plot_runs()
 
     fig, ax = plt.subplots(figsize=(7.2, 4.5))
     for label in PLOT_LABELS:

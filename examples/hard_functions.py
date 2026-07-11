@@ -171,15 +171,30 @@ def _plot_group(group, by_label, fname):
     print(f"wrote {ASSETS / fname}")
 
 
-def plot():
-    import matplotlib
-    matplotlib.use("Agg")
+def _load_plot_runs():
     by_label = {}
     for path in sorted(ASSETS.glob("hard_curves_*_s*.json")):
         r = json.loads(path.read_text())
         by_label.setdefault(r["label"], []).append(r)
-    if not by_label:
-        sys.exit("no hard_curves_*_s*.json in docs/assets — run some agents first")
+    if set(by_label) != set(POOL):
+        raise SystemExit(f"hard-function plot requires exactly {tuple(POOL)}")
+    for label, runs in by_label.items():
+        if len(runs) != 5 or {run.get("seed") for run in runs} != set(range(5)):
+            raise SystemExit(f"hard-function plot requires seeds 0..4 for {label}")
+        for run in runs:
+            if (run.get("trials") != 10 or set(run.get("functions", ())) != set(FUNCTIONS)
+                    or any(len(result.get("values", ())) != 10
+                           for result in run["functions"].values())
+                    or (label.startswith("GPT")
+                        and (run.get("model") != "gpt-5.5" or run.get("effort") != "medium"))):
+                raise SystemExit(f"incompatible hard-function plot data for {label}")
+    return by_label
+
+
+def plot():
+    import matplotlib
+    matplotlib.use("Agg")
+    by_label = _load_plot_runs()
     _plot_group("tier", by_label, "hard_benchmarks_tier.png")
 
 

@@ -463,11 +463,12 @@ python examples/hard_functions.py plot</code></pre>
 
 <h3>Module <code>optim_agent</code></h3>
 
-<p><span class="sig">create_study(direction="minimize", sampler=None, pruner=None, storage=None, seed=None) → Study</span><br>
+<p><span class="sig">create_study(direction="minimize", sampler=None, pruner=None, storage=None, seed=None, max_concurrency=1) → Study</span><br>
 Create (or resume, if <code>storage</code> exists) a study.
 <code>direction</code> is <code>"minimize"</code> or <code>"maximize"</code>;
 <code>sampler</code> defaults to <code>RandomSampler()</code>;
-<code>seed</code> makes random draws reproducible.</p>
+<code>seed</code> makes random draws reproducible; <code>max_concurrency</code>
+sets the number of concurrent objective evaluations.</p>
 
 <p><span class="sig">TrialPruned</span> — exception; raise it inside an
 objective to end the trial as pruned.</p>
