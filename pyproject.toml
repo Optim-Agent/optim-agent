@@ -21,6 +21,8 @@ classifiers = [
 
 [project.optional-dependencies]
 examples = ["numpy", "matplotlib", "optuna"]  # optuna only for the TPE benchmark baseline
+dev = ["pytest>=8"]
+vision = ["torch>=2.2", "torchvision>=0.17"]
 
 [tool.setuptools]
 packages = ["optim_agent"]

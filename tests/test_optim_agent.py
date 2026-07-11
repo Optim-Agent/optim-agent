@@ -5,10 +5,27 @@ import sys
 import tempfile
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import optim_agent as oa
 from optim_agent import agent, samplers, space
+
+
+def test_packaging_declares_development_and_vision_extras():
+    try:
+        import tomllib
+    except ModuleNotFoundError:  # Python 3.10
+        from setuptools._vendor import tomli as tomllib
+
+    pyproject = tomllib.loads(
+        (Path(__file__).resolve().parent.parent / "pyproject.toml").read_text()
+    )
+    extras = pyproject["project"]["optional-dependencies"]
+    assert any(requirement.startswith("pytest") for requirement in extras["dev"])
+    assert any(requirement.startswith("torch") for requirement in extras["vision"])
+    assert any(requirement.startswith("torchvision") for requirement in extras["vision"])
 
 
 def quadratic(trial):
@@ -357,6 +374,7 @@ def test_mnist_helper_curves_and_labels():
     assert "mock" not in mnist.PLOT_LABELS
     assert mnist.PLOT_LABELS == ("Random", "TPE", "GPT-5.5-medium", "GPT-5.5-medium-no-context")
     assert set(mnist.PLOT_STYLES) == {"GPT-5.5-medium", "GPT-5.5-medium-no-context"}
+    pytest.importorskip("torch", reason="install the vision extra to test tensor helpers")
     fake = type("FakeMNIST", (), {
         "data": np.zeros((2, 28, 28), dtype="uint8"),
         "targets": [1, 2],
@@ -617,6 +635,7 @@ def test_cifar10_helper_curves_and_labels():
     assert cifar10.PLOT_LABELS == ("Random", "TPE", "GPT-5.5-medium", "GPT-5.5-medium-no-context")
     assert cifar10._best_error_curve([{"test_error": 70.0}, {"test_error": 75.0},
                                       {"test_error": 60.0}]) == [70.0, 70.0, 60.0]
+    pytest.importorskip("torch", reason="install the vision extra to test tensor helpers")
     fake = type("FakeCIFAR", (), {
         "data": np.zeros((2, 32, 32, 3), dtype="uint8"),
         "targets": [1, 2],
