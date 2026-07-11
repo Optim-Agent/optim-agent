@@ -136,6 +136,8 @@ def test_early_reward_uses_declared_space_on_first_trial():
 
     def fake_call(*args, **kwargs):
         calls.append(args)
+        if len(calls) == 2:
+            return json.dumps({"order": [0, 1, 2, 3]})
         return json.dumps({
             "candidates": [{"x": 1.0}, {"x": 2.0}, {"x": 3.0}, {"x": 4.0}],
         })
@@ -154,7 +156,7 @@ def test_early_reward_uses_declared_space_on_first_trial():
         samplers._agent.call_agent = original
 
     assert value == 1.0
-    assert len(calls) == 1
+    assert len(calls) == 2
     assert "joint portfolio of 4" in calls[0][2]
     assert "test parameter" in calls[0][2]
 
@@ -165,6 +167,11 @@ def test_early_reward_joint_startup_portfolio():
 
     def fake_call(*args, **kwargs):
         calls.append(args)
+        if len(calls) == 2:
+            return json.dumps({
+                "order": [3, 1, 0, 2],
+                "_note": "ranked fixed candidates",
+            })
         return json.dumps({
             "candidates": [{"x": 1.0}, {"x": 2.0}, {"x": 3.0}, {"x": 4.0}],
             "_note": "four distinct startup hypotheses",
@@ -184,12 +191,13 @@ def test_early_reward_joint_startup_portfolio():
     finally:
         samplers._agent.call_agent = original
 
-    assert values == [1.0, 2.0, 3.0, 4.0]
-    assert len(calls) == 1
+    assert values == [4.0, 2.0, 1.0, 3.0]
+    assert len(calls) == 2
     assert "joint portfolio of 4" in calls[0][2]
     assert "candidate order is evaluation order" in calls[0][2]
     assert "not a risky stress test" in calls[0][2]
-    assert sampler.note == "four distinct startup hypotheses"
+    assert "rank the fixed candidate indices" in calls[1][2]
+    assert sampler.note == "ranked fixed candidates"
 
 
 def test_anchor_proposals_seed_warmup():
