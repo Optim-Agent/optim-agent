@@ -149,6 +149,14 @@ class AgentSampler:
         lines += ["- Recent trials:"]
         for t in shown[-5:]:
             lines += [f"  - #{t.number}: value={t.value:.6g}, params={t.params}"]
+        curves = [t for t in shown[-5:] if t.intermediate]
+        if curves:
+            lines += ["- Observed within-trial learning curves (step=value):"]
+            for t in curves:
+                values = ", ".join(f"{step}={value:.6g}" for step, value in t.intermediate)
+                lines += [f"  - #{t.number}: {values}"]
+            lines += ["  Use these as evidence about convergence speed and stability; final "
+                      "objective values remain authoritative."]
         lines += ["- Failed or weak regions to avoid:"]
         for t in ranked[-3:]:
             lines += [f"  - #{t.number}: value={t.value:.6g}, params={t.params}"]
