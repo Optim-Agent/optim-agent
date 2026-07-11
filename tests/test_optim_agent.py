@@ -141,6 +141,28 @@ def test_inference_example_exposes_quality_latency_and_cost():
     assert isinstance(utility, float)
 
 
+def test_documentation_portal_is_deployable_and_matches_sampler_api():
+    root = Path(__file__).resolve().parent.parent
+    docs = (root / "docs/index.html").read_text()
+    workflow = (root / ".github/workflows/docs.yml").read_text()
+    notebook = json.loads((root / "tutorials/quickstart.ipynb").read_text())
+
+    assert "actions/deploy-pages" in workflow
+    assert "Tutorials" in docs
+    for example in (
+        "quickstart.py", "sklearn_tuning.py", "quant_walk_forward.py",
+        "inference_tuning.py",
+    ):
+        assert example in docs
+    assert "xhigh" not in docs and "max</code>" not in docs
+    assert all(f'<code>{effort}</code>' in docs for effort in samplers.EFFORTS)
+    notebook_text = "\n".join(
+        "".join(cell.get("source", [])) for cell in notebook["cells"]
+    )
+    assert "colab.research.google.com" in notebook_text
+    assert 'backend="mock"' in notebook_text
+
+
 def quadratic(trial):
     x = trial.suggest_float("x", -5, 5, context="knob that centers a parabola at x=2")
     return (x - 2) ** 2
