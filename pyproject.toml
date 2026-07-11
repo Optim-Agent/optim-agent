@@ -19,6 +19,13 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
+[project.urls]
+Homepage = "https://github.com/Optim-Agent/optim-agent"
+Documentation = "https://optim-agent.github.io/optim-agent/"
+Repository = "https://github.com/Optim-Agent/optim-agent"
+Issues = "https://github.com/Optim-Agent/optim-agent/issues"
+Changelog = "https://github.com/Optim-Agent/optim-agent/blob/main/CHANGELOG.md"
+
 [project.optional-dependencies]
 examples = ["numpy", "matplotlib", "optuna"]  # optuna only for the TPE benchmark baseline
 dev = ["pytest>=8"]

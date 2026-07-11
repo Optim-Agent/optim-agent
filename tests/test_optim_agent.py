@@ -28,6 +28,27 @@ def test_packaging_declares_development_and_vision_extras():
     assert any(requirement.startswith("torchvision") for requirement in extras["vision"])
 
 
+def test_public_repository_metadata_and_ignore_contract():
+    try:
+        import tomllib
+    except ModuleNotFoundError:  # Python 3.10
+        from setuptools._vendor import tomli as tomllib
+
+    root = Path(__file__).resolve().parent.parent
+    pyproject = tomllib.loads((root / "pyproject.toml").read_text())
+    assert set(pyproject["project"]["urls"]) >= {
+        "Homepage", "Documentation", "Repository", "Issues", "Changelog",
+    }
+
+    ignored = (root / ".gitignore").read_text().splitlines()
+    for pattern in (
+        "graphify-out/", "autoresearch-results/", ".codex-autoresearch/",
+        ".coverage", ".mypy_cache/", ".ruff_cache/", ".ipynb_checkpoints/",
+    ):
+        assert pattern in ignored
+    assert "paper/src/" not in ignored
+
+
 def quadratic(trial):
     x = trial.suggest_float("x", -5, 5, context="knob that centers a parabola at x=2")
     return (x - 2) ** 2
