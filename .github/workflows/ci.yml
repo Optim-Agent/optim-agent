@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -30,3 +33,15 @@ jobs:
           cache: pip
       - run: pip install -e ".[examples,vision,dev]"
       - run: pytest
+
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -e ".[examples,dev]"
+      - run: ruff check optim_agent tests scripts/check_public_readiness.py scripts/verify_classification_cumulative_error.py
+      - run: pytest -q --cov=optim_agent --cov-report=term-missing --cov-fail-under=85
