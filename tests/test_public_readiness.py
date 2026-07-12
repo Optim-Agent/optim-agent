@@ -59,6 +59,18 @@ def test_local_study_and_paper_outputs_are_ignored():
         )
         assert result.returncode == 0, f"local output is not ignored: {path}"
 
+    tracked_fixtures = (
+        "docs/assets/benchmark_study.json",
+        "tests/fixtures/study.db",
+    )
+    for path in tracked_fixtures:
+        result = subprocess.run(
+            ["git", "check-ignore", "--no-index", "--quiet", path],
+            cwd=ROOT,
+            check=False,
+        )
+        assert result.returncode == 1, f"repository fixture would be ignored: {path}"
+
 
 def test_readiness_checker_uses_project_commands(monkeypatch):
     commands = []
@@ -78,6 +90,7 @@ def test_readiness_checker_uses_project_commands(monkeypatch):
 
 
 def test_readiness_checker_selects_python_with_build(monkeypatch):
+    commands = []
     monkeypatch.setattr(
         check_public_readiness,
         "shutil",
@@ -89,10 +102,20 @@ def test_readiness_checker_selects_python_with_build(monkeypatch):
     monkeypatch.setattr(
         check_public_readiness,
         "_command_passes",
-        lambda *command: command[0] == "/tools/python3.10",
+        lambda *command: commands.append(command) or command[0] == "/tools/python3.10",
     )
 
     assert check_public_readiness._python_with_module("build") == "/tools/python3.10"
+    assert commands[-1][-1] == "import build.__main__"
+
+
+def test_readiness_command_failure_is_a_failed_gate(monkeypatch):
+    def missing_command(*args, **kwargs):
+        raise FileNotFoundError("missing executable")
+
+    monkeypatch.setattr(check_public_readiness.subprocess, "run", missing_command)
+
+    assert check_public_readiness._command_passes("missing-tool", "--version") is False
 
 
 def test_public_quality_gates_are_configured(monkeypatch):

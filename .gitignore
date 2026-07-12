@@ -32,11 +32,11 @@ autoresearch-results/
 .claude/
 next_point.json
 proposal.json
-study.json
-*_study.json
-*.db
-*.sqlite
-*.sqlite3
+/study.json
+/*_study.json
+/*.db
+/*.sqlite
+/*.sqlite3
 data/
 .optim-agent-runs/
 .worktrees/

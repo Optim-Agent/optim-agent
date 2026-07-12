@@ -17,13 +17,16 @@ def _text(path):
 
 
 def _command_passes(*command):
-    return subprocess.run(
-        command,
-        cwd=ROOT,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        check=False,
-    ).returncode == 0
+    try:
+        return subprocess.run(
+            command,
+            cwd=ROOT,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        ).returncode == 0
+    except OSError:
+        return False
 
 
 def _ignored(path):
@@ -36,7 +39,7 @@ def _python_with_module(module):
         "python3.11", "python3.10", "python3.9",
     ):
         candidate = shutil.which(name)
-        if candidate and _command_passes(candidate, "-c", f"import {module}"):
+        if candidate and _command_passes(candidate, "-c", f"import {module}.__main__"):
             return candidate
     return None
 
