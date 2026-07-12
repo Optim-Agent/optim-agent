@@ -1,0 +1,205 @@
+#!/usr/bin/env python3
+"""Measure anchor-free GPT cumulative-error ratios on MNIST and CIFAR-10."""
+
+import argparse
+import importlib
+import json
+import math
+import shutil
+import statistics
+import subprocess
+import sys
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parent.parent
+RUN_ROOT = ROOT / "autoresearch-results" / "classification-stagewise16-v2-n10-s5"
+BASELINES = RUN_ROOT / "baselines"
+GPT_CURRENT = RUN_ROOT / "gpt-current"
+GPT_NO_CONTEXT = RUN_ROOT / "gpt-no-context"
+SEEDS = (0, 1, 2, 3, 4)
+TRIALS = 10
+EPOCHS = 3
+WORKERS = 4
+EFFORT = "medium"
+MODEL = "gpt-5.5"
+TIMEOUT = 600
+GPU_SPLITS = {"mnist": tuple(range(8)), "cifar10": tuple(range(8))}
+LABELS = {
+    "Random": "Random",
+    "TPE": "TPE",
+    "codex": "GPT-5.5-medium",
+    "codex-no-context": "GPT-5.5-medium-no-context",
+}
+
+
+def _dataset_module(dataset):
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+    return importlib.import_module(f"examples.{dataset}")
+
+
+def _incumbent_error_curve(values):
+    best = math.inf
+    out = []
+    for value in values:
+        best = min(best, float(value))
+        out.append(best)
+    return out
+
+
+def _curve_path(root, dataset, label, seed):
+    return root / dataset / f"{dataset}_curves_{label}_s{seed}.json"
+
+
+def _cumulative_error(root, dataset, label):
+    cumulative_errors = []
+    expected_space_version = getattr(_dataset_module(dataset), "SPACE_VERSION", None)
+    expected_method = next(method for method, expected_label in LABELS.items()
+                           if expected_label == label)
+    for seed in SEEDS:
+        path = _curve_path(root, dataset, label, seed)
+        data = json.loads(path.read_text())
+        if (data["label"] != label or data["seed"] != seed or data["trials"] != TRIALS
+                or data.get("space_version") != expected_space_version
+                or data.get("method") != expected_method
+                or (expected_method.startswith("codex")
+                    and (data.get("model") != MODEL or data.get("effort") != EFFORT))):
+            raise ValueError(f"incompatible curve metadata in {path}")
+        records = data["records"]
+        if len(records) != TRIALS:
+            raise ValueError(f"expected {TRIALS} records in {path}, got {len(records)}")
+        values = []
+        for record in records:
+            if record.get("state", "complete") != "complete" or record.get("test_error") is None:
+                raise ValueError(f"incomplete trial in {path}")
+            values.append(float(record["test_error"]))
+        cumulative_errors.append(sum(_incumbent_error_curve(values)))
+    return statistics.mean(cumulative_errors), cumulative_errors
+
+
+def _complete(root, dataset, label):
+    try:
+        _cumulative_error(root, dataset, label)
+        return True
+    except (FileNotFoundError, KeyError, TypeError, ValueError, json.JSONDecodeError):
+        return False
+
+
+def _worker_command(dataset, method, root, seed):
+    gpus = GPU_SPLITS[dataset]
+    offset = seed * (WORKERS - 1) % len(gpus)
+    gpus = gpus[offset:] + gpus[:offset]
+    return [
+        sys.executable, str(Path(__file__).resolve()), "worker",
+        "--dataset", dataset,
+        "--method", method,
+        "--seed", str(seed),
+        "--assets", str(root / dataset),
+        "--storage", str(root / "storage" / dataset / method),
+        "--gpus", *map(str, gpus),
+    ]
+
+
+def _run_command(command):
+    proc = subprocess.run(command, cwd=ROOT, capture_output=True, text=True)
+    if proc.stdout:
+        print(proc.stdout, file=sys.stderr, end="")
+    if proc.stderr:
+        print(proc.stderr, file=sys.stderr, end="")
+    if proc.returncode:
+        raise subprocess.CalledProcessError(proc.returncode, command)
+
+
+def _run_pair(method, root):
+    commands = [_worker_command(dataset, method, root, seed)
+                for dataset in GPU_SPLITS for seed in SEEDS]
+    with ThreadPoolExecutor(max_workers=len(commands)) as pool:
+        futures = [pool.submit(_run_command, command) for command in commands]
+        for future in futures:
+            future.result()
+
+
+def _prepare_baselines():
+    ready = all(_complete(BASELINES, dataset, label)
+                for dataset in GPU_SPLITS for label in ("Random", "TPE"))
+    if ready:
+        return
+    shutil.rmtree(BASELINES, ignore_errors=True)
+    for method in ("Random", "TPE"):
+        _run_pair(method, BASELINES)
+
+
+def _run_gpt():
+    shutil.rmtree(GPT_CURRENT, ignore_errors=True)
+    _run_pair("codex", GPT_CURRENT)
+
+
+def _metrics():
+    metrics = {}
+    ratios = []
+    for dataset in GPU_SPLITS:
+        random_cumulative_error, random_seeds = _cumulative_error(BASELINES, dataset, "Random")
+        tpe_cumulative_error, tpe_seeds = _cumulative_error(BASELINES, dataset, "TPE")
+        gpt_cumulative_error, gpt_seeds = _cumulative_error(GPT_CURRENT, dataset, "GPT-5.5-medium")
+        no_context_cumulative_error, no_context_seeds = _cumulative_error(
+            GPT_NO_CONTEXT, dataset, LABELS["codex-no-context"])
+        baseline = min(random_cumulative_error, tpe_cumulative_error)
+        ratio = gpt_cumulative_error / baseline
+        ratios.append(ratio)
+        prefix = "cifar10" if dataset == "cifar10" else dataset
+        metrics.update({
+            f"{prefix}_ratio": ratio,
+            f"{prefix}_random_cumulative_error": random_cumulative_error,
+            f"{prefix}_tpe_cumulative_error": tpe_cumulative_error,
+            f"{prefix}_gpt_cumulative_error": gpt_cumulative_error,
+            f"{prefix}_gpt_no_context_cumulative_error": no_context_cumulative_error,
+        })
+        for label, values in (("random", random_seeds), ("tpe", tpe_seeds),
+                              ("gpt", gpt_seeds)):
+            metrics.update({f"{prefix}_{label}_s{i}": value
+                            for i, value in enumerate(values)})
+        metrics.update({f"{prefix}_gpt_no_context_s{i}": value
+                        for i, value in enumerate(no_context_seeds)})
+    metrics["max_ratio"] = max(ratios)
+    return metrics
+
+
+def _worker(args):
+    module = _dataset_module(args.dataset)
+    sampler = module._sampler(args.method, args.seed, EFFORT, TIMEOUT, MODEL)
+    if getattr(sampler, "anchor_proposals", ()):
+        raise SystemExit(f"{args.dataset} benchmark injects anchor proposals")
+    module.ASSETS = Path(args.assets)
+    module.STORAGE = Path(args.storage)
+    module.run(args.method, [args.seed], TRIALS, EPOCHS, WORKERS,
+               args.gpus, EFFORT, TIMEOUT, MODEL)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    sub = parser.add_subparsers(dest="command")
+    sub.add_parser("run-no-context")
+    worker = sub.add_parser("worker")
+    worker.add_argument("--dataset", required=True, choices=tuple(GPU_SPLITS))
+    worker.add_argument("--method", required=True, choices=tuple(LABELS))
+    worker.add_argument("--seed", type=int, required=True, choices=SEEDS)
+    worker.add_argument("--assets", required=True)
+    worker.add_argument("--storage", required=True)
+    worker.add_argument("--gpus", type=int, nargs="+", required=True)
+    args = parser.parse_args()
+    if args.command == "worker":
+        _worker(args)
+        return
+    if args.command == "run-no-context":
+        shutil.rmtree(GPT_NO_CONTEXT, ignore_errors=True)
+        _run_pair("codex-no-context", GPT_NO_CONTEXT)
+        return
+    _prepare_baselines()
+    _run_gpt()
+    print(json.dumps(_metrics(), sort_keys=True))
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,6 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.21
+    hooks:
+      - id: ruff-check
+        files: ^(optim_agent/|tests/|scripts/(check_public_readiness|render_classification_benchmarks|verify_classification_cumulative_error)\.py$)

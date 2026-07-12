@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "suites": [
+    {
+      "id": "mnist",
+      "result_glob": "docs/assets/mnist_curves_*_s*.json",
+      "trials": 10,
+      "seeds": [0, 1, 2, 3, 4],
+      "metric": "sum of incumbent-best test error",
+      "context_policy": "matched context and no-context agent variants"
+    },
+    {
+      "id": "cifar10",
+      "result_glob": "docs/assets/cifar10_curves_*_s*.json",
+      "trials": 10,
+      "seeds": [0, 1, 2, 3, 4],
+      "metric": "sum of incumbent-best test error",
+      "context_policy": "matched context and no-context agent variants"
+    },
+    {
+      "id": "hard-functions",
+      "result_glob": "docs/assets/hard_curves_*_s*.json",
+      "trials": 10,
+      "seeds": [0, 1, 2, 3, 4],
+      "metric": "final incumbent objective value",
+      "context_policy": "no supplied task context"
+    },
+    {
+      "id": "ablations",
+      "result_glob": "docs/assets/abl_*_s*.json",
+      "trials": 10,
+      "seeds": [0, 1, 2],
+      "metric": "incumbent objective value or compute to incumbent",
+      "context_policy": "defined by ablation variant"
+    }
+  ]
+}
