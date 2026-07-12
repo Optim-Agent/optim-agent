@@ -1,11 +1,16 @@
+import subprocess
 import sys
-from types import SimpleNamespace
 from pathlib import Path
+from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import optim_agent as oa
+from scripts import check_public_readiness
 from scripts import verify_classification_reward as classification_reward
+
+
+ROOT = Path(__file__).resolve().parent.parent
 
 
 def test_classification_worker_accepts_random_baseline(monkeypatch, tmp_path):
@@ -32,3 +37,59 @@ def test_classification_worker_accepts_random_baseline(monkeypatch, tmp_path):
     assert len(calls) == 1
     assert module.ASSETS == tmp_path / "assets"
     assert module.STORAGE == tmp_path / "storage"
+
+
+def test_local_study_and_paper_outputs_are_ignored():
+    local_outputs = (
+        "study.json",
+        "hpo_study.json",
+        "local.db",
+        "local.sqlite",
+        "local.sqlite3",
+        "paper/src/main.aux",
+        "paper/src/main.log",
+        "paper/src/main.pdf",
+    )
+
+    for path in local_outputs:
+        result = subprocess.run(
+            ["git", "check-ignore", "--no-index", "--quiet", path],
+            cwd=ROOT,
+            check=False,
+        )
+        assert result.returncode == 0, f"local output is not ignored: {path}"
+
+
+def test_readiness_checker_uses_project_commands(monkeypatch):
+    commands = []
+    monkeypatch.setattr(
+        check_public_readiness,
+        "_command_passes",
+        lambda *command: commands.append(command) or True,
+    )
+
+    check_public_readiness.evaluate()
+
+    assert ("pytest", "-q") in commands
+    assert any(
+        command[1:] == ("-m", "build", "--wheel", "--sdist")
+        for command in commands
+    )
+
+
+def test_readiness_checker_selects_python_with_build(monkeypatch):
+    monkeypatch.setattr(
+        check_public_readiness,
+        "shutil",
+        SimpleNamespace(
+            which=lambda name: f"/tools/{name}" if name in {"python3", "python3.10"} else None,
+        ),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        check_public_readiness,
+        "_command_passes",
+        lambda *command: command[0] == "/tools/python3.10",
+    )
+
+    assert check_public_readiness._python_with_module("build") == "/tools/python3.10"

@@ -17,6 +17,12 @@ paper/*.log
 paper/*.out
 paper/*.bbl
 paper/*.blg
+paper/src/*.aux
+paper/src/*.log
+paper/src/*.out
+paper/src/*.bbl
+paper/src/*.blg
+paper/src/*.pdf
 docs/autoresearch/
 graphify-out/
 autoresearch-results/
@@ -26,6 +32,11 @@ autoresearch-results/
 .claude/
 next_point.json
 proposal.json
+study.json
+*_study.json
+*.db
+*.sqlite
+*.sqlite3
 data/
 .optim-agent-runs/
 .worktrees/
