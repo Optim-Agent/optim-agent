@@ -137,7 +137,7 @@ def test_readiness_checker_prefers_running_python(monkeypatch):
     assert check_public_readiness._python_with_module("pytest") == "/venv/python"
 
 
-def test_readiness_checker_falls_back_when_module_command_fails(monkeypatch):
+def test_readiness_checker_does_not_mask_module_command_failure(monkeypatch):
     monkeypatch.setattr(
         check_public_readiness,
         "sys",
@@ -160,7 +160,7 @@ def test_readiness_checker_falls_back_when_module_command_fails(monkeypatch):
 
     assert check_public_readiness._python_with_passing_module_command(
         "pytest", "-q"
-    ) == "/tools/python3.10"
+    ) is None
 
 
 def test_readiness_command_failure_is_a_failed_gate(monkeypatch):

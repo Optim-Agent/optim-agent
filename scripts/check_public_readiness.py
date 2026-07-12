@@ -59,8 +59,7 @@ def _python_with_passing_module_command(module, *args):
     for candidate in _python_candidates():
         if not _command_passes(candidate, "-c", f"import {module}.__main__"):
             continue
-        if _command_passes(candidate, "-m", module, *args):
-            return candidate
+        return candidate if _command_passes(candidate, "-m", module, *args) else None
     return None
 
 
