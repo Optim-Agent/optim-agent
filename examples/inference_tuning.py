@@ -90,7 +90,7 @@ def run(trials=12, seed=0, backend="mock", model=None):
         seed=seed,
         context=(
             "maximize inference utility while preserving quality >= 0.82; utility "
-            "rewards eval quality and penalizes p95 latency and cost per 1k requests"
+            "values evaluation quality and penalizes p95 latency and cost per 1k requests"
         ),
     )
     study = oa.create_study(direction="maximize", sampler=sampler, seed=seed)

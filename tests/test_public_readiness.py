@@ -5,7 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import optim_agent as oa
-from scripts import verify_classification_reward as classification_reward
+from scripts import verify_classification_cumulative_error as classification_cumulative_error
 
 
 def test_classification_worker_accepts_random_baseline(monkeypatch, tmp_path):
@@ -16,7 +16,7 @@ def test_classification_worker_accepts_random_baseline(monkeypatch, tmp_path):
         ASSETS=None,
         STORAGE=None,
     )
-    monkeypatch.setattr(classification_reward, "_dataset_module", lambda _: module)
+    monkeypatch.setattr(classification_cumulative_error, "_dataset_module", lambda _: module)
 
     args = SimpleNamespace(
         dataset="mnist",
@@ -27,7 +27,7 @@ def test_classification_worker_accepts_random_baseline(monkeypatch, tmp_path):
         gpus=[],
     )
 
-    classification_reward._worker(args)
+    classification_cumulative_error._worker(args)
 
     assert len(calls) == 1
     assert module.ASSETS == tmp_path / "assets"

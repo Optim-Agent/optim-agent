@@ -12,12 +12,13 @@ seeds and a consistent four-candidate comparison:
 
 Every Codex-backed run must explicitly select `gpt-5.5` and medium reasoning.
 Classification uses 10 trials per seed and reports the early-optimization
-reward `sum(best_test_error_so_far[i] for i in 1..N)`, where lower is better.
+cumulative best-so-far error `sum(best_test_error_so_far[i] for i in 1..N)`,
+where lower is better.
 
 ## Execution
 
 Reuse the five-seed scheduling and GPU-rotation pattern already implemented by
-`scripts/verify_classification_reward.py`. Existing fresh Random, TPE, and
+`scripts/verify_classification_cumulative_error.py`. Existing fresh Random, TPE, and
 context-enabled GPT classification curves may be reused. Rerun the missing
 no-context GPT classification curves for seeds 0 through 4.
 
@@ -48,8 +49,8 @@ JSON artifacts rather than transcribed from console output.
 
 Replace stale benchmark material in `README.md` and `docs/index.html` with the
 new trial counts, five-seed protocol, 16-dimensional classification spaces,
-explicit GPT-5.5 medium selection, distributed reproduction commands, reward
-definition, and generated results. Preserve unrelated installation, API, and
+explicit GPT-5.5 medium selection, distributed reproduction commands,
+cumulative-error definition, and generated results. Preserve unrelated installation, API, and
 usage documentation. Rewrite the whole README only if the resulting changes
 exceed 30 percent of the file.
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run MNIST GPT-medium and print reward-ratio metrics JSON."""
+"""Run MNIST GPT-medium and print cumulative-error-ratio metrics JSON."""
 
 import json
 import math
@@ -12,7 +12,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 ASSETS = ROOT / "docs" / "assets"
-BASELINE = ROOT / "autoresearch-results" / "mnist-reward-baseline"
+BASELINE = ROOT / "autoresearch-results" / "mnist-cumulative-error-baseline"
 STORAGE = ROOT / ".optim-agent-runs" / "mnist"
 SEEDS = ("0", "1", "2")
 
@@ -43,8 +43,8 @@ def _run_gpt(seed):
     ], cwd=ROOT, check=True)
 
 
-def _reward(label):
-    rewards = []
+def _cumulative_error(label):
+    cumulative_errors = []
     safe = _safe(label)
     for seed in SEEDS:
         data = json.loads((ASSETS / f"mnist_curves_{safe}_s{seed}.json").read_text())
@@ -55,25 +55,25 @@ def _reward(label):
             curve.append(best)
         if len(curve) < 24:
             raise SystemExit(f"{label} seed {seed} has {len(curve)} trials")
-        rewards.append(sum(curve[:24]))
-    return statistics.mean(rewards), rewards
+        cumulative_errors.append(sum(curve[:24]))
+    return statistics.mean(cumulative_errors), cumulative_errors
 
 
 def main():
     _copy_baselines()
     _clean_gpt()
-    random_reward, random_seeds = _reward("Random")
-    tpe_reward, tpe_seeds = _reward("TPE")
+    random_cumulative_error, random_seeds = _cumulative_error("Random")
+    tpe_cumulative_error, tpe_seeds = _cumulative_error("TPE")
     for seed in SEEDS:
         _run_gpt(seed)
-    gpt_reward, gpt_seeds = _reward("GPT-5.5-medium")
-    best = min(random_reward, tpe_reward)
+    gpt_cumulative_error, gpt_seeds = _cumulative_error("GPT-5.5-medium")
+    best = min(random_cumulative_error, tpe_cumulative_error)
     print(json.dumps({
-        "ratio": gpt_reward / best,
-        "random_reward": random_reward,
-        "tpe_reward": tpe_reward,
-        "gpt_reward": gpt_reward,
-        "best_baseline_reward": best,
+        "ratio": gpt_cumulative_error / best,
+        "random_cumulative_error": random_cumulative_error,
+        "tpe_cumulative_error": tpe_cumulative_error,
+        "gpt_cumulative_error": gpt_cumulative_error,
+        "best_baseline_cumulative_error": best,
         "random_s0": random_seeds[0],
         "random_s1": random_seeds[1],
         "random_s2": random_seeds[2],

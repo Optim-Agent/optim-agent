@@ -425,28 +425,34 @@ package when you just want a better blackbox optimizer.</p>
 
 <h2 id="benchmarks">Benchmarks</h2>
 
-<p>Every refreshed comparison uses the same four candidates: Random, Optuna
-TPE, GPT-5.5 medium, and GPT-5.5 medium without context. Curves average five
-fresh seeds (<code>0..4</code>) at 10 trials. Codex is explicitly invoked with
-<code>-m gpt-5.5 -c model_reasoning_effort=medium</code>.</p>
+<p>The classification comparisons use the same four candidates: Random,
+Optuna TPE, GPT-5.5 medium, and GPT-5.5 medium without context. Curves average
+five fresh seeds (<code>0..4</code>) at 10 trials. Codex is explicitly invoked
+with <code>-m gpt-5.5 -c model_reasoning_effort=medium</code>.</p>
 
-<p>Classification uses the early-optimization reward
+<p>Classification uses cumulative best-so-far error:
 <code>sum(best_test_error_so_far_at_i for i in 1..10)</code>. Lower is better.
 The context-enabled run receives the study description, declared
 16-dimensional space, and parameter meanings; the no-context run receives none
 of those additions. Neither run uses hand-picked anchors.</p>
+<div class="note">This is an end-to-end context comparison, not a wording-only
+ablation. Without an initial schema, <code>n_init=4</code> and four concurrent
+workers make trials 0–6 use the same parameter proposals as Random; GPT-5.5
+controls only trials 7–9. The context-enabled cumulative-error path receives the
+schema up front and can propose from trial 0.</div>
 
 <h3>MNIST ResNet, 16 dimensions</h3>
 <p><img src="assets/mnist_benchmarks.png" alt="MNIST five-seed comparison of Random, TPE, GPT-5.5 medium, and GPT-5.5 medium without context"></p>
 <table>
-<tr><th>Method</th><th>Mean reward ↓</th><th>Mean final best error ↓</th></tr>
+<tr><th>Method</th><th>Mean cumulative best-so-far error ↓</th><th>Mean final best error ↓</th></tr>
 <tr><td>Random</td><td>9.174</td><td>0.648%</td></tr>
 <tr><td>TPE</td><td>7.166</td><td>0.580%</td></tr>
 <tr><td><strong>GPT-5.5 medium</strong></td><td><strong>5.668</strong></td><td><strong>0.506%</strong></td></tr>
 <tr><td>GPT-5.5 medium, no context</td><td>8.910</td><td>0.632%</td></tr>
 </table>
-<p>GPT-5.5 medium reduces reward by <strong>20.9%</strong> relative to TPE, the
-best baseline. Without context it is 24.3% worse than TPE.</p>
+<p>GPT-5.5 medium reduces cumulative best-so-far error by
+<strong>20.9%</strong> relative to TPE, the best baseline. Without context it
+is 24.3% worse than TPE.</p>
 <p>The 16 dimensions are learning rate, batch size, weight decay, label
 smoothing, three stage widths, three stage depths, four dropout controls,
 translation radius, and rotation range.</p>
@@ -454,34 +460,67 @@ translation radius, and rotation range.</p>
 <h3>CIFAR-10 ResNet, 16 dimensions</h3>
 <p><img src="assets/cifar10_benchmarks.png" alt="CIFAR-10 five-seed comparison of Random, TPE, GPT-5.5 medium, and GPT-5.5 medium without context"></p>
 <table>
-<tr><th>Method</th><th>Mean reward ↓</th><th>Mean final best error ↓</th></tr>
+<tr><th>Method</th><th>Mean cumulative best-so-far error ↓</th><th>Mean final best error ↓</th></tr>
 <tr><td>Random</td><td>278.920</td><td>25.072%</td></tr>
 <tr><td>TPE</td><td>279.936</td><td>25.596%</td></tr>
 <tr><td><strong>GPT-5.5 medium</strong></td><td><strong>220.994</strong></td><td><strong>21.322%</strong></td></tr>
 <tr><td>GPT-5.5 medium, no context</td><td>281.466</td><td>25.960%</td></tr>
 </table>
-<p>GPT-5.5 medium reduces reward by <strong>20.8%</strong> relative to Random,
-the best baseline. Without context it is 0.9% worse than Random.</p>
+<p>GPT-5.5 medium reduces cumulative best-so-far error by
+<strong>20.8%</strong> relative to Random, the best baseline. Without context
+it is 0.9% worse than Random.</p>
 <p>The matched 16 dimensions replace translation and rotation with crop padding
 and flip probability while retaining the optimizer, stage, and dropout
 controls.</p>
 
 <h3>Branin and Ackley-5D</h3>
-<p><img src="assets/hard_benchmarks_tier.png" alt="Five-seed Branin and Ackley-5D comparison of Random, TPE, and GPT-5.5 medium with and without context"></p>
+<p>Hard-function agents receive <strong>no supplied task context</strong>: only
+generic <code>x1...x5</code> parameter names, numeric bounds, and trial history.
+They run in fresh empty working directories, although a model may still infer a
+standard function from its bounds and observations. Every agent uses medium
+effort for 10 trials over five seeds; Random and TPE are unchanged baselines.</p>
+
+<h4>Top-tier agents</h4>
+<p><img src="assets/hard_benchmarks_tier.png" alt="Five-seed no-context Branin and Ackley-5D comparison of top-tier agents, Random, and TPE"></p>
 <table>
 <tr><th>Method</th><th>Mean best Branin ↓</th><th>Mean best Ackley-5D ↓</th></tr>
 <tr><td>Random</td><td>5.008</td><td>19.639</td></tr>
-<tr><td>TPE</td><td>8.219</td><td>19.419</td></tr>
-<tr><td>GPT-5.5 medium</td><td><strong>0.398</strong></td><td><strong>0.000</strong></td></tr>
-<tr><td>GPT-5.5 medium, no context</td><td><strong>0.398</strong></td><td><strong>0.000</strong></td></tr>
+<tr><td>TPE</td><td>11.395</td><td>18.843</td></tr>
+<tr><td>GPT-5.5</td><td>1.326</td><td>3.960</td></tr>
+<tr><td><strong>Opus-4.8</strong></td><td><strong>0.398</strong></td><td><strong>0.061</strong></td></tr>
+<tr><td>Sonnet-5</td><td>3.850</td><td>0.143</td></tr>
+<tr><td>GLM-5.2</td><td>3.609</td><td>15.023</td></tr>
 </table>
-<div class="note">Both GPT variants solve the standard functions, so the
-classification tasks provide the meaningful context ablation.</div>
+<p>The pinned backends are Codex <code>gpt-5.5</code>, Claude
+<code>claude-opus-4-8</code> and <code>claude-sonnet-5</code>, and the configured
+OpenCode default <code>cmkey/glm-5.2</code>. Opus-4.8 reaches the Branin optimum
+on average and has the strongest five-seed Ackley mean.</p>
+
+<h4>Free OpenCode agents</h4>
+<p><img src="assets/hard_benchmarks_free.png" alt="Five-seed no-context Branin and Ackley-5D comparison of free OpenCode agents, Random, and TPE"></p>
+<table>
+<tr><th>Method</th><th>Mean best Branin ↓</th><th>Mean best Ackley-5D ↓</th></tr>
+<tr><td>Random</td><td>5.008</td><td>19.639</td></tr>
+<tr><td>TPE</td><td>11.395</td><td>18.843</td></tr>
+<tr><td>Big-pickle</td><td>4.734</td><td>15.951</td></tr>
+<tr><td>DeepSeek-V4-Flash</td><td>4.410</td><td><strong>4.608</strong></td></tr>
+<tr><td>Nemotron-3-Ultra</td><td>16.051</td><td>18.459</td></tr>
+<tr><td><strong>MiMo-v2.5</strong></td><td><strong>3.682</strong></td><td>15.597</td></tr>
+</table>
+<div class="note">These OpenCode-hosted models require no paid model API,
+making the benchmark practical for students and independent users. The free
+pool rotates; this refresh pins <code>opencode/big-pickle</code>,
+<code>opencode/deepseek-v4-flash-free</code>,
+<code>opencode/nemotron-3-ultra-free</code>, and
+<code>opencode/mimo-v2.5-free</code>. DeepSeek V4 Flash has the strongest
+free-model Ackley mean, while MiMo-v2.5 has the strongest free-model Branin
+mean.</div>
 
 <p>Reproduce the distributed runs:</p>
 <pre><code>pip install -e ".[examples]"
-python scripts/verify_classification_reward.py run-no-context
-python scripts/verify_classification_reward.py
+python scripts/verify_classification_cumulative_error.py run-no-context
+python scripts/verify_classification_cumulative_error.py
+python examples/hard_functions.py preflight
 python examples/hard_functions.py distributed --trials 10 --seeds 0 1 2 3 4
 python examples/hard_functions.py plot</code></pre>
 

@@ -218,7 +218,7 @@ Context-derived priors:
   and augmentation only when history shows it helps.
 - Treat parameter names and descriptions as semantic hints,
   not just tokens.
-[If context contains "early reward":]
+[If context contains "cumulative best-so-far error":]
 - This run is scored by the sum of incumbent best errors, so
   early reliable improvements beat risky late exploration.
 
@@ -248,8 +248,8 @@ Your notes from previous trials: [NOTE]
 Propose the next point to evaluate. Balance exploration of
 unvisited regions against exploitation around promising ones;
 never repeat an already-evaluated point exactly.
-[If context contains "early reward":]
-Because the score rewards fast incumbent-best decrease, pick a
+[If context contains "cumulative best-so-far error":]
+Because the metric emphasizes fast incumbent-best error reduction, pick a
 high-confidence configuration likely to improve the best value now.
 [If reasoning is enabled:]
 Use the task context as priors when available: prefer choices that
@@ -356,4 +356,3 @@ git status --short
 ```
 
 Expected: clean diff check, only `paper/src/main.tex` changed by this implementation, and all unrelated pre-existing worktree changes preserved.
-

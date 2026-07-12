@@ -120,36 +120,43 @@ Set it study-wide on `AgentSampler(context=...)`, per-parameter on each
 
 ## Benchmarks: agents vs. TPE and random search
 
-All refreshed comparisons use the same four candidates: **Random**, Optuna
-**TPE**, **GPT-5.5 medium**, and **GPT-5.5 medium without context**. Each curve
-is the mean of **5 fresh seeds** (`0..4`) at **10 trials**. Codex is explicitly
-pinned to `gpt-5.5` with `model_reasoning_effort=medium`; no CLI-default model
-is used.
+The classification comparisons use the same four candidates: **Random**,
+Optuna **TPE**, **GPT-5.5 medium**, and **GPT-5.5 medium without context**. Each
+curve is the mean of **5 fresh seeds** (`0..4`) at **10 trials**. Codex is
+explicitly pinned to `gpt-5.5` with `model_reasoning_effort=medium`; no
+CLI-default model is used.
 
-For classification, the primary metric rewards fast improvement:
+For classification, the primary metric emphasizes fast improvement:
 
 ```text
-reward = sum(best_test_error_so_far_at_i for i in 1..10)
+cumulative_best_so_far_error = sum(best_test_error_so_far_at_i for i in 1..10)
 ```
 
 Lower is better. The context-enabled run receives the study description, the
 declared 16-dimensional space, and parameter meanings. The no-context run
 receives none of those additions. Neither run uses hand-picked anchors.
 
+This is an end-to-end context comparison, not a wording-only ablation. Without
+an initial schema, `n_init=4` and four concurrent workers make trials 0–6 use
+the same parameter proposals as Random; GPT-5.5 controls only trials 7–9. The
+context-enabled cumulative-error path receives the schema up front and can propose
+from trial 0.
+
 ### MNIST ResNet, 16 dimensions
 
 ![MNIST five-seed benchmark](docs/assets/mnist_benchmarks.png)
 
-| method | mean reward ↓ | mean final best error ↓ |
+| method | mean cumulative best-so-far error ↓ | mean final best error ↓ |
 |---|---:|---:|
 | Random | 9.174 | 0.648% |
 | TPE | 7.166 | 0.580% |
 | **GPT-5.5 medium** | **5.668** | **0.506%** |
 | GPT-5.5 medium, no context | 8.910 | 0.632% |
 
-GPT-5.5 medium reduces reward by **20.9%** relative to the best baseline, TPE.
-Without context it is 24.3% worse than TPE, isolating the value of semantic
-parameter information rather than model identity.
+GPT-5.5 medium reduces cumulative best-so-far error by **20.9%** relative to
+the best baseline, TPE.
+Without context it is 24.3% worse than TPE. The gap includes both semantic
+parameter information and earlier access to agent-guided proposals.
 
 The 16 dimensions in [`examples/mnist.py`](examples/mnist.py) are learning
 rate, batch size, weight decay, label smoothing, three stage widths, three
@@ -159,15 +166,15 @@ stage depths, four dropout controls, translation radius, and rotation range.
 
 ![CIFAR-10 five-seed benchmark](docs/assets/cifar10_benchmarks.png)
 
-| method | mean reward ↓ | mean final best error ↓ |
+| method | mean cumulative best-so-far error ↓ | mean final best error ↓ |
 |---|---:|---:|
 | Random | 278.920 | 25.072% |
 | TPE | 279.936 | 25.596% |
 | **GPT-5.5 medium** | **220.994** | **21.322%** |
 | GPT-5.5 medium, no context | 281.466 | 25.960% |
 
-GPT-5.5 medium reduces reward by **20.8%** relative to the best baseline,
-Random. Without context it is 0.9% worse than Random.
+GPT-5.5 medium reduces cumulative best-so-far error by **20.8%** relative to
+the best baseline, Random. Without context it is 0.9% worse than Random.
 
 The matched 16-dimensional space in
 [`examples/cifar10.py`](examples/cifar10.py) tunes learning rate, batch size,
@@ -176,18 +183,49 @@ dropout controls, crop padding, and flip probability.
 
 ### Branin and Ackley-5D
 
-![Hard-function five-seed benchmark](docs/assets/hard_benchmarks_tier.png)
+Hard-function agents receive **no supplied task context**: only generic
+`x1...x5` parameter names, numeric bounds, and trial history. They run in fresh
+empty working directories, although a model may still infer a standard
+function from its bounds and observations. Every agent uses medium effort for
+10 trials over five seeds; Random and TPE are unchanged baselines.
+
+#### Top-tier agents
+
+![No-context top-tier hard-function benchmark](docs/assets/hard_benchmarks_tier.png)
 
 | method | mean best Branin ↓ | mean best Ackley-5D ↓ |
 |---|---:|---:|
 | Random | 5.008 | 19.639 |
-| TPE | 8.219 | 19.419 |
-| GPT-5.5 medium | **0.398** | **0.000** |
-| GPT-5.5 medium, no context | **0.398** | **0.000** |
+| TPE | 11.395 | 18.843 |
+| GPT-5.5 | 1.326 | 3.960 |
+| **Opus-4.8** | **0.398** | **0.061** |
+| Sonnet-5 | 3.850 | 0.143 |
+| GLM-5.2 | 3.609 | 15.023 |
 
-Both GPT variants solve these standard functions, so they demonstrate
-small-budget optimization but do not measure the value of context. The two
-classification tasks provide that separation.
+The pinned backends are Codex `gpt-5.5`, Claude `claude-opus-4-8` and
+`claude-sonnet-5`, and the configured OpenCode default `cmkey/glm-5.2`.
+Opus-4.8 reaches the Branin optimum on average and has the strongest five-seed
+Ackley mean.
+
+#### Free OpenCode agents
+
+![No-context free-model hard-function benchmark](docs/assets/hard_benchmarks_free.png)
+
+| method | mean best Branin ↓ | mean best Ackley-5D ↓ |
+|---|---:|---:|
+| Random | 5.008 | 19.639 |
+| TPE | 11.395 | 18.843 |
+| Big-pickle | 4.734 | 15.951 |
+| DeepSeek-V4-Flash | 4.410 | **4.608** |
+| Nemotron-3-Ultra | 16.051 | 18.459 |
+| **MiMo-v2.5** | **3.682** | 15.597 |
+
+These OpenCode-hosted models require no paid model API, making the agent
+benchmark practical for students and independent users. The free pool rotates;
+this refresh pins `opencode/big-pickle`, `opencode/deepseek-v4-flash-free`,
+`opencode/nemotron-3-ultra-free`, and `opencode/mimo-v2.5-free`. DeepSeek V4
+Flash has the strongest free-model Ackley mean, while MiMo-v2.5 has the
+strongest free-model Branin mean.
 
 Reproduce the distributed runs (the `examples` extra installs Optuna):
 
@@ -196,10 +234,11 @@ pip install -e ".[examples]"
 
 # Ten classification workers: 2 datasets × 5 seeds. Run no-context first so
 # the default verifier can report all four candidates after baselines/context.
-python scripts/verify_classification_reward.py run-no-context
-python scripts/verify_classification_reward.py
+python scripts/verify_classification_cumulative_error.py run-no-context
+python scripts/verify_classification_cumulative_error.py
 
-# Four candidates; each candidate runs five seeds concurrently.
+# Validate every pinned backend/model first, then run all no-context agents.
+python examples/hard_functions.py preflight
 python examples/hard_functions.py distributed --trials 10 --seeds 0 1 2 3 4
 python examples/hard_functions.py plot
 ```
@@ -211,7 +250,7 @@ python examples/hard_functions.py plot
 | effort | history shown | explicit reasoning | qualitative notes |
 |---|---|---|---|
 | `low` | last 5 trials | – | – |
-| `medium` | last 10 trials | ✓ | – |
+| `medium` | last 10 trials | ✓ | ✓ carried across trials |
 | `high` | last 20 trials | ✓ | ✓ carried across trials |
 
 Higher effort spends more tokens per trial. For fast objectives, `low` or plain

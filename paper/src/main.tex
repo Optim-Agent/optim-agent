@@ -428,7 +428,7 @@ and $s$ a seed. We report
 \end{equation}
 with the analogous mean best test error for vision tasks. This metric evaluates
 the optimizer under the budget actually available to the user; it does not
-reward methods that would become stronger only after many more trials. All
+favor methods that would become stronger only after many more trials. All
 methods receive identical trial budgets, dataset splits, and objective code.
 
 \subsection{Analytic Functions}
@@ -848,7 +848,7 @@ Context-derived priors:
   history shows it helps.
 - Treat parameter names and descriptions as
   semantic hints, not just tokens.
-[If context contains "early reward":]
+[If context contains "cumulative best-so-far error":]
 - This run is scored by the sum of incumbent best
   errors, so early reliable improvements beat risky
   late exploration.
@@ -883,9 +883,9 @@ Propose the next point to evaluate. Balance
 exploration of unvisited regions against exploitation
 around promising ones; never repeat an
 already-evaluated point exactly.
-[If context contains "early reward":]
-Because the score rewards fast incumbent-best
-decrease, pick a high-confidence configuration likely
+[If context contains "cumulative best-so-far error":]
+Because the metric emphasizes fast incumbent-best error
+reduction, pick a high-confidence configuration likely
 to improve the best value now.
 [If reasoning is enabled:]
 Use the task context as priors when available: prefer

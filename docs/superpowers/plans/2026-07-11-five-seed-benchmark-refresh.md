@@ -12,7 +12,7 @@
 
 - Use seeds `0, 1, 2, 3, 4` and 10 trials per seed.
 - Explicitly select Codex model `gpt-5.5` and reasoning effort `medium` for every GPT run.
-- Classification reward is `sum(best_test_error_so_far[i] for i in 1..N)`; lower is better.
+- Classification cumulative best-so-far error is `sum(best_test_error_so_far[i] for i in 1..N)`; lower is better.
 - All plots contain only Random, TPE, GPT-5.5 medium, and GPT-5.5 medium without context.
 - Reuse the fresh Random, TPE, and context-enabled classification artifacts under `autoresearch-results/classification-stagewise16-v2-n10-s5`.
 - Run failed workers must propagate a nonzero exit and plots are generated only from five validated seeds.
@@ -24,7 +24,7 @@
 
 **Files:**
 - Modify: `tests/test_optim_agent.py:511-580`
-- Modify: `scripts/verify_classification_reward.py:16-184`
+- Modify: `scripts/verify_classification_cumulative_error.py:16-184`
 - Modify: `examples/mnist.py:491-531`
 - Modify: `examples/cifar10.py:487-529`
 
@@ -34,7 +34,7 @@
 
 - [ ] **Step 1: Add failing no-context contract assertions**
 
-Extend `test_verify_classification_reward_contract()` with:
+Extend `test_verify_classification_cumulative_error_contract()` with:
 
 ```python
 assert verify.LABELS["codex-no-context"] == "GPT-5.5-medium-no-context"
@@ -102,10 +102,10 @@ if args.command == "run-no-context":
 Extend `_metrics()` without changing the existing baseline-ratio success metric:
 
 ```python
-no_context_reward, no_context_seeds = _reward(
+no_context_cumulative_error, no_context_seeds = _cumulative_error(
     GPT_NO_CONTEXT, dataset, LABELS["codex-no-context"]
 )
-metrics[f"{prefix}_gpt_no_context_reward"] = no_context_reward
+metrics[f"{prefix}_gpt_no_context_cumulative_error"] = no_context_cumulative_error
 metrics.update({f"{prefix}_gpt_no_context_s{i}": value
                 for i, value in enumerate(no_context_seeds)})
 ```
@@ -131,7 +131,7 @@ Expected: all commands exit zero.
 - [ ] **Step 5: Commit the classification runner**
 
 ```bash
-git add tests/test_optim_agent.py scripts/verify_classification_reward.py examples/mnist.py examples/cifar10.py
+git add tests/test_optim_agent.py scripts/verify_classification_cumulative_error.py examples/mnist.py examples/cifar10.py
 git commit -m "feat: run no-context classification seeds in parallel"
 ```
 
@@ -287,7 +287,7 @@ git commit -m "feat: distribute four-candidate hard benchmarks"
 - [ ] **Step 1: Launch the missing no-context runs in the foreground**
 
 ```bash
-python scripts/verify_classification_reward.py run-no-context
+python scripts/verify_classification_cumulative_error.py run-no-context
 ```
 
 Expected: ten worker processes complete, one for each MNIST/CIFAR-10 and seed combination, with all Codex calls using `gpt-5.5` at medium effort.
@@ -296,17 +296,17 @@ Expected: ten worker processes complete, one for each MNIST/CIFAR-10 and seed co
 
 ```bash
 python - <<'PY'
-from scripts import verify_classification_reward as v
+from scripts import verify_classification_cumulative_error as v
 for dataset in v.GPU_SPLITS:
     label = v.LABELS["codex-no-context"]
     assert v._complete(v.GPT_NO_CONTEXT, dataset, label)
-    reward, seeds = v._reward(v.GPT_NO_CONTEXT, dataset, label)
+    cumulative_error, seeds = v._cumulative_error(v.GPT_NO_CONTEXT, dataset, label)
     assert len(seeds) == 5
-    print(dataset, label, reward, seeds)
+    print(dataset, label, cumulative_error, seeds)
 PY
 ```
 
-Expected: two lines, each containing five numeric seed rewards.
+Expected: two lines, each containing five numeric per-seed cumulative errors.
 
 - [ ] **Step 3: Replace stale classification curves with the four approved candidates**
 
@@ -443,16 +443,16 @@ labels = ("Random", "TPE", "GPT-5.5-medium", "GPT-5.5-medium-no-context")
 
 for dataset in ("mnist", "cifar10"):
     for label in labels:
-        rewards, finals = [], []
+        cumulative_errors, finals = [], []
         for path in sorted(root.glob(f"{dataset}_curves_{label}_s*.json")):
             data = json.loads(path.read_text())
             best, curve = float("inf"), []
             for record in data["records"]:
                 best = min(best, float(record["test_error"]))
                 curve.append(best)
-            rewards.append(sum(curve))
+            cumulative_errors.append(sum(curve))
             finals.append(curve[-1])
-        print(dataset, label, "reward", statistics.mean(rewards),
+        print(dataset, label, "cumulative_error", statistics.mean(cumulative_errors),
               "final", statistics.mean(finals))
 
 for label in labels:
@@ -472,11 +472,11 @@ Document:
 
 - 10 trials, five seeds, and the four-candidate restriction.
 - Explicit `gpt-5.5` and medium effort.
-- The classification reward definition and lower-is-better interpretation.
+- The classification cumulative-error definition and lower-is-better interpretation.
 - The 16-dimensional MNIST and CIFAR-10 spaces.
 - Both classification plots and the hard-functions plot.
-- JSON-derived reward and final-incumbent metrics.
-- `python scripts/verify_classification_reward.py run-no-context` and `python examples/hard_functions.py distributed ...` reproduction commands.
+- JSON-derived cumulative-error and final-incumbent metrics.
+- `python scripts/verify_classification_cumulative_error.py run-no-context` and `python examples/hard_functions.py distributed ...` reproduction commands.
 
 Remove legacy free-model, effort-sweep, three-seed, default-model, and old CIFAR search-space claims from the benchmark section. Preserve installation, API, and unrelated usage text. After editing, run `git diff --numstat README.md`; if changed lines exceed 30 percent of 385 lines, rewrite README coherently while retaining the same non-benchmark information.
 

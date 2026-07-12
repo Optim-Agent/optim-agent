@@ -1,8 +1,10 @@
-# Anchor-Free Classification Reward Implementation Plan
+# Anchor-Free Classification Cumulative Error Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a reproducible two-dataset reward verifier and run a focused prompt-refinement loop until both GPT-5.5 reward ratios are at most 0.8.
+**Goal:** Build a reproducible two-dataset cumulative-error verifier and run a
+focused prompt-refinement loop until both GPT-5.5 cumulative-error ratios are
+at most 0.8.
 
 **Architecture:** A parent verifier orchestrates two existing example modules through isolated worker subprocesses and emits structured metrics. Autoresearch then changes only prompt-facing sampler behavior, using the worse dataset ratio as its primary metric and individual ratios as stop criteria.
 
@@ -19,33 +21,33 @@
 
 ---
 
-### Task 1: Structured Reward Harness
+### Task 1: Structured Cumulative-Error Harness
 
 **Files:**
-- Create: `scripts/verify_classification_reward.py`
+- Create: `scripts/verify_classification_cumulative_error.py`
 - Modify: `tests/test_optim_agent.py`
 
 **Interfaces:**
 - Consumes: `examples.mnist.run`, `examples.cifar10.run`, and their curve JSON format.
-- Produces: `_reward(root, dataset, label, seeds, trials) -> (float, list[float])`, `_metrics(root) -> dict`, and a final-line metrics JSON document.
+- Produces: `_cumulative_error(root, dataset, label, seeds, trials) -> (float, list[float])`, `_metrics(root) -> dict`, and a final-line metrics JSON document.
 
-- [ ] **Step 1: Write failing tests for reward aggregation and explicit model invocation**
+- [ ] **Step 1: Write failing tests for cumulative-error aggregation and explicit model invocation**
 
 ```python
-def test_verify_classification_reward():
-    from scripts import verify_classification_reward as verify
+def test_verify_classification_cumulative_error():
+    from scripts import verify_classification_cumulative_error as verify
     assert verify.TRIALS == 10
     assert verify.SEEDS == (0, 1, 2, 3, 4)
     assert verify.MODEL == "gpt-5.5"
     assert verify.EFFORT == "medium"
-    assert verify._reward_curve([3.0, 4.0, 2.0]) == [3.0, 3.0, 2.0]
+    assert verify._incumbent_error_curve([3.0, 4.0, 2.0]) == [3.0, 3.0, 2.0]
 ```
 
 - [ ] **Step 2: Run the test and confirm the missing module causes the expected failure**
 
 Run: `python tests/test_optim_agent.py`
 
-Expected: failure while importing `scripts.verify_classification_reward`.
+Expected: failure while importing `scripts.verify_classification_cumulative_error`.
 
 - [ ] **Step 3: Implement the minimal parent/worker verifier**
 
@@ -70,8 +72,8 @@ Expected: every listed check prints `ok` and the final line is
 - [ ] **Step 5: Commit the measurement harness**
 
 ```bash
-git add scripts/verify_classification_reward.py tests/test_optim_agent.py
-git commit -m "experiment: add anchor-free classification reward verifier"
+git add scripts/verify_classification_cumulative_error.py tests/test_optim_agent.py
+git commit -m "experiment: add anchor-free classification cumulative-error verifier"
 ```
 
 ### Task 2: Fresh Baseline And Run State
@@ -88,10 +90,10 @@ git commit -m "experiment: add anchor-free classification reward verifier"
 
 - [ ] **Step 1: Run the full verifier on unchanged prompt code**
 
-Run: `python scripts/verify_classification_reward.py`
+Run: `python scripts/verify_classification_cumulative_error.py`
 
 Expected: final JSON includes finite `max_ratio`, `mnist_ratio`, and
-`cifar10_ratio`, with five per-seed rewards for each method.
+`cifar10_ratio`, with five per-seed cumulative errors for each method.
 
 - [ ] **Step 2: Initialize autoresearch after the baseline is known**
 
@@ -138,7 +140,7 @@ Expected: `all checks passed`.
 
 - [ ] **Step 4: Commit, run the full verifier, and run the guard after metric improvement**
 
-Run: `python scripts/verify_classification_reward.py`
+Run: `python scripts/verify_classification_cumulative_error.py`
 
 Expected: final-line JSON is parseable and reports both ratios. Run the guard
 only when `max_ratio` improves.

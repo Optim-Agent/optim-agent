@@ -1,6 +1,7 @@
 """Thin layer over agent CLIs (claude / codex / opencode): build command, run, parse JSON reply."""
 
 import json
+import os
 import re
 import subprocess
 
@@ -14,7 +15,7 @@ def _effort_flag(backend: str, effort: str) -> list:
     return {"claude": ["--effort", effort], "opencode": ["--variant", effort]}[backend]
 
 
-def _cmd(backend: str, model, prompt: str, effort=None) -> list:
+def _cmd(backend: str, model, prompt: str, effort=None, cwd=None) -> list:
     if backend == "claude":
         cmd = ["claude", "-p"]
         if model:
@@ -31,14 +32,25 @@ def _cmd(backend: str, model, prompt: str, effort=None) -> list:
         raise ValueError(f"unknown backend {backend!r}, expected one of {BACKENDS}")
     if effort:
         cmd += _effort_flag(backend, effort)
+    if backend == "opencode" and cwd is not None:
+        cmd += ["--dir", os.fspath(cwd)]
     return cmd + [prompt]
 
 
-def call_agent(backend: str, model, prompt: str, timeout: float = 300, effort=None) -> str:
+def call_agent(backend: str, model, prompt: str, timeout: float = 300, effort=None,
+               cwd=None) -> str:
+    env = None
+    if cwd is not None:
+        cwd = os.path.realpath(os.path.abspath(os.fspath(cwd)))
+        env = os.environ.copy()
+        env["PWD"] = cwd
+        env["OLDPWD"] = cwd
     proc = subprocess.run(
-        _cmd(backend, model, prompt, effort),
+        _cmd(backend, model, prompt, effort, cwd=cwd),
         capture_output=True, text=True, timeout=timeout,
         stdin=subprocess.DEVNULL,
+        cwd=cwd,
+        env=env,
     )
     if proc.returncode != 0:
         raise RuntimeError(f"{backend} exited {proc.returncode}: {proc.stderr.strip()[-500:]}")

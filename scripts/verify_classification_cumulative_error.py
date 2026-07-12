@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Measure anchor-free GPT reward ratios on MNIST and CIFAR-10."""
+"""Measure anchor-free GPT cumulative-error ratios on MNIST and CIFAR-10."""
 
 import argparse
 import importlib
@@ -40,7 +40,7 @@ def _dataset_module(dataset):
     return importlib.import_module(f"examples.{dataset}")
 
 
-def _reward_curve(values):
+def _incumbent_error_curve(values):
     best = math.inf
     out = []
     for value in values:
@@ -53,8 +53,8 @@ def _curve_path(root, dataset, label, seed):
     return root / dataset / f"{dataset}_curves_{label}_s{seed}.json"
 
 
-def _reward(root, dataset, label):
-    rewards = []
+def _cumulative_error(root, dataset, label):
+    cumulative_errors = []
     expected_space_version = getattr(_dataset_module(dataset), "SPACE_VERSION", None)
     expected_method = next(method for method, expected_label in LABELS.items()
                            if expected_label == label)
@@ -75,13 +75,13 @@ def _reward(root, dataset, label):
             if record.get("state", "complete") != "complete" or record.get("test_error") is None:
                 raise ValueError(f"incomplete trial in {path}")
             values.append(float(record["test_error"]))
-        rewards.append(sum(_reward_curve(values)))
-    return statistics.mean(rewards), rewards
+        cumulative_errors.append(sum(_incumbent_error_curve(values)))
+    return statistics.mean(cumulative_errors), cumulative_errors
 
 
 def _complete(root, dataset, label):
     try:
-        _reward(root, dataset, label)
+        _cumulative_error(root, dataset, label)
         return True
     except (FileNotFoundError, KeyError, TypeError, ValueError, json.JSONDecodeError):
         return False
@@ -140,21 +140,21 @@ def _metrics():
     metrics = {}
     ratios = []
     for dataset in GPU_SPLITS:
-        random_reward, random_seeds = _reward(BASELINES, dataset, "Random")
-        tpe_reward, tpe_seeds = _reward(BASELINES, dataset, "TPE")
-        gpt_reward, gpt_seeds = _reward(GPT_CURRENT, dataset, "GPT-5.5-medium")
-        no_context_reward, no_context_seeds = _reward(
+        random_cumulative_error, random_seeds = _cumulative_error(BASELINES, dataset, "Random")
+        tpe_cumulative_error, tpe_seeds = _cumulative_error(BASELINES, dataset, "TPE")
+        gpt_cumulative_error, gpt_seeds = _cumulative_error(GPT_CURRENT, dataset, "GPT-5.5-medium")
+        no_context_cumulative_error, no_context_seeds = _cumulative_error(
             GPT_NO_CONTEXT, dataset, LABELS["codex-no-context"])
-        baseline = min(random_reward, tpe_reward)
-        ratio = gpt_reward / baseline
+        baseline = min(random_cumulative_error, tpe_cumulative_error)
+        ratio = gpt_cumulative_error / baseline
         ratios.append(ratio)
         prefix = "cifar10" if dataset == "cifar10" else dataset
         metrics.update({
             f"{prefix}_ratio": ratio,
-            f"{prefix}_random_reward": random_reward,
-            f"{prefix}_tpe_reward": tpe_reward,
-            f"{prefix}_gpt_reward": gpt_reward,
-            f"{prefix}_gpt_no_context_reward": no_context_reward,
+            f"{prefix}_random_cumulative_error": random_cumulative_error,
+            f"{prefix}_tpe_cumulative_error": tpe_cumulative_error,
+            f"{prefix}_gpt_cumulative_error": gpt_cumulative_error,
+            f"{prefix}_gpt_no_context_cumulative_error": no_context_cumulative_error,
         })
         for label, values in (("random", random_seeds), ("tpe", tpe_seeds),
                               ("gpt", gpt_seeds)):

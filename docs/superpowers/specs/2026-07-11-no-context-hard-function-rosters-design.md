@@ -14,6 +14,12 @@ samplers receive only generic parameter names (`x1`, `x2`, ...), numeric bounds,
 and observed trial history. They must not receive the function name, optimum,
 functional form, or a study-wide context string.
 
+Each nested agent CLI runs in a fresh empty temporary working directory. Its
+process `cwd`, `PWD`, and `OLDPWD` all point at the canonical temporary path;
+OpenCode also receives that path through `--dir`. This prevents Codex, Claude,
+or OpenCode tools and project discovery from reading the benchmark source or
+repository instructions.
+
 All agent samplers use:
 
 - `context=None`
@@ -35,7 +41,7 @@ The top-tier roster is:
 | GPT-5.5 | `codex` | `gpt-5.5` |
 | Opus-4.8 | `claude` | `claude-opus-4-8` |
 | Sonnet-5 | `claude` | `claude-sonnet-5` |
-| GLM-5.2 | `opencode` | `opencode-go/glm-5.2` |
+| GLM-5.2 | `opencode` | `cmkey/glm-5.2` (the configured OpenCode default) |
 
 The free OpenCode roster available on 2026-07-11 is:
 
@@ -70,11 +76,13 @@ must make the run invalid for publication.
 
 `examples/hard_functions.py` remains the single benchmark entry point. Its pool
 will contain ten methods: the eight agent models plus Random and TPE. The
-distributed command continues to run five seeds concurrently within one method
-and methods sequentially, limiting simultaneous nested CLI calls to five.
+distributed command runs methods sequentially. It runs five seeds concurrently
+for Codex, Claude, Random, and TPE, but serializes OpenCode-backed seeds because
+concurrent OpenCode processes contend on a shared local database.
 
 The agent curve path passes the pool's backend and explicit model to
-`AgentSampler` with medium effort and `context=None`. No alternate
+`AgentSampler` with medium effort, `context=None`, and an isolated temporary
+working directory. No alternate
 `no_context` branch or contextual hard-function candidate remains.
 
 Each JSON artifact records:

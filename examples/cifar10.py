@@ -448,7 +448,8 @@ def _sampler(method, seed, effort, timeout, model):
     return oa.AgentSampler(
         backend=preset["backend"], model=model or preset["model"], effort=effort,
         context=(None if preset.get("no_context") else
-                 "Full CIFAR-10 ResNet search with early reward: minimize the sum of incumbent "
+                 "Full CIFAR-10 ResNet search with cumulative best-so-far error: "
+                 "minimize the sum of incumbent "
                  "best test errors over the trial budget. Tune learning rate, batch size, weight decay, "
                  "label smoothing, stage widths, stage depths, stage dropouts, crop padding and "
                  "flip probability."),

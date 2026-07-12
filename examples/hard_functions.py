@@ -1,13 +1,19 @@
-"""Hard benchmark: standard Branin (2D) and Ackley (5D) with a strong TPE baseline.
+"""No-context Branin (2D) and Ackley (5D) agent benchmark.
 
 The agents are given only the input bounds and the trial history — never the
-function name — so they cannot recall a known optimum and must genuinely
-optimize. Two baselines: uniform Random (weak) and Optuna's TPE (strong,
-classical Bayesian). With a tight budget of 10 trials this is a sample-
-efficiency race, which is where agent reasoning is meant to pay off.
+function name or repository source. Standard functions can still be inferred
+from their bounds and observations. Two baselines: uniform Random (weak) and
+Optuna's TPE (strong, classical Bayesian). With a tight budget of 10 trials
+this is a sample-efficiency race, which is where agent reasoning is meant to
+pay off.
 
-Candidates: Random, TPE, GPT-5.5 medium, and GPT-5.5 medium without context.
+Pools:
+  - tier: GPT-5.5, Opus-4.8, Sonnet-5, and GLM-5.2
+  - free: rotating free OpenCode models for users without paid model APIs
 
+Every agent uses medium effort and receives no task context.
+
+    python examples/hard_functions.py preflight
     python examples/hard_functions.py distributed --trials 10 --seeds 0 1 2 3 4
     python examples/hard_functions.py run --agent TPE --trials 10
     python examples/hard_functions.py plot
@@ -18,24 +24,40 @@ import argparse
 import json
 import math
 import sys
+import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import optim_agent as oa
+from optim_agent import agent as agent_api
 
 ASSETS = Path(__file__).resolve().parent.parent / "docs" / "assets"
+AGENT_EFFORT = "medium"
 
 # label -> backend/model + plotting group/color/style.
 # backend: real CLI name, None (uniform Random), or "tpe" (Optuna TPE baseline).
 POOL = {
     "Random": dict(backend=None, model=None, group="both", color="#9ca3af", style="solid"),
     "TPE": dict(backend="tpe", model=None, group="both", color="#111827", style=(0, (2, 2))),
-    "GPT-5.5-medium": dict(backend="codex", model="gpt-5.5", group="tier",
-                           color="#10a37f", style=(0, (4, 2))),
-    "GPT-5.5-medium-no-context": dict(backend="codex", model="gpt-5.5",
-                                      no_context=True, group="tier",
-                                      color="#10a37f", style=(0, (1, 1.5))),
+    "GPT-5.5": dict(backend="codex", model="gpt-5.5", group="tier",
+                    color="#10a37f", style=(0, (6, 2))),
+    "Opus-4.8": dict(backend="claude", model="claude-opus-4-8", group="tier",
+                     color="#8b5cf6", style="solid"),
+    "Sonnet-5": dict(backend="claude", model="claude-sonnet-5", group="tier",
+                     color="#d97706", style=(0, (3, 1))),
+    "GLM-5.2": dict(backend="opencode", model="cmkey/glm-5.2", group="tier",
+                    color="#2563eb", style=(0, (4, 2, 1, 2))),
+    "Big-pickle": dict(backend="opencode", model="opencode/big-pickle", group="free",
+                       color="#16a34a", style="solid"),
+    "DeepSeek-V4-Flash": dict(backend="opencode",
+                              model="opencode/deepseek-v4-flash-free", group="free",
+                              color="#0891b2", style=(0, (6, 2))),
+    "Nemotron-3-Ultra": dict(backend="opencode",
+                             model="opencode/nemotron-3-ultra-free", group="free",
+                             color="#db2777", style=(0, (1, 1.5))),
+    "MiMo-v2.5": dict(backend="opencode", model="opencode/mimo-v2.5-free", group="free",
+                      color="#ca8a04", style=(0, (4, 2, 1, 2))),
 }
 
 
@@ -67,11 +89,20 @@ def make_objective(spec):
     return objective
 
 
-def _context(spec):
-    bounds = "; ".join(f"x{i + 1} in [{lo:g}, {hi:g}]" for i, (lo, hi) in enumerate(spec["bounds"]))
-    return (f"a black-box objective with {len(spec['bounds'])} continuous inputs ({bounds}). "
-            "Its functional form, optimum location and optimum value are all unknown; "
-            "only the bounds and the trial history are available.")
+def _is_agent(preset):
+    return preset["backend"] not in (None, "tpe")
+
+
+def _make_sampler(preset, seed, timeout, agent_cwd=None):
+    if preset["backend"] is None:
+        return oa.RandomSampler()
+    if preset["backend"] == "tpe":
+        raise ValueError("TPE uses Optuna directly")
+    return oa.AgentSampler(
+        backend=preset["backend"], model=preset["model"], effort=AGENT_EFFORT,
+        context=None, n_init=3, timeout=timeout, seed=seed,
+        agent_cwd=agent_cwd,
+    )
 
 
 def _tpe_curve(spec, trials, seed):
@@ -84,27 +115,23 @@ def _tpe_curve(spec, trials, seed):
 
 
 def _agent_curve(preset, spec, trials, seed, timeout):
-    if preset["backend"] is None:
-        sampler = oa.RandomSampler()
-    else:
-        sampler = oa.AgentSampler(
-            backend=preset["backend"], model=preset["model"], effort="medium",
-            context=None if preset.get("no_context") else _context(spec),
-            n_init=3, timeout=timeout, seed=seed,
-        )
-    study = oa.create_study(sampler=sampler, seed=seed)
-    study.optimize(make_objective(spec), n_trials=trials)
-    return [t.value for t in study.trials], [t.params for t in study.trials]
+    with tempfile.TemporaryDirectory(prefix="optim-agent-hard-") as agent_cwd:
+        sampler = _make_sampler(preset, seed, timeout, agent_cwd=agent_cwd)
+        study = oa.create_study(sampler=sampler, seed=seed)
+        study.optimize(make_objective(spec), n_trials=trials)
+        return [t.value for t in study.trials], [t.params for t in study.trials]
 
 
 def run(label, trials, seed, timeout):
     preset = POOL[label]
     out = {
         "label": label,
+        "backend": preset["backend"],
+        "model": preset["model"],
+        "effort": AGENT_EFFORT if _is_agent(preset) else None,
+        "no_context": True if _is_agent(preset) else None,
         "seed": seed,
         "trials": trials,
-        "model": preset["model"],
-        "effort": "medium" if preset["backend"] == "codex" else None,
         "functions": {},
     }
     for name, spec in FUNCTIONS.items():
@@ -121,9 +148,15 @@ def run(label, trials, seed, timeout):
     print(f"wrote {path}")
 
 
+def _seed_workers(label, seeds):
+    # Concurrent OpenCode processes share a local database and can fail with
+    # "database is locked". Other backends retain five-way seed parallelism.
+    return 1 if POOL[label]["backend"] == "opencode" else len(seeds)
+
+
 def run_distributed(labels, trials, seeds, timeout):
     for label in labels:
-        with ThreadPoolExecutor(max_workers=len(seeds)) as pool:
+        with ThreadPoolExecutor(max_workers=_seed_workers(label, seeds)) as pool:
             futures = [pool.submit(run, label, trials, seed, timeout) for seed in seeds]
             for future in futures:
                 future.result()
@@ -144,7 +177,8 @@ def _plot_group(group, by_label, fname):
     import matplotlib.pyplot as plt
     from matplotlib.ticker import MaxNLocator
 
-    labels = [l for l in by_label if POOL.get(l, {}).get("group") in (group, "both")]
+    labels = [label for label, preset in POOL.items()
+              if label in by_label and preset["group"] in (group, "both")]
     if not any(POOL[l]["group"] == group for l in labels):
         return
     nseed = max(len(by_label[l]) for l in labels)
@@ -164,11 +198,36 @@ def _plot_group(group, by_label, fname):
         ax.set_title(TITLES[name], fontsize=11)
         ax.xaxis.set_major_locator(MaxNLocator(integer=True))  # trials are integers
         ax.legend(fontsize=8, ncol=2)
-    fig.suptitle(f"GPT-5.5 medium context ablation vs. TPE & Random — lower is better, "
-                 f"mean of {nseed} seeds", fontsize=12)
+    heading = ("Top-tier agents" if group == "tier" else "Free OpenCode agents")
+    fig.suptitle(f"{heading}, medium effort, no context vs. TPE & Random — "
+                 f"lower is better, mean of {nseed} seeds", fontsize=12)
     fig.tight_layout()
     fig.savefig(ASSETS / fname, dpi=130)
     print(f"wrote {ASSETS / fname}")
+
+
+def _validate_run(label, run):
+    preset = POOL[label]
+    expected_effort = AGENT_EFFORT if _is_agent(preset) else None
+    expected_no_context = True if _is_agent(preset) else None
+    valid = (
+        run.get("label") == label
+        and run.get("backend") == preset["backend"]
+        and run.get("model") == preset["model"]
+        and run.get("effort") == expected_effort
+        and run.get("no_context") is expected_no_context
+        and run.get("seed") in range(5)
+        and run.get("trials") == 10
+        and set(run.get("functions", ())) == set(FUNCTIONS)
+    )
+    if valid:
+        valid = all(
+            len(result.get("values", ())) == 10
+            and len(result.get("params", ())) == 10
+            for result in run["functions"].values()
+        )
+    if not valid:
+        raise SystemExit(f"incompatible hard-function plot data for {label}")
 
 
 def _load_plot_runs():
@@ -182,12 +241,7 @@ def _load_plot_runs():
         if len(runs) != 5 or {run.get("seed") for run in runs} != set(range(5)):
             raise SystemExit(f"hard-function plot requires seeds 0..4 for {label}")
         for run in runs:
-            if (run.get("trials") != 10 or set(run.get("functions", ())) != set(FUNCTIONS)
-                    or any(len(result.get("values", ())) != 10
-                           for result in run["functions"].values())
-                    or (label.startswith("GPT")
-                        and (run.get("model") != "gpt-5.5" or run.get("effort") != "medium"))):
-                raise SystemExit(f"incompatible hard-function plot data for {label}")
+            _validate_run(label, run)
     return by_label
 
 
@@ -196,6 +250,23 @@ def plot():
     matplotlib.use("Agg")
     by_label = _load_plot_runs()
     _plot_group("tier", by_label, "hard_benchmarks_tier.png")
+    _plot_group("free", by_label, "hard_benchmarks_free.png")
+
+
+def preflight(timeout):
+    prompt = 'Reply with ONLY this JSON object: {"ok": true}'
+    for label, preset in POOL.items():
+        if not _is_agent(preset):
+            continue
+        with tempfile.TemporaryDirectory(prefix="optim-agent-preflight-") as agent_cwd:
+            reply = agent_api.call_agent(
+                preset["backend"], preset["model"], prompt, timeout,
+                effort=AGENT_EFFORT, cwd=agent_cwd,
+            )
+        data = agent_api.extract_json(reply)
+        if not data or data.get("ok") is not True:
+            raise RuntimeError(f"preflight failed for {label}: invalid JSON reply")
+        print(f"preflight ok: {label} ({preset['backend']} {preset['model']})")
 
 
 def selfcheck():
@@ -220,9 +291,12 @@ if __name__ == "__main__":
     p_dist.add_argument("--trials", type=int, default=10)
     p_dist.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2, 3, 4])
     p_dist.add_argument("--timeout", type=float, default=600)
+    p_preflight = sub.add_parser("preflight")
+    p_preflight.add_argument("--timeout", type=float, default=600)
     sub.add_parser("plot")
     sub.add_parser("selfcheck")
     args = ap.parse_args()
     {"run": lambda: run(args.agent, args.trials, args.seed, args.timeout),
      "distributed": lambda: run_distributed(args.agents, args.trials, args.seeds, args.timeout),
+     "preflight": lambda: preflight(args.timeout),
      "plot": plot, "selfcheck": selfcheck}[args.cmd]()

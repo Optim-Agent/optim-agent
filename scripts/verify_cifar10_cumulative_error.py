@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run CIFAR-10 GPT-medium and print 12-trial reward-ratio metrics JSON."""
+"""Run CIFAR-10 GPT-medium and print 12-trial cumulative-error-ratio metrics JSON."""
 
 import json
 import math
@@ -32,8 +32,8 @@ def _clean_gpt():
             path.unlink()
 
 
-def _reward(root, label):
-    rewards = []
+def _cumulative_error(root, label):
+    cumulative_errors = []
     safe = _safe(label)
     for seed in SEEDS:
         data = json.loads((root / f"cifar10_curves_{safe}_s{seed}.json").read_text())
@@ -44,8 +44,8 @@ def _reward(root, label):
             curve.append(best)
         if len(curve) < TRIALS:
             raise SystemExit(f"{label} seed {seed} has {len(curve)} trials")
-        rewards.append(sum(curve[:TRIALS]))
-    return statistics.mean(rewards), rewards
+        cumulative_errors.append(sum(curve[:TRIALS]))
+    return statistics.mean(cumulative_errors), cumulative_errors
 
 
 def main():
@@ -54,19 +54,19 @@ def main():
     OUTPUT.mkdir(parents=True, exist_ok=True)
     STORAGE.mkdir(parents=True, exist_ok=True)
     _clean_gpt()
-    random_reward, random_seeds = _reward(REFERENCE, "Random")
-    tpe_reward, tpe_seeds = _reward(REFERENCE, "TPE")
+    random_cumulative_error, random_seeds = _cumulative_error(REFERENCE, "Random")
+    tpe_cumulative_error, tpe_seeds = _cumulative_error(REFERENCE, "TPE")
     cifar10.ASSETS = OUTPUT
     cifar10.STORAGE = STORAGE
     cifar10.run("codex", list(SEEDS), TRIALS, 3, 8, list(range(8)), "medium", 600, MODEL)
-    gpt_reward, gpt_seeds = _reward(OUTPUT, "GPT-5.5-medium")
-    baseline = min(random_reward, tpe_reward)
+    gpt_cumulative_error, gpt_seeds = _cumulative_error(OUTPUT, "GPT-5.5-medium")
+    baseline = min(random_cumulative_error, tpe_cumulative_error)
     print(json.dumps({
-        "ratio": gpt_reward / baseline,
-        "gpt_reward": gpt_reward,
-        "best_baseline_reward": baseline,
-        "random_reward": random_reward,
-        "tpe_reward": tpe_reward,
+        "ratio": gpt_cumulative_error / baseline,
+        "gpt_cumulative_error": gpt_cumulative_error,
+        "best_baseline_cumulative_error": baseline,
+        "random_cumulative_error": random_cumulative_error,
+        "tpe_cumulative_error": tpe_cumulative_error,
         **{f"random_s{i}": value for i, value in enumerate(random_seeds)},
         **{f"tpe_s{i}": value for i, value in enumerate(tpe_seeds)},
         **{f"gpt_s{i}": value for i, value in enumerate(gpt_seeds)},

@@ -190,6 +190,12 @@ def test_trajectory_renderer_uses_committed_runs_and_emits_animation():
     from PIL import Image
     from scripts import render_trajectory
 
+    assert render_trajectory.TITLE == (
+        "Optim-agent (GPT-5.5-medium w/o ctx) v.s. Optuna (TPE) on Branin 2D"
+    )
+    assert render_trajectory.AGENT_LABEL == "optim-agent"
+    assert render_trajectory.BASELINE_LABEL == "optuna"
+
     root = Path(__file__).resolve().parent.parent
     baseline, agent_run = render_trajectory.load_runs(root / "docs/assets", seed=0)
     assert baseline["label"] == "TPE"
@@ -240,6 +246,42 @@ def test_extract_json():
     assert agent.extract_json('Sure! Here you go: {"x": 2, "y": "a"} done') == {"x": 2, "y": "a"}
     assert agent.extract_json('schema {"x": "<float>"} answer {"x": 3.0}') == {"x": 3.0}
     assert agent.extract_json("no json here") is None
+
+
+def test_call_agent_forwards_working_directory():
+    import os
+    from types import SimpleNamespace
+
+    seen = {}
+    original = agent.subprocess.run
+
+    def fake_run(command, **kwargs):
+        seen.update(command=command, kwargs=kwargs)
+        return SimpleNamespace(returncode=0, stdout='{"ok": true}', stderr="")
+
+    agent.subprocess.run = fake_run
+    try:
+        reply = agent.call_agent(
+            "codex", "gpt-5.5", "prompt", effort="medium",
+            cwd="/tmp/optim-agent-empty",
+        )
+    finally:
+        agent.subprocess.run = original
+
+    expected_cwd = os.path.realpath("/tmp/optim-agent-empty")
+    assert reply == '{"ok": true}'
+    assert seen["kwargs"]["cwd"] == expected_cwd
+    assert seen["kwargs"]["env"]["PWD"] == expected_cwd
+    assert seen["kwargs"]["env"]["OLDPWD"] == expected_cwd
+
+
+def test_opencode_command_forwards_working_directory():
+    command = agent._cmd(
+        "opencode", "opencode/big-pickle", "prompt", "medium",
+        cwd="/tmp/optim-agent-empty",
+    )
+
+    assert command[-3:] == ["--dir", "/tmp/optim-agent-empty", "prompt"]
 
 
 def test_agent_sampler(monkeypatch=None):
@@ -300,12 +342,38 @@ def test_agent_sampler(monkeypatch=None):
         samplers._agent.call_agent = original
 
 
-def test_early_reward_agent_owns_post_startup():
+def test_agent_sampler_retries_transient_call_failure():
+    calls = []
+    original = samplers._agent.call_agent
+
+    def flaky_call(*args, **kwargs):
+        calls.append((args, kwargs))
+        if len(calls) == 1:
+            raise RuntimeError("temporary provider stream failure")
+        return '{"x": 2.0, "_reasoning": "retry", "_note": "provider recovered"}'
+
+    samplers._agent.call_agent = flaky_call
+    try:
+        sampler = oa.AgentSampler(
+            backend="claude", effort="medium", n_init=0, seed=0,
+            initial_space={"x": space.Float(-5, 5)},
+        )
+        study = oa.create_study(sampler=sampler, seed=0)
+        trial = study.ask()
+        assert trial.suggest_float("x", -5, 5) == 2.0
+    finally:
+        samplers._agent.call_agent = original
+
+    assert len(calls) == 2
+    assert sampler.note == "provider recovered"
+
+
+def test_cumulative_error_metric_agent_owns_post_startup():
     calls = []
     original = samplers._agent.call_agent
     samplers._agent.call_agent = lambda *args, **kwargs: calls.append(args) or '{"x": 1.5}'
     s = oa.AgentSampler(backend="claude", effort="medium", n_init=1,
-                        context="early reward", seed=0)
+                        context="cumulative best-so-far error", seed=0)
     s.rng.random = lambda: 0.0
     study = oa.create_study(sampler=s, seed=0)
     first = study.ask({"x": 2.0})
@@ -321,7 +389,7 @@ def test_early_reward_agent_owns_post_startup():
     assert calls
 
 
-def test_early_reward_hands_off_after_schema_trial():
+def test_cumulative_error_metric_hands_off_after_schema_trial():
     calls = []
     original = samplers._agent.call_agent
     samplers._agent.call_agent = lambda *args, **kwargs: calls.append(args) or '{"x": 2.0}'
@@ -329,7 +397,7 @@ def test_early_reward_hands_off_after_schema_trial():
         study = oa.create_study(
             sampler=oa.AgentSampler(
                 backend="claude", effort="medium", n_init=4,
-                context="early reward", seed=0,
+                context="cumulative best-so-far error", seed=0,
             ),
             seed=0,
         )
@@ -339,10 +407,10 @@ def test_early_reward_hands_off_after_schema_trial():
         assert second.suggest_float("x", -5, 5) == 2.0
     finally:
         samplers._agent.call_agent = original
-    assert calls, "early-reward runs should hand off after discovering the search space"
+    assert calls, "cumulative-error runs should hand off after discovering the search space"
 
 
-def test_early_reward_uses_declared_space_on_first_trial():
+def test_cumulative_error_metric_uses_declared_space_on_first_trial():
     calls = []
     original = samplers._agent.call_agent
 
@@ -356,7 +424,7 @@ def test_early_reward_uses_declared_space_on_first_trial():
     try:
         sampler = oa.AgentSampler(
             backend="claude", effort="medium", n_init=4,
-            context="early reward", seed=0,
+            context="cumulative best-so-far error", seed=0,
             initial_space={"x": space.Float(-5, 5, context="test parameter")},
         )
         study = oa.create_study(sampler=sampler, seed=0, max_concurrency=4)
@@ -371,7 +439,7 @@ def test_early_reward_uses_declared_space_on_first_trial():
     assert "test parameter" in calls[0][2]
 
 
-def test_early_reward_joint_startup_portfolio():
+def test_cumulative_error_metric_joint_startup_portfolio():
     calls = []
     original = samplers._agent.call_agent
 
@@ -386,7 +454,7 @@ def test_early_reward_joint_startup_portfolio():
     try:
         sampler = oa.AgentSampler(
             backend="claude", effort="medium", n_init=4,
-            context="early reward", seed=0,
+            context="cumulative best-so-far error", seed=0,
         )
         sampler.rng.random = lambda: 1.0
         study = oa.create_study(sampler=sampler, seed=0, max_concurrency=4)
@@ -406,7 +474,7 @@ def test_early_reward_joint_startup_portfolio():
 
 def test_anchor_proposals_seed_warmup():
     s = oa.AgentSampler(
-        backend="claude", effort="medium", n_init=4, context="early reward", seed=0,
+        backend="claude", effort="medium", n_init=4, context="cumulative best-so-far error", seed=0,
         anchor_proposals=[{"x": 1.5}, {"x": 2.5}],
     )
     study = oa.create_study(sampler=s, seed=0)
@@ -419,7 +487,7 @@ def test_anchor_proposals_seed_warmup():
     assert -5 <= third.suggest_float("x", -5, 5) <= 5
 
     partial = oa.AgentSampler(
-        backend="claude", effort="medium", n_init=4, context="early reward", seed=0,
+        backend="claude", effort="medium", n_init=4, context="cumulative best-so-far error", seed=0,
         anchor_proposals=[{"x": 1.5, "y": 2.5}],
     )
     partial_study = oa.create_study(sampler=partial, seed=0)
@@ -716,14 +784,14 @@ def test_verify_mnist_prompting_scores_and_prunes():
     ) == {"context_s0": 0.56}
 
 
-def test_verify_mnist_reward_safe_label():
-    from scripts import verify_mnist_reward as verify
+def test_verify_mnist_cumulative_error_safe_label():
+    from scripts import verify_mnist_cumulative_error as verify
 
     assert verify._safe("GPT-5.5 medium/no ctx") == "GPT-5.5-medium-no-ctx"
 
 
-def test_verify_classification_reward_contract():
-    from scripts import verify_classification_reward as verify
+def test_verify_classification_cumulative_error_contract():
+    from scripts import verify_classification_cumulative_error as verify
     import threading
     from types import SimpleNamespace
 
@@ -734,7 +802,7 @@ def test_verify_classification_reward_contract():
     assert verify.EFFORT == "medium"
     assert verify.LABELS["codex-no-context"] == "GPT-5.5-medium-no-context"
     assert verify.GPT_NO_CONTEXT.name == "gpt-no-context"
-    assert verify._reward_curve([3.0, 4.0, 2.0]) == [3.0, 3.0, 2.0]
+    assert verify._incumbent_error_curve([3.0, 4.0, 2.0]) == [3.0, 3.0, 2.0]
     assert verify._dataset_module("mnist").__name__ == "examples.mnist"
     commands = [verify._worker_command(dataset, "codex", verify.GPT_CURRENT, seed)
                 for dataset in verify.GPU_SPLITS for seed in verify.SEEDS]
@@ -905,11 +973,47 @@ def test_hard_functions_distributed_contract():
     from examples import hard_functions as hard
     import threading
 
-    assert tuple(hard.POOL) == (
-        "Random", "TPE", "GPT-5.5-medium", "GPT-5.5-medium-no-context",
-    )
-    assert hard.POOL["GPT-5.5-medium"]["model"] == "gpt-5.5"
-    assert hard.POOL["GPT-5.5-medium-no-context"]["no_context"] is True
+    expected = {
+        "Random": (None, None, "both"),
+        "TPE": ("tpe", None, "both"),
+        "GPT-5.5": ("codex", "gpt-5.5", "tier"),
+        "Opus-4.8": ("claude", "claude-opus-4-8", "tier"),
+        "Sonnet-5": ("claude", "claude-sonnet-5", "tier"),
+        "GLM-5.2": ("opencode", "cmkey/glm-5.2", "tier"),
+        "Big-pickle": ("opencode", "opencode/big-pickle", "free"),
+        "DeepSeek-V4-Flash": (
+            "opencode", "opencode/deepseek-v4-flash-free", "free",
+        ),
+        "Nemotron-3-Ultra": (
+            "opencode", "opencode/nemotron-3-ultra-free", "free",
+        ),
+        "MiMo-v2.5": ("opencode", "opencode/mimo-v2.5-free", "free"),
+    }
+    assert {
+        label: (preset["backend"], preset["model"], preset["group"])
+        for label, preset in hard.POOL.items()
+    } == expected
+
+    for preset in hard.POOL.values():
+        if preset["backend"] in (None, "tpe"):
+            continue
+        sampler = hard._make_sampler(
+            preset, seed=3, timeout=17, agent_cwd="/tmp/hard-functions-empty",
+        )
+        assert sampler.backend == preset["backend"]
+        assert sampler.model == preset["model"]
+        assert sampler.effort == "medium"
+        assert sampler.context is None
+        assert sampler.n_init == 3
+        assert sampler.timeout == 17
+        assert sampler.agent_cwd == "/tmp/hard-functions-empty"
+
+    seeds = [0, 1, 2, 3, 4]
+    assert hard._seed_workers("Random", seeds) == 5
+    assert hard._seed_workers("GPT-5.5", seeds) == 5
+    assert hard._seed_workers("Opus-4.8", seeds) == 5
+    assert hard._seed_workers("GLM-5.2", seeds) == 1
+    assert hard._seed_workers("Big-pickle", seeds) == 1
 
     barrier = threading.Barrier(5, timeout=5)
     calls = []
@@ -937,6 +1041,28 @@ def test_hard_functions_distributed_contract():
         hard.run = old_run
 
 
+def test_hard_functions_preflight_contract():
+    from examples import hard_functions as hard
+
+    calls = []
+    old_call = hard.agent_api.call_agent
+    hard.agent_api.call_agent = lambda backend, model, prompt, timeout, effort, cwd: (
+        calls.append((backend, model, timeout, effort, Path(cwd).is_dir()))
+        or '{"ok": true}'
+    )
+    try:
+        hard.preflight(timeout=23)
+    finally:
+        hard.agent_api.call_agent = old_call
+
+    expected = [
+        (preset["backend"], preset["model"], 23, "medium", True)
+        for preset in hard.POOL.values()
+        if preset["backend"] not in (None, "tpe")
+    ]
+    assert calls == expected
+
+
 def test_plotters_reject_incomplete_publication_data():
     from examples import cifar10, hard_functions, mnist
 
@@ -958,11 +1084,15 @@ def test_plotters_reject_incomplete_publication_data():
 
 
 if __name__ == "__main__":
-    for fn in [test_random_study, test_extract_json, test_agent_sampler,
-               test_early_reward_agent_owns_post_startup,
-               test_early_reward_hands_off_after_schema_trial,
-               test_early_reward_uses_declared_space_on_first_trial,
-               test_early_reward_joint_startup_portfolio,
+    for fn in [test_random_study, test_extract_json,
+               test_call_agent_forwards_working_directory,
+               test_opencode_command_forwards_working_directory,
+               test_agent_sampler,
+               test_agent_sampler_retries_transient_call_failure,
+               test_cumulative_error_metric_agent_owns_post_startup,
+               test_cumulative_error_metric_hands_off_after_schema_trial,
+               test_cumulative_error_metric_uses_declared_space_on_first_trial,
+               test_cumulative_error_metric_joint_startup_portfolio,
                test_anchor_proposals_seed_warmup,
                test_pruner, test_mock_backend_and_storage, test_concurrency_and_sqlite,
                test_skill_mode_ask_tell, test_hostile_agent_values, test_guardrails,
@@ -970,10 +1100,11 @@ if __name__ == "__main__":
                test_mnist_optuna_trial_adapter_ignores_context,
                test_mnist_trial_record_serializes_metrics,
                test_verify_mnist_prompting_scores_and_prunes,
-               test_verify_mnist_reward_safe_label,
-               test_verify_classification_reward_contract,
+               test_verify_mnist_cumulative_error_safe_label,
+               test_verify_classification_cumulative_error_contract,
                test_cifar10_helper_curves_and_labels,
                test_hard_functions_distributed_contract,
+               test_hard_functions_preflight_contract,
                test_plotters_reject_incomplete_publication_data]:
         fn()
         print(f"ok: {fn.__name__}")

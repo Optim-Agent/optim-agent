@@ -39,7 +39,7 @@ Do not update prose or plots from a partial seed set. Before publishing:
 ```bash
 pip install -e ".[examples,dev]"
 pytest
-python scripts/verify_classification_reward.py
+python scripts/verify_classification_cumulative_error.py
 python examples/hard_functions.py selfcheck
 python examples/hard_functions.py plot
 python scripts/render_trajectory.py
@@ -52,6 +52,6 @@ run belongs in the documentation tree.
 ## Interpreting results
 
 Report distributions or multi-seed means, not a best seed. State whether the
-metric rewards early improvement or final quality. Agent latency and token
+metric emphasizes early improvement or final quality. Agent latency and token
 cost are separate from objective-evaluation cost and should be reported when
 they materially affect the comparison.

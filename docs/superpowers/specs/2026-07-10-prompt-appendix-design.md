@@ -33,7 +33,7 @@ Use bracketed placeholders for runtime data and visibly marked conditional
 blocks for:
 
 - study context and context-derived priors;
-- the special `early reward` instruction;
+- the special `cumulative best-so-far error` instruction;
 - a carried `_note`;
 - `_reasoning` and `_note` output fields.
 

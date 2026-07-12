@@ -32,17 +32,19 @@ class AgentSampler:
     context: optional free-text description of what is being tuned, e.g.
              "learning rate and batch size of a CNN on MNIST"
     n_init:  random warmup trials before the agent is consulted
+    agent_cwd: optional isolated working directory for the nested agent CLI
     """
 
     def __init__(self, backend="claude", model=None, effort="high", context=None,
                  n_init=2, timeout=300, seed=None, anchor_proposals=None,
-                 initial_space=None):
+                 initial_space=None, agent_cwd=None):
         if effort not in EFFORTS:
             raise ValueError(f"effort must be one of {list(EFFORTS)}")
         if backend != "mock" and backend not in _agent.BACKENDS:
             raise ValueError(f"backend must be one of {_agent.BACKENDS + ('mock',)}")
         self.backend, self.model, self.effort = backend, model, effort
         self.context, self.n_init, self.timeout = context, n_init, timeout
+        self.agent_cwd = agent_cwd
         self.anchor_proposals = list(anchor_proposals or [])
         self.initial_space = dict(initial_space or {})
         self._anchor_idx = 0
@@ -56,14 +58,15 @@ class AgentSampler:
         if self._proposal_queue:
             return self._proposal_queue.pop(0)
         done = [t for t in study.trials if t.state in ("complete", "pruned") and t.value is not None]
-        early_reward = self.context and "early reward" in self.context.lower()
-        warmup_target = (0 if early_reward and self.initial_space else
-                         self.n_init if self.anchor_proposals or not early_reward else 1)
-        warmup_count = len(study.trials) if early_reward else len(
+        cumulative_error_metric = (self.context
+                                   and "cumulative best-so-far error" in self.context.lower())
+        warmup_target = (0 if cumulative_error_metric and self.initial_space else
+                         self.n_init if self.anchor_proposals or not cumulative_error_metric else 1)
+        warmup_count = len(study.trials) if cumulative_error_metric else len(
             [t for t in done if t.state == "complete"]
         )
         if warmup_count < warmup_target or not study.space:
-            if early_reward:
+            if cumulative_error_metric:
                 anchored = self._anchor_proposal(study)
                 if anchored:
                     return anchored
@@ -75,14 +78,13 @@ class AgentSampler:
         if self.backend == "mock":
             return self._mock(study, done)
         cfg = EFFORTS[self.effort]
-        if (early_reward and not done and not self.anchor_proposals
+        if (cumulative_error_metric and not done and not self.anchor_proposals
                 and study.max_concurrency > 1):
             portfolio_size = study.max_concurrency
             if portfolio_size > 1:
                 prompt = self._prompt(study, done, cfg, portfolio_size)
                 try:
-                    reply = _agent.call_agent(self.backend, self.model, prompt,
-                                              self.timeout, effort=self.effort)
+                    reply = self._call_agent(prompt)
                 except Exception as e:
                     warnings.warn(f"agent call failed ({e}); trying one proposal")
                 else:
@@ -95,10 +97,12 @@ class AgentSampler:
         prompt = self._prompt(study, done, cfg)
         for attempt in range(2):
             try:
-                reply = _agent.call_agent(self.backend, self.model, prompt,
-                                          self.timeout, effort=self.effort)
+                reply = self._call_agent(prompt)
             except Exception as e:
-                warnings.warn(f"agent call failed ({e}); falling back to random sampling")
+                if attempt == 0:
+                    warnings.warn(f"agent call failed ({e}); retrying once")
+                    continue
+                warnings.warn(f"agent call failed again ({e}); falling back to random sampling")
                 return {}
             params = self._validate_reply(study, reply, cfg)
             if params is not None:
@@ -107,6 +111,14 @@ class AgentSampler:
                        "Reply again with ONLY the JSON object, values inside the stated ranges.")
         warnings.warn("agent reply unparseable twice; falling back to random sampling")
         return {}
+
+    def _call_agent(self, prompt):
+        kwargs = {"effort": self.effort}
+        if self.agent_cwd is not None:
+            kwargs["cwd"] = self.agent_cwd
+        return _agent.call_agent(
+            self.backend, self.model, prompt, self.timeout, **kwargs,
+        )
 
     # -- prompt construction ------------------------------------------------
 
@@ -128,7 +140,7 @@ class AgentSampler:
                           "regularization/dropout, enough width/depth, and augmentation only when "
                           "history shows it helps.",
                           "- Treat parameter names and descriptions as semantic hints, not just tokens."]
-                if "early reward" in self.context.lower():
+                if "cumulative best-so-far error" in self.context.lower():
                     lines += ["- This run is scored by the sum of incumbent best errors, so early "
                               "reliable improvements beat risky late exploration."]
         lines += ["", "Search space:"]
@@ -169,8 +181,8 @@ class AgentSampler:
             lines += ["", "Propose the next point to evaluate. Balance exploration of unvisited "
                           "regions against exploitation around promising ones; never repeat an "
                           "already-evaluated point exactly."]
-        if self.context and "early reward" in self.context.lower():
-            lines += ["Because the score rewards fast incumbent-best decrease, pick a "
+        if self.context and "cumulative best-so-far error" in self.context.lower():
+            lines += ["Because the metric emphasizes fast incumbent-best error reduction, pick a "
                       "high-confidence configuration likely to improve the best value now."]
         if cfg["reasoning"]:
             lines += ["Use the task context as priors when available: prefer choices that "

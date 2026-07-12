@@ -20,6 +20,9 @@ AGENT_CANDIDATES = ("GPT-5.5", "GPT-5.5-medium")
 BASELINE_COLOR = "#2563eb"
 AGENT_COLOR = "#d94841"
 OPTIMUM_COLOR = "#147d64"
+TITLE = "Optim-agent (GPT-5.5-medium w/o ctx) v.s. Optuna (TPE) on Branin 2D"
+AGENT_LABEL = "optim-agent"
+BASELINE_LABEL = "optuna"
 
 
 def _load(path):
@@ -77,21 +80,16 @@ def render(output, baseline, agent_run, dpi=90):
     figure, (space_axis, curve_axis) = plt.subplots(
         1, 2, figsize=(12, 7), gridspec_kw={"width_ratios": (1.08, 0.92)}
     )
-    figure.subplots_adjust(top=0.82, bottom=0.14, left=0.07, right=0.97, wspace=0.24)
+    figure.subplots_adjust(top=0.85, bottom=0.14, left=0.07, right=0.97, wspace=0.24)
 
     def draw(step):
         space_axis.clear()
         curve_axis.clear()
         figure.suptitle(
-            "Agent optimization trajectory vs TPE",
-            fontsize=22,
+            TITLE,
+            fontsize=19,
             fontweight="bold",
             y=0.95,
-        )
-        figure.text(
-            0.5, 0.895,
-            f"Branin, seed 0, matched 10-trial budget  |  showing trial {step}",
-            ha="center", color="#52606d", fontsize=12,
         )
 
         space_axis.contourf(
@@ -122,11 +120,11 @@ def render(output, baseline, agent_run, dpi=90):
             linewidth=1.7, alpha=0.72,
         )
         space_axis.scatter(
-            baseline_xy[:, 0], baseline_xy[:, 1], label="TPE", s=42,
+            baseline_xy[:, 0], baseline_xy[:, 1], label=BASELINE_LABEL, s=42,
             color=BASELINE_COLOR, edgecolor="white", linewidth=0.7, zorder=5,
         )
         space_axis.scatter(
-            agent_xy[:, 0], agent_xy[:, 1], label=agent_run["label"], s=52,
+            agent_xy[:, 0], agent_xy[:, 1], label=AGENT_LABEL, s=52,
             color=AGENT_COLOR, edgecolor="white", linewidth=0.8, zorder=6,
         )
         space_axis.scatter(
@@ -148,11 +146,11 @@ def render(output, baseline, agent_run, dpi=90):
 
         trial_axis = np.arange(1, trials + 1)
         curve_axis.plot(
-            trial_axis[:step], baseline_best[:step], "o-", label="TPE",
+            trial_axis[:step], baseline_best[:step], "o-", label=BASELINE_LABEL,
             color=BASELINE_COLOR, linewidth=2.2, markersize=5,
         )
         curve_axis.plot(
-            trial_axis[:step], agent_best[:step], "o-", label=agent_run["label"],
+            trial_axis[:step], agent_best[:step], "o-", label=AGENT_LABEL,
             color=AGENT_COLOR, linewidth=2.5, markersize=5.5,
         )
         curve_axis.axhline(
@@ -172,8 +170,8 @@ def render(output, baseline, agent_run, dpi=90):
         curve_axis.legend(loc="upper right", frameon=True, framealpha=0.95)
         curve_axis.text(
             0.04, 0.05,
-            f"TPE best: {baseline_best[step - 1]:.3f}\n"
-            f"Agent best: {agent_best[step - 1]:.3f}",
+            f"{BASELINE_LABEL} best: {baseline_best[step - 1]:.3f}\n"
+            f"{AGENT_LABEL} best: {agent_best[step - 1]:.3f}",
             transform=curve_axis.transAxes,
             bbox={"boxstyle": "round,pad=0.45", "facecolor": "white", "alpha": 0.92,
                   "edgecolor": "#d8dee8"},

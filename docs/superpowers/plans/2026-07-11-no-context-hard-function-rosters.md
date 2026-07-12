@@ -27,7 +27,7 @@ Update `test_hard_functions_distributed_contract` to assert the exact ten-entry 
         "GPT-5.5": ("codex", "gpt-5.5", "tier"),
         "Opus-4.8": ("claude", "claude-opus-4-8", "tier"),
         "Sonnet-5": ("claude", "claude-sonnet-5", "tier"),
-        "GLM-5.2": ("opencode", "opencode-go/glm-5.2", "tier"),
+        "GLM-5.2": ("opencode", "cmkey/glm-5.2", "tier"),
         "Big-pickle": ("opencode", "opencode/big-pickle", "free"),
         "DeepSeek-V4-Flash": (
             "opencode", "opencode/deepseek-v4-flash-free", "free"
@@ -115,7 +115,7 @@ The agent entries must use these exact model strings:
 "GPT-5.5": "gpt-5.5"
 "Opus-4.8": "claude-opus-4-8"
 "Sonnet-5": "claude-sonnet-5"
-"GLM-5.2": "opencode-go/glm-5.2"
+"GLM-5.2": "cmkey/glm-5.2"
 "Big-pickle": "opencode/big-pickle"
 "DeepSeek-V4-Flash": "opencode/deepseek-v4-flash-free"
 "Nemotron-3-Ultra": "opencode/nemotron-3-ultra-free"
@@ -144,10 +144,14 @@ def _make_sampler(preset, seed, timeout):
         n_init=3,
         timeout=timeout,
         seed=seed,
+        agent_cwd=agent_cwd,
     )
 ```
 
-Use `_make_sampler` inside `_agent_curve`. No agent path may pass `_context(spec)` or any other study description.
+Use `_make_sampler` inside `_agent_curve`. Create a fresh empty
+`TemporaryDirectory` for each function/seed curve and pass it as `agent_cwd`.
+No agent path may pass `_context(spec)` or any other study description, and no
+child CLI may inherit the repository working directory.
 
 - [ ] **Step 3: Add exact artifact provenance**
 
@@ -223,6 +227,9 @@ Run the command from Task 1 Step 4.
 
 Expected: both selected tests pass.
 
+OpenCode-backed labels must use one seed worker because concurrent OpenCode
+processes share a local database. All other labels use `len(seeds)` workers.
+
 - [ ] **Step 8: Run all non-PyTorch tests**
 
 Run:
@@ -248,7 +255,7 @@ Run:
 opencode models
 ```
 
-Expected: all five configured OpenCode IDs are present: GLM-5.2 plus the four free models.
+Expected: `cmkey/glm-5.2` and all four configured free OpenCode IDs are present.
 
 - [ ] **Step 2: Run all eight structured-output smoke tests**
 

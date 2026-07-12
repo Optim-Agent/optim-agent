@@ -1,14 +1,15 @@
-# Anchor-Free Classification Reward Design
+# Anchor-Free Classification Cumulative Error Design
 
 ## Objective
 
 Improve only the generic prompt construction and prompt-facing enrichment in
 `optim_agent` until GPT-5.5 at medium reasoning effort achieves a cumulative
-incumbent-best test-error reward at most 80% of the best fresh Random or TPE
-reward on both MNIST and CIFAR-10.
+incumbent-best cumulative test error at most 80% of the best fresh Random or
+TPE cumulative error on both MNIST and CIFAR-10.
 
-Each candidate uses 10 trials and seeds 0 through 4. For a seed, reward is
-`sum(best_test_error_so_far[i] for i in range(10))`; reported reward is the
+Each candidate uses 10 trials and seeds 0 through 4. For a seed, cumulative
+best-so-far error is `sum(best_test_error_so_far[i] for i in range(10))`; the
+reported metric is the
 mean over the five seeds. Lower is better.
 
 ## Fairness Boundary
@@ -25,7 +26,7 @@ mean over the five seeds. Lower is better.
 
 ## Measurement Harness
 
-Create `scripts/verify_classification_reward.py`. Its parent mode prepares
+Create `scripts/verify_classification_cumulative_error.py`. Its parent mode prepares
 fresh baselines when absent, clears only the current GPT output, runs MNIST on
 GPUs 0-3 and CIFAR-10 on GPUs 4-7 concurrently, and emits one final JSON line.
 Its worker mode imports the selected example module, redirects `ASSETS` and
@@ -33,7 +34,8 @@ Its worker mode imports the selected example module, redirects `ASSETS` and
 existing `run()` function.
 
 The final JSON contains `max_ratio`, `mnist_ratio`, `cifar10_ratio`, all six
-method rewards, and per-seed rewards. `max_ratio` is the primary metric. A run
+method cumulative errors and per-seed cumulative errors. `max_ratio` is the
+primary metric. A run
 can stop only when both ratios are at most 0.8.
 
 ## Refinement Strategy

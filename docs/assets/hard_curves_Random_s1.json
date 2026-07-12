@@ -1,9 +1,11 @@
 {
  "label": "Random",
- "seed": 1,
- "trials": 10,
+ "backend": null,
  "model": null,
  "effort": null,
+ "no_context": null,
+ "seed": 1,
+ "trials": 10,
  "functions": {
   "branin": {
    "values": [
