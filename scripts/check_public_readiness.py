@@ -85,7 +85,8 @@ def evaluate():
                           or re.search(r"\b(ruff|flake8|pylint)\b", ci)),
         "type_gate": "[tool.mypy]" in pyproject or bool(re.search(r"\b(mypy|pyright)\b", ci)),
         "coverage_gate": bool(re.search(r"coverage|pytest-cov", pyproject + ci)),
-        "dependency_scan": bool(re.search(r"pip-audit|dependabot|dependency-review", github_text)),
+        "dependency_scan": (ROOT / ".github/dependabot.yml").exists()
+        or bool(re.search(r"pip-audit|dependabot|dependency-review", github_text)),
         "readme_quickstart": "## Quickstart" in readme,
         "offline_mode": "### Offline testing" in readme,
         "troubleshooting": "## Troubleshooting" in readme,

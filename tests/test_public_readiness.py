@@ -93,3 +93,22 @@ def test_readiness_checker_selects_python_with_build(monkeypatch):
     )
 
     assert check_public_readiness._python_with_module("build") == "/tools/python3.10"
+
+
+def test_public_quality_gates_are_configured(monkeypatch):
+    pyproject = (ROOT / "pyproject.toml").read_text()
+    ci = (ROOT / ".github/workflows/ci.yml").read_text()
+    precommit = (ROOT / ".pre-commit-config.yaml").read_text()
+    dependabot = (ROOT / ".github/dependabot.yml").read_text()
+
+    for dependency in ("build", "pre-commit", "pytest-cov", "ruff"):
+        assert dependency in pyproject
+    assert "[tool.ruff]" in pyproject
+    assert "ruff check" in ci
+    assert "--cov-fail-under=85" in ci
+    assert "ruff-pre-commit" in precommit
+    assert 'package-ecosystem: "pip"' in dependabot
+    assert 'package-ecosystem: "github-actions"' in dependabot
+
+    monkeypatch.setattr(check_public_readiness, "_command_passes", lambda *args: True)
+    assert check_public_readiness.evaluate()["dependency_scan"] is True
