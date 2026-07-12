@@ -5,6 +5,7 @@ import json
 import re
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -33,13 +34,32 @@ def _ignored(path):
     return _command_passes("git", "check-ignore", "--no-index", "--quiet", path)
 
 
-def _python_with_module(module):
-    for name in (
-        "python3", "python3.14", "python3.13", "python3.12",
+def _python_candidates():
+    candidates = [sys.executable]
+    candidates.extend(shutil.which(name) for name in (
+        "python", "python3", "python3.14", "python3.13", "python3.12",
         "python3.11", "python3.10", "python3.9",
-    ):
-        candidate = shutil.which(name)
+    ))
+    seen = set()
+    for candidate in candidates:
+        if not candidate or candidate in seen:
+            continue
+        seen.add(candidate)
+        yield candidate
+
+
+def _python_with_module(module):
+    for candidate in _python_candidates():
         if candidate and _command_passes(candidate, "-c", f"import {module}.__main__"):
+            return candidate
+    return None
+
+
+def _python_with_passing_module_command(module, *args):
+    for candidate in _python_candidates():
+        if not _command_passes(candidate, "-c", f"import {module}.__main__"):
+            continue
+        if _command_passes(candidate, "-m", module, *args):
             return candidate
     return None
 
@@ -62,6 +82,7 @@ def evaluate():
     ci = _text(".github/workflows/ci.yml")
     docs_ci = _text(".github/workflows/docs.yml")
     verifier = _text("scripts/verify_classification_reward.py")
+    pytest_python = _python_with_passing_module_command("pytest", "-q")
     build_python = _python_with_module("build")
     github_text = "\n".join(
         path.read_text(encoding="utf-8", errors="replace")
@@ -124,7 +145,7 @@ def evaluate():
             "local.db", "local.sqlite", "local.sqlite3")),
         "ignore_paper_build": all(_ignored(name) for name in (
             "paper/src/main.aux", "paper/src/main.log", "paper/src/main.pdf")),
-        "tests_pass": _command_passes("pytest", "-q"),
+        "tests_pass": bool(pytest_python),
         "package_builds": bool(build_python) and _command_passes(
             build_python, "-m", "build", "--wheel", "--sdist"
         ),

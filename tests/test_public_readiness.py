@@ -82,7 +82,7 @@ def test_readiness_checker_uses_project_commands(monkeypatch):
 
     check_public_readiness.evaluate()
 
-    assert ("pytest", "-q") in commands
+    assert any(command[1:] == ("-m", "pytest", "-q") for command in commands)
     assert any(
         command[1:] == ("-m", "build", "--wheel", "--sdist")
         for command in commands
@@ -91,6 +91,12 @@ def test_readiness_checker_uses_project_commands(monkeypatch):
 
 def test_readiness_checker_selects_python_with_build(monkeypatch):
     commands = []
+    monkeypatch.setattr(
+        check_public_readiness,
+        "sys",
+        SimpleNamespace(executable="/tools/current-python"),
+        raising=False,
+    )
     monkeypatch.setattr(
         check_public_readiness,
         "shutil",
@@ -107,6 +113,54 @@ def test_readiness_checker_selects_python_with_build(monkeypatch):
 
     assert check_public_readiness._python_with_module("build") == "/tools/python3.10"
     assert commands[-1][-1] == "import build.__main__"
+
+
+def test_readiness_checker_prefers_running_python(monkeypatch):
+    monkeypatch.setattr(
+        check_public_readiness,
+        "sys",
+        SimpleNamespace(executable="/venv/python"),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        check_public_readiness,
+        "shutil",
+        SimpleNamespace(which=lambda name: None),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        check_public_readiness,
+        "_command_passes",
+        lambda *command: command[0] == "/venv/python",
+    )
+
+    assert check_public_readiness._python_with_module("pytest") == "/venv/python"
+
+
+def test_readiness_checker_falls_back_when_module_command_fails(monkeypatch):
+    monkeypatch.setattr(
+        check_public_readiness,
+        "sys",
+        SimpleNamespace(executable="/tools/current-python"),
+    )
+    monkeypatch.setattr(
+        check_public_readiness,
+        "shutil",
+        SimpleNamespace(
+            which=lambda name: f"/tools/{name}" if name == "python3.10" else None,
+        ),
+    )
+
+    def command_passes(*command):
+        if command[1:3] == ("-c", "import pytest.__main__"):
+            return True
+        return command[0] == "/tools/python3.10"
+
+    monkeypatch.setattr(check_public_readiness, "_command_passes", command_passes)
+
+    assert check_public_readiness._python_with_passing_module_command(
+        "pytest", "-q"
+    ) == "/tools/python3.10"
 
 
 def test_readiness_command_failure_is_a_failed_gate(monkeypatch):
