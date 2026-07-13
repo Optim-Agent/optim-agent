@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>optim-agent — Agentic system optimization with coding agents</title>
+<meta name="description" content="Documentation for optim-agent: agent-driven hyperparameter optimization using Claude Code, Codex, or OpenCode as samplers and pruners.">
+<link rel="icon" type="image/svg+xml" href="assets/optim-agent-mark.svg">
+<style>
+:root {
+  --bg: #ffffff; --fg: #1f2328; --muted: #57606a; --border: #d0d7de;
+  --accent: #0969da; --code-bg: #f6f8fa; --sidebar-bg: #fafbfc;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1117; --fg: #e6edf3; --muted: #8b949e; --border: #30363d;
+    --accent: #58a6ff; --code-bg: #161b22; --sidebar-bg: #10151b;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+nav {
+  position: fixed; top: 0; left: 0; bottom: 0; width: 240px; overflow-y: auto;
+  padding: 24px 16px; border-right: 1px solid var(--border); background: var(--sidebar-bg);
+}
+nav .brand { display: block; margin-bottom: 4px; }
+nav .brand .logo { display: block; width: 188px; max-width: 100%; height: auto; border: none; border-radius: 0; }
+nav .version { color: var(--muted); font-size: 12px; margin-bottom: 16px; }
+nav ul { list-style: none; padding: 0; margin: 0 0 16px; }
+nav li a { display: block; padding: 3px 8px; border-radius: 6px; color: var(--fg); font-size: 14px; }
+nav li a:hover { background: var(--code-bg); text-decoration: none; }
+nav li.sub a { padding-left: 22px; color: var(--muted); font-size: 13px; }
+main { margin-left: 240px; padding: 40px 48px 96px; max-width: 860px; }
+h1 { font-size: 34px; margin: 0 0 4px; }
+h2 { font-size: 24px; margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--border); }
+h3 { font-size: 18px; margin-top: 32px; }
+.tagline { color: var(--muted); font-size: 18px; margin-top: 0; }
+code, pre {
+  font: 13.5px/1.5 ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  background: var(--code-bg); border-radius: 6px;
+}
+code { padding: 2px 5px; }
+pre { padding: 14px 16px; overflow-x: auto; border: 1px solid var(--border); }
+pre code { padding: 0; background: none; }
+table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 14.5px; }
+th, td { border: 1px solid var(--border); padding: 7px 11px; text-align: left; vertical-align: top; }
+th { background: var(--code-bg); }
+img { max-width: 100%; border: 1px solid var(--border); border-radius: 8px; }
+.note {
+  border-left: 4px solid var(--accent); background: var(--code-bg);
+  padding: 10px 16px; border-radius: 0 6px 6px 0; margin: 16px 0; font-size: 15px;
+}
+.sig { font-weight: 600; }
+footer { margin-top: 64px; padding-top: 16px; border-top: 1px solid var(--border); color: var(--muted); font-size: 14px; }
+@media (max-width: 900px) {
+  nav { position: static; width: auto; border-right: none; border-bottom: 1px solid var(--border); }
+  main { margin-left: 0; padding: 24px 20px 64px; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="brand" href="#top">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/optim-agent-logo-dark.svg">
+      <img class="logo" src="assets/optim-agent-logo-light.svg" alt="optim-agent" width="188">
+    </picture>
+  </a>
+  <div class="version">v0.1.1 · MIT</div>
+  <ul>
+    <li><a href="#install">Installation</a></li>
+    <li><a href="#quickstart">Quickstart</a></li>
+    <li><a href="#tutorials">Tutorials</a></li>
+    <li><a href="#how-it-works">How it works</a></li>
+    <li><a href="#search-space">Search space</a></li>
+    <li><a href="#samplers">Samplers</a></li>
+    <li class="sub"><a href="#sampler-levels">Effort</a></li>
+    <li class="sub"><a href="#context">Context</a></li>
+    <li class="sub"><a href="#fallback">Fallback behavior</a></li>
+    <li><a href="#pruners">Pruners</a></li>
+    <li><a href="#backends">Backends</a></li>
+    <li><a href="#storage">Storage &amp; resume</a></li>
+    <li><a href="#skill-mode">Skill mode</a></li>
+    <li><a href="#benchmarks">Benchmarks</a></li>
+    <li><a href="#api">API reference</a></li>
+    <li><a href="#troubleshooting">Troubleshooting</a></li>
+    <li><a href="#faq">FAQ</a></li>
+  </ul>
+</nav>
+
+<main id="top">
+
+<h1>optim-agent</h1>
+<p class="tagline">Agentic system optimization with coding agents.</p>
+
+<p>optim-agent automates the iterative parameter-tuning work of an algorithm
+engineer. Give it a system with configurable parameters and a measurable
+objective; Claude Code, Codex, or OpenCode combines parameter semantics with
+trial history to choose the next configuration. Your objective remains the
+authority, and invalid proposals fall back to safe sampling.</p>
+
+<h2 id="install">Installation</h2>
+
+<pre><code>pip install optim-agent</code></pre>
+
+<p>The package has <strong>zero runtime dependencies</strong> (pure standard
+library). You also need at least one agent CLI on your <code>PATH</code>,
+already authenticated:</p>
+
+<table>
+<tr><th>Backend</th><th>CLI</th><th>Install docs</th></tr>
+<tr><td><code>claude</code></td><td>Claude Code</td><td><a href="https://docs.anthropic.com/en/docs/claude-code">docs.anthropic.com</a></td></tr>
+<tr><td><code>codex</code></td><td>Codex CLI</td><td><a href="https://github.com/openai/codex">github.com/openai/codex</a></td></tr>
+<tr><td><code>opencode</code></td><td>OpenCode</td><td><a href="https://github.com/sst/opencode">github.com/sst/opencode</a></td></tr>
+</table>
+
+<p>Requires Python ≥ 3.9. The examples additionally need
+<code>pip install "optim-agent[examples]"</code> (numpy + matplotlib).</p>
+
+<h2 id="quickstart">Quickstart</h2>
+
+<pre><code>import optim_agent as oa
+
+def objective(trial):
+    threshold = trial.suggest_float(
+        "threshold", 0.05, 0.95,
+        context="decision threshold; higher values trade recall for precision",
+    )
+    budget = trial.suggest_int(
+        "budget", 10, 200, log=True,
+        context="compute or operating budget; larger values may improve quality",
+    )
+    return evaluate_system(threshold=threshold, budget=budget)
+
+study = oa.create_study(
+    direction="maximize",
+    sampler=oa.AgentSampler(
+        backend="claude",  # or "codex" / "opencode"
+        effort="high",
+        context="maximize system quality under a strict operating-cost budget",
+        history=5,
+        explicit_reasoning=True,
+        qualitative_notes=True,
+    ),
+    storage="study.json",
+)
+study.optimize(objective, n_trials=20)
+print(study.best_value, study.best_params)</code></pre>
+
+<p>That is the whole workflow. The objective is called once per trial; inside
+it you declare parameters with <code>suggest_*</code> calls
+(define-by-run — the search space is discovered as trials execute), and the
+sampler decides what values those calls return.</p>
+
+<h2 id="tutorials">Tutorials</h2>
+
+<p>Start offline, then move to the domain closest to your workload. Each
+example keeps its objective and trade-offs visible.</p>
+
+<table>
+<tr><th>Path</th><th>What it demonstrates</th><th>Requirements</th></tr>
+<tr><td><a href="https://github.com/Optim-Agent/optim-agent/blob/main/examples/quickstart.py">General quickstart</a></td>
+    <td>A complete black-box study with the token-free mock backend.</td><td>stdlib only</td></tr>
+<tr><td><a href="https://github.com/Optim-Agent/optim-agent/blob/main/examples/sklearn_tuning.py">Classical ML</a></td>
+    <td>Random-forest accuracy on a built-in sklearn dataset.</td><td><code>.[ml]</code></td></tr>
+<tr><td><a href="https://github.com/Optim-Agent/optim-agent/blob/main/examples/inference_tuning.py">AI inference</a></td>
+    <td>An explicit quality floor with p95 latency and request cost.</td><td>stdlib only</td></tr>
+</table>
+
+<p>The <a href="https://colab.research.google.com/github/Optim-Agent/optim-agent/blob/main/tutorials/quickstart.ipynb">quickstart notebook</a> is
+Colab-ready. It uses the mock backend because hosted runtimes do not carry
+your local agent CLI authentication.</p>
+
+<h3>Optimization trajectory</h3>
+
+<img src="assets/optimization_trajectory.gif"
+     alt="Animated Branin sampling trajectories and incumbent values for GPT-5.5 and TPE">
+
+<p>This seed-0 trace uses the same 10-trial budget for both methods. It is an
+illustration of the search path; the <a href="#benchmarks">multi-seed
+benchmarks</a> carry the comparative claim. Regenerate it with
+<code>python scripts/render_trajectory.py</code>.</p>
+
+<h2 id="how-it-works">How it works</h2>
+
+<p>Each trial runs this loop:</p>
+
+<ol>
+<li>The study asks the sampler for a proposal. For the first
+<code>n_init</code> trials (default 2) the proposal is random — the agent
+needs some history to reason about.</li>
+<li>For later trials, <code>AgentSampler</code> builds a <em>harness
+prompt</em>: the optimization direction, your <a href="#context">context</a>
+string, the search-space bounds, a table of past trials (parameters, value,
+state — including pruned and failed ones), the best result so far, and — at
+higher <a href="#sampler-levels">effort</a> — the agent's own notes from
+previous calls.</li>
+<li>The prompt is sent to the agent CLI as a one-shot subprocess call. The
+agent replies with a JSON object of parameter values.</li>
+<li>The reply is parsed and <strong>validated against the search space</strong>:
+numeric values are clamped into range, categorical values must match a
+declared choice, NaN/infinity are rejected. Invalid replies get one retry,
+then the trial falls back to a random point (with a warning) — a flaky agent
+can never crash a study.</li>
+<li>Your objective runs; <code>tell</code> records the value; if
+<code>storage</code> is set the study JSON is atomically rewritten.</li>
+</ol>
+
+<h2 id="search-space">Search space</h2>
+
+<table>
+<tr><th>Call</th><th>Distribution</th></tr>
+<tr><td><code>trial.suggest_float(name, low, high, log=False)</code></td>
+    <td>Float in <code>[low, high]</code>; <code>log=True</code> samples on a log scale (requires <code>low &gt; 0</code>).</td></tr>
+<tr><td><code>trial.suggest_int(name, low, high, log=False)</code></td>
+    <td>Integer in <code>[low, high]</code>, log scale optional.</td></tr>
+<tr><td><code>trial.suggest_categorical(name, choices)</code></td>
+    <td>One of the given choices.</td></tr>
+</table>
+
+<p>Rules the study enforces loudly (a <code>ValueError</code>, not silent
+misbehavior):</p>
+
+<ul>
+<li>Re-declaring a parameter with <strong>different bounds or type</strong>
+mid-study raises — a changed distribution would invalidate the history the
+agent reasons over. Start a new study (or a new storage file) instead.</li>
+<li><code>log=True</code> with <code>low ≤ 0</code> raises at declaration.</li>
+<li>Values coming back from an agent are clamped/canonicalized; garbage falls
+back to random sampling.</li>
+</ul>
+
+<h2 id="samplers">Samplers</h2>
+
+<h3><code>AgentSampler</code></h3>
+
+<pre><code>oa.AgentSampler(
+    backend="claude",   # "claude" | "codex" | "opencode" | "mock"
+    model=None,         # passed to the CLI's model flag; None = CLI default
+    effort="high",      # forwarded to the backend CLI's reasoning-effort flag
+    context=None,       # free-text: what is being tuned
+    history=5,          # completed/pruned trials shown to the agent; None = all
+    explicit_reasoning=True,
+    qualitative_notes=True,
+    n_init=2,           # random warmup trials before the agent is consulted
+    timeout=300,        # seconds per CLI call
+    seed=None,          # seeds the mock backend and internal jitter only
+)</code></pre>
+
+<h3 id="sampler-levels">Prompt Controls</h3>
+
+<p><code>effort</code> is forwarded to the CLI's own reasoning-effort flag
+(<code>claude --effort</code>, <code>codex -c model_reasoning_effort=</code>,
+<code>opencode --variant</code>). Prompt richness is controlled separately by
+<code>history</code>, <code>explicit_reasoning</code>, and
+<code>qualitative_notes</code>.</p>
+
+<ul>
+<li><strong>History</strong> defaults to the last 5 completed/pruned trials.
+Set <code>history=None</code> to show all prior trials.</li>
+<li><strong>Explicit reasoning</strong> asks the agent to include a short
+<code>_reasoning</code> field justifying its choice — this measurably changes
+<em>how</em> the point is chosen, not just what is logged.</li>
+<li><strong>Qualitative notes</strong> make the agent write a <code>_note</code>
+— observations about the landscape worth
+remembering — which is fed back to it on the next trial. This is the agent's
+persistent scratchpad across the study.</li>
+</ul>
+
+<p>Rule of thumb: if one trial of your objective costs minutes of training,
+agent calls are usually cheap by comparison. For sub-second objectives,
+agent latency dominates; use shorter prompts or
+<code>RandomSampler()</code>, or a classical optimizer.</p>
+
+<h3 id="context">Context</h3>
+
+<p><code>context</code> is one string, and it is the highest-leverage knob in
+the library. It tells the agent what the parameters <em>are</em>, activating
+its domain priors:</p>
+
+<pre><code>context="learning rate and dropout of a ResNet-18 on CIFAR-10, "
+        "SGD with cosine schedule, 50 epochs, objective is val error"</code></pre>
+
+<p>With that, "lr=0.1 diverged" is not just a bad data point — it is a fact
+the agent knows how to respond to. Without <code>context</code> the agent
+still optimizes, but as a blind function optimizer.</p>
+
+<h3 id="fallback">Fallback behavior</h3>
+
+<p>Every agent failure degrades to random sampling for that one trial and
+emits a Python <code>warnings.warn</code> — the study never crashes because a
+CLI hung, a model produced prose instead of JSON, or a proxy returned an
+error. Concretely: call failure or timeout → random point; unparseable reply →
+one retry with corrective feedback, then random point; out-of-range values →
+clamped; wrong categorical / NaN / infinity → candidate rejected.</p>
+
+<h3><code>RandomSampler</code></h3>
+
+<p><code>oa.RandomSampler()</code> — uniform random search. Useful as a
+baseline and as the implicit default when you pass no sampler. Seed it via
+<code>create_study(seed=...)</code>, which drives all random draws including
+agent-sampler warmup and fallbacks.</p>
+
+<h3>Mock backend</h3>
+
+<p><code>AgentSampler(backend="mock")</code> is a token-free offline stand-in
+(hill climbing with gaussian jitter around the best point). Use it to wire up
+and test your objective before spending agent calls. It is deliberately not a
+good optimizer.</p>
+
+<h2 id="pruners">Pruners</h2>
+
+<p>A pruner stops bad trials early. Report intermediate values (per epoch, per
+fold, per walk-forward window) and ask <code>should_prune()</code>:</p>
+
+<pre><code>study = oa.create_study(
+    sampler=oa.AgentSampler(backend="codex"),
+    pruner=oa.AgentPruner(backend="codex", level="medium", effort="medium"),
+)
+
+def objective(trial):
+    lr = trial.suggest_float("lr", 1e-5, 1e-1, log=True)
+    for epoch in range(20):
+        loss = train_one_epoch(lr)
+        trial.report(loss, epoch)
+        if trial.should_prune():
+            raise oa.TrialPruned()
+    return loss</code></pre>
+
+<p>When consulted, the pruner agent sees the current trial's curve, the
+curves of the best completed trials, and a stance instruction set by the
+level. A pruned trial keeps its last reported value and appears in the
+history as <code>pruned</code>, so the sampler learns from it too.</p>
+
+<table>
+<tr><th>Level</th><th>Warmup (fraction of longest completed curve)</th><th>Consults agent every</th><th>Stance</th></tr>
+<tr><td><code>loose</code></td><td>50%</td><td>3 reports</td><td>prune only if almost certainly hopeless</td></tr>
+<tr><td><code>medium</code></td><td>30%</td><td>2 reports</td><td>prune when clearly underperforming</td></tr>
+<tr><td><code>tight</code></td><td>15%</td><td>every report</td><td>prune at the first solid sign of underperformance</td></tr>
+</table>
+
+<p>Guards: the pruner never fires before at least one trial has completed
+with intermediate values, never during the warmup window, and <strong>never
+prunes on an agent error</strong> — a failed call answers "keep going". Each
+consultation is one blocking CLI call, so with <code>tight</code> and
+per-batch reporting you will pay one agent call per batch; report at a
+granularity where that price makes sense (per epoch, not per step).</p>
+
+<h2 id="backends">Backends</h2>
+
+<p>A backend is just a CLI invocation; the reply contract is "a JSON object,
+anywhere in your output" — fenced, bare, or surrounded by prose all work.</p>
+
+<table>
+<tr><th>Backend</th><th>Command</th><th>Model flag</th></tr>
+<tr><td><code>claude</code></td><td><code>claude -p [--model M] &lt;prompt&gt;</code></td><td><code>--model claude-fable-5</code>, <code>--model claude-opus-4-8</code>, …</td></tr>
+<tr><td><code>codex</code></td><td><code>codex exec --skip-git-repo-check [-m M] &lt;prompt&gt;</code></td><td><code>-m gpt-5.5</code>, …</td></tr>
+<tr><td><code>opencode</code></td><td><code>opencode run [-m M] &lt;prompt&gt;</code></td><td><code>-m provider/model</code></td></tr>
+</table>
+
+<p><code>model=None</code> uses whatever the CLI is configured to use by
+default. Calls run with a timeout (default 300&nbsp;s) and no stdin; a
+non-zero exit or timeout triggers the <a href="#fallback">fallback</a>.</p>
+
+<h2 id="storage">Storage &amp; resume</h2>
+
+<p>Pass <code>storage="study.json"</code> and the study is rewritten
+(atomically — a crash mid-write cannot corrupt it) after every completed
+trial. Creating a study with an existing storage path resumes it:</p>
+
+<pre><code>study = oa.create_study(storage="study.json")   # loads prior trials
+study.optimize(objective, n_trials=10)          # continues from trial N</code></pre>
+
+<p>Resume semantics, all enforced rather than assumed:</p>
+
+<ul>
+<li>The full trial history (params, values, states, intermediate curves) is
+restored, so the agent's prompt includes pre-resume trials.</li>
+<li>Resuming with a <code>direction</code> different from the stored one
+raises a <code>ValueError</code> instead of silently optimizing the wrong way.</li>
+<li>A seeded study reseeds its RNG on resume so it does not replay the exact
+random points it already evaluated.</li>
+<li>Declaring a parameter with different bounds than the stored space raises.</li>
+<li>Trials still <code>running</code> at save time are not persisted — a
+crashed trial is simply absent after resume, and numbering continues without
+collision.</li>
+<li>Values are stored as native JSON numbers; numpy scalars passed via
+<code>ask(params=...)</code> are unwrapped, so what you load is what you saved.</li>
+</ul>
+
+<p>JSON storage is single-writer. Use a <code>.db</code>, <code>.sqlite</code>,
+or <code>.sqlite3</code> path for SQLite WAL storage shared by concurrent
+processes; trial numbers are allocated atomically.</p>
+
+<h2 id="skill-mode">Skill mode</h2>
+
+<p>The pip package treats your objective as a blackbox — a subprocess agent
+sees only numbers. Skill mode inverts this: you install the
+<a href="https://github.com/Optim-Agent/optim-agent/blob/main/SKILL.md">optim-agent skill</a>
+into a coding-agent session (e.g. Claude Code), and <em>the session agent
+itself</em> becomes the sampler. It reads your project first, so it can
+understand how system parameters interact and what the evaluator constrains,
+then drives the same study loop through the ask/tell interface:</p>
+
+<pre><code>$skill-installer install https://github.com/Optim-Agent/optim-agent</code></pre>
+
+<pre><code>study = oa.create_study(direction="maximize", storage="system_study.json")
+
+trial = study.ask({"threshold": 0.72, "budget": 80})
+value = evaluate_system(**trial.params)
+study.tell(trial, value)</code></pre>
+
+<p><code>ask(params)</code> accepts an explicit point; <code>tell</code>
+records the outcome (<code>state="complete"</code> needs a value or reported
+intermediates; <code>"pruned"</code> and <code>"failed"</code> are the other
+states). The storage file carries the history across sessions, so tuning can
+continue tomorrow where it stopped today.</p>
+
+<p>Use skill mode when understanding the code improves the search; use the
+package when you just want a better blackbox optimizer.</p>
+
+<h2 id="benchmarks">Benchmarks</h2>
+
+<p>The classification comparisons use the same four candidates: Random,
+Optuna TPE, GPT-5.5 w/ context, and GPT-5.5 w/o context. Curves average five
+fresh seeds (<code>0..4</code>) at 10 trials. Both GPT-5.5 conditions explicitly
+use medium reasoning effort with
+<code>-m gpt-5.5 -c model_reasoning_effort=medium</code>; no CLI-default model
+is used. GPT-5.5 w/ context additionally receives natural-language text
+descriptions of the study objective and all 16 parameters, while GPT-5.5 w/o
+context receives none of those descriptions.</p>
+
+<p>Classification uses cumulative best-so-far error:
+<code>sum(best_test_error_so_far_at_i for i in 1..10)</code>. Lower is better.
+Both runs receive the declared parameter bounds, but only the context-enabled
+run receives the study and parameter text descriptions. Neither run uses
+hand-picked anchors.</p>
+<div class="note">This is an end-to-end context comparison, not a wording-only
+ablation. Without an initial schema, <code>n_init=4</code> and four concurrent
+workers make trials 0–6 use the same parameter proposals as Random; GPT-5.5
+controls only trials 7–9. The context-enabled cumulative-error path receives the
+schema up front and can propose from trial 0.</div>
+
+<h3>MNIST and CIFAR-10 ResNet, 16 dimensions</h3>
+<p><img src="assets/classification_benchmarks.png" alt="MNIST and CIFAR-10 five-seed comparison of Random, TPE, GPT-5.5 w/ context, and GPT-5.5 w/o context"></p>
+<table>
+<tr><th>Method</th><th>MNIST cumulative error ↓</th><th>MNIST final error ↓</th><th>CIFAR-10 cumulative error ↓</th><th>CIFAR-10 final error ↓</th></tr>
+<tr><td>Random</td><td>9.174</td><td>0.648%</td><td>278.920</td><td>25.072%</td></tr>
+<tr><td>TPE</td><td>7.166</td><td>0.580%</td><td>279.936</td><td>25.596%</td></tr>
+<tr><td><strong>GPT-5.5 w/ context</strong></td><td><strong>5.668</strong></td><td><strong>0.506%</strong></td><td><strong>220.994</strong></td><td><strong>21.322%</strong></td></tr>
+<tr><td>GPT-5.5 w/o context</td><td>8.910</td><td>0.632%</td><td>281.466</td><td>25.960%</td></tr>
+</table>
+<p>GPT-5.5 w/ context reduces cumulative best-so-far error by
+<strong>20.9%</strong> relative to TPE on MNIST and by <strong>20.8%</strong>
+relative to Random on CIFAR-10. Without context, it is 24.3% worse than TPE on
+MNIST and 0.9% worse than Random on CIFAR-10.</p>
+<p>Both 16-dimensional spaces tune learning rate, batch size, weight decay,
+label smoothing, three stage widths, three stage depths, and four dropout
+controls. MNIST adds translation and rotation; CIFAR-10 uses crop padding and
+flip probability.</p>
+
+<h3>Branin and Ackley-5D</h3>
+<p>Hard-function agents receive <strong>no supplied task context</strong>: only
+generic <code>x1...x5</code> parameter names, numeric bounds, and trial history.
+They run in fresh empty working directories, although a model may still infer a
+standard function from its bounds and observations. Every agent uses medium
+effort for 10 trials over five seeds; Random and TPE are unchanged baselines.</p>
+
+<h4>Top-tier agents</h4>
+<p><img src="assets/hard_benchmarks_tier.png" alt="Five-seed no-context Branin and Ackley-5D comparison of top-tier agents, Random, and TPE"></p>
+<table>
+<tr><th>Method</th><th>Mean best Branin ↓</th><th>Mean best Ackley-5D ↓</th></tr>
+<tr><td>Random</td><td>5.008</td><td>19.639</td></tr>
+<tr><td>TPE</td><td>11.395</td><td>18.843</td></tr>
+<tr><td>GPT-5.5</td><td>1.326</td><td>3.960</td></tr>
+<tr><td><strong>Opus-4.8</strong></td><td><strong>0.398</strong></td><td><strong>0.061</strong></td></tr>
+<tr><td>Sonnet-5</td><td>3.850</td><td>0.143</td></tr>
+<tr><td>GLM-5.2</td><td>3.609</td><td>15.023</td></tr>
+</table>
+<p>The pinned models are <code>gpt-5.5</code>, <code>claude-opus-4-8</code>,
+<code>claude-sonnet-5</code>, and <code>glm-5.2</code>. Opus-4.8 reaches the Branin optimum
+on average and has the strongest five-seed Ackley mean.</p>
+
+<h4>Free OpenCode agents</h4>
+<p><img src="assets/hard_benchmarks_free.png" alt="Five-seed no-context Branin and Ackley-5D comparison of free OpenCode agents, Random, and TPE"></p>
+<table>
+<tr><th>Method</th><th>Mean best Branin ↓</th><th>Mean best Ackley-5D ↓</th></tr>
+<tr><td>Random</td><td>5.008</td><td>19.639</td></tr>
+<tr><td>TPE</td><td>11.395</td><td>18.843</td></tr>
+<tr><td>Big-pickle</td><td>4.734</td><td>15.951</td></tr>
+<tr><td>DeepSeek-V4-Flash</td><td>4.410</td><td><strong>4.608</strong></td></tr>
+<tr><td>Nemotron-3-Ultra</td><td>16.051</td><td>18.459</td></tr>
+<tr><td><strong>MiMo-v2.5</strong></td><td><strong>3.682</strong></td><td>15.597</td></tr>
+</table>
+<div class="note">These OpenCode-hosted models require no paid model API,
+making the benchmark practical for students and independent users. The free
+pool rotates; this refresh pins <code>opencode/big-pickle</code>,
+<code>opencode/deepseek-v4-flash-free</code>,
+<code>opencode/nemotron-3-ultra-free</code>, and
+<code>opencode/mimo-v2.5-free</code>. DeepSeek V4 Flash has the strongest
+free-model Ackley mean, while MiMo-v2.5 has the strongest free-model Branin
+mean.</div>
+<h3>Tuning Gradient Boosting Classifier: Credit-default Probabilities</h3>
+<p><img src="assets/credit_card.png" alt="Five-seed CPU-only GPT-5.5 context benchmark for UCI credit-default HGB tuning"></p>
+<p>This CPU-only benchmark tunes eight training parameters of a
+<code>HistGradientBoostingClassifier</code> on UCI's
+<a href="https://archive.ics.uci.edu/dataset/350/default+of+credit+card+clients">Default of Credit Card Clients</a>
+dataset: 30,000 rows, 23 features, and a next-month default target. The official
+archive is pinned by SHA-256, licensed CC BY 4.0, and split once into 60% train,
+20% validation, and 20% untouched test data. All methods use the same split, 20
+trials, and seeds <code>0..4</code>.</p>
+<table>
+<tr><th>Method</th><th>Final validation log loss ↓</th><th>Held-out test log loss ↓</th></tr>
+<tr><td>Random</td><td>0.433</td><td>0.425</td></tr>
+<tr><td>TPE</td><td>0.430</td><td><strong>0.422</strong></td></tr>
+<tr><td><strong>GPT-5.5 w/ context</strong></td><td><strong>0.428</strong></td><td><strong>0.422</strong></td></tr>
+<tr><td>GPT-5.5 w/o context</td><td>0.433</td><td>0.427</td></tr>
+</table>
+<p>Context is the clear effect: with the selected GPT-5.5 configuration it
+lowers final validation log loss by 1.16% and held-out test log loss by 1.15%
+relative to the matched no-context control. The selected benchmark config beats
+Random (0.433) and TPE (0.430) on final validation log loss at 0.428. Default
+HGB remains slightly strongest on the untouched test set, so this result
+supports context-aware optimization, not a claim that validation tuning always
+improves generalization.</p>
+<div class="note">This is a methodological benchmark, not a production
+credit-decision system. The dataset concerns a high-impact domain; real
+deployment requires fairness, calibration, drift, governance, and legal review
+beyond this experiment.</div>
+
+<p>Reproduce the distributed runs:</p>
+<pre><code>pip install -e ".[examples]"
+python scripts/verify_classification_cumulative_error.py run-no-context
+python scripts/verify_classification_cumulative_error.py
+python examples/hard_functions.py preflight
+python examples/hard_functions.py distributed --trials 10 --seeds 0 1 2 3 4
+python examples/hard_functions.py plot
+pip install -e ".[ml,examples]"
+python examples/credit_card.py download
+python examples/credit_card.py preflight
+python examples/credit_card.py run
+python examples/credit_card.py selfcheck
+python examples/credit_card.py summary
+python examples/credit_card.py plot</code></pre>
+
+<h2 id="api">API reference</h2>
+
+<h3>Module <code>optim_agent</code></h3>
+
+<p><span class="sig">create_study(direction="minimize", sampler=None, pruner=None, storage=None, seed=None, max_concurrency=1) → Study</span><br>
+Create (or resume, if <code>storage</code> exists) a study.
+<code>direction</code> is <code>"minimize"</code> or <code>"maximize"</code>;
+<code>sampler</code> defaults to <code>RandomSampler()</code>;
+<code>seed</code> makes random draws reproducible; <code>max_concurrency</code>
+sets the number of concurrent objective evaluations.</p>
+
+<p><span class="sig">TrialPruned</span> — exception; raise it inside an
+objective to end the trial as pruned.</p>
+
+<h3>class <code>Study</code></h3>
+
+<table>
+<tr><th>Member</th><th>Description</th></tr>
+<tr><td><code>optimize(objective, n_trials, catch=(), verbose=True)</code></td>
+    <td>Run <code>n_trials</code> trials. <code>objective(trial)</code> returns a float. Exceptions listed in <code>catch</code> mark the trial <code>failed</code> instead of propagating; <code>TrialPruned</code> marks it <code>pruned</code>. Prints one line per trial unless <code>verbose=False</code>.</td></tr>
+<tr><td><code>ask(params=None)</code></td>
+    <td>Start a trial. With <code>params</code>, you choose the point (validated against the known space on <code>suggest_*</code>; numpy scalars unwrapped).</td></tr>
+<tr><td><code>tell(trial, value=None, state="complete")</code></td>
+    <td>Finish a trial. Valid states: <code>complete</code> / <code>pruned</code> / <code>failed</code>. A pruned trial with no explicit value takes its last reported intermediate; a complete trial with neither raises.</td></tr>
+<tr><td><code>best_trial</code> / <code>best_value</code> / <code>best_params</code></td>
+    <td>Best <em>completed</em> trial (respecting direction), or <code>None</code> if none.</td></tr>
+<tr><td><code>trials</code></td><td>All trials, in order, including pruned/failed/running.</td></tr>
+<tr><td><code>space</code></td><td>Dict of parameter name → distribution, as discovered so far.</td></tr>
+<tr><td><code>direction</code>, <code>sampler</code>, <code>pruner</code>, <code>storage</code></td><td>As configured.</td></tr>
+</table>
+
+<h3>class <code>Trial</code></h3>
+
+<table>
+<tr><th>Member</th><th>Description</th></tr>
+<tr><td><code>suggest_float(name, low, high, *, log=False)</code></td><td>Declare/sample a float parameter.</td></tr>
+<tr><td><code>suggest_int(name, low, high, *, log=False)</code></td><td>Declare/sample an integer parameter.</td></tr>
+<tr><td><code>suggest_categorical(name, choices)</code></td><td>Declare/sample a categorical parameter.</td></tr>
+<tr><td><code>report(value, step)</code></td><td>Record an intermediate objective value.</td></tr>
+<tr><td><code>should_prune()</code></td><td>Ask the study's pruner; always <code>False</code> without one.</td></tr>
+<tr><td><code>params</code>, <code>value</code>, <code>state</code>, <code>number</code>, <code>intermediate</code></td>
+    <td>Sampled parameters; final value; <code>running/complete/pruned/failed</code>; index; list of <code>(step, value)</code>.</td></tr>
+</table>
+
+<h3>class <code>AgentSampler</code></h3>
+
+<p>See <a href="#samplers">Samplers</a>. Constructor validates
+<code>backend</code> and <code>history</code>; backend CLIs validate their own
+<code>effort</code> values. Set
+<code>fail_closed=True</code> for publication runs that must reject Random
+fallback after repeated agent errors.</p>
+
+<h3>class <code>AgentPruner</code></h3>
+
+<p><span class="sig">AgentPruner(backend="claude", model=None, level="medium", timeout=120, effort="medium", agent_cwd=None, fail_closed=False)</span> —
+see <a href="#pruners">Pruners</a>. <code>effort</code> controls the backend's
+reasoning effort; <code>agent_cwd</code> can isolate the nested CLI in a separate
+working directory. <code>fail_closed=True</code> rejects missing or failed agent
+decisions instead of silently keeping the trial. <code>backend="mock"</code> gives an offline median-rule
+pruner for testing.</p>
+
+<h3>class <code>RandomSampler</code></h3>
+
+<p><span class="sig">RandomSampler()</span> — uniform random baseline.</p>
+
+<h2 id="troubleshooting">Troubleshooting</h2>
+
+<table>
+<tr><th>Symptom</th><th>Cause / fix</th></tr>
+<tr><td><code>claude</code> returns 401 when optim-agent runs inside an agent session</td>
+    <td>Nested sessions inherit <code>ANTHROPIC_API_KEY</code>. Run with <code>env -u ANTHROPIC_API_KEY python ...</code> or from a clean shell.</td></tr>
+<tr><td><code>UserWarning: agent call failed ... falling back to random sampling</code></td>
+    <td>The CLI is missing, unauthenticated, or timed out. The study continues on random points; fix the CLI and later trials use the agent again. Check the CLI works standalone: <code>claude -p "say ok"</code>.</td></tr>
+<tr><td>Every trial falls back — replies unparseable</td>
+    <td>Some CLI configurations wrap output oddly. Run the CLI by hand with a "reply with only JSON" prompt and check what comes back; the parser accepts any JSON object anywhere in stdout.</td></tr>
+<tr><td>Trials are slow</td>
+    <td>Each agent trial is one CLI call (typically 5–60 s, model-dependent). Lower the sampler <code>effort</code>, use a faster model, or reserve agent sampling for objectives whose runtime dwarfs the call.</td></tr>
+<tr><td><code>ValueError: ... was already registered as ...</code></td>
+    <td>You changed a parameter's bounds/type mid-study. Intentional? Start a new storage file.</td></tr>
+<tr><td><code>ValueError: study at ... was created with direction=...</code></td>
+    <td>Resume direction mismatch — pass the direction the study was created with.</td></tr>
+<tr><td>OpenCode with a distributed study</td>
+    <td>OpenCode currently does not support distributed computing in optim-agent. Use the single-process workflow or another backend for distributed runs.</td></tr>
+</table>
+
+<h2 id="faq">FAQ</h2>
+
+<p><strong>When does this beat a Bayesian optimizer?</strong> When trials are
+expensive and few (agent reasoning shines with 10–50 trials, not 10,000),
+when parameters have semantic meaning the agent has priors about, and when
+you can supply <a href="#context">context</a>. For cheap objectives with tens
+of thousands of trials, classical methods are the right tool — agent calls
+cost seconds and tokens.</p>
+
+<p><strong>How much does a study cost?</strong> One CLI call per agent trial
+(plus pruner consultations). A 20-trial study at level <code>high</code> is
+~18 calls of a few thousand tokens each — often far cheaper than one extra
+failed evaluation of an expensive system.</p>
+
+<p><strong>Is my code sent to the model?</strong> In package mode, no — only
+parameter names, bounds, your <code>context</code> string, and the numeric
+history. In skill mode, yes by design: the session agent reads your project.</p>
+
+<p><strong>Parallel trials?</strong> Set <code>max_concurrency</code> to run
+objective evaluations concurrently inside one study. For coarse parallelism,
+run independent seeded studies as the benchmark scripts do; SQLite storage can
+also coordinate workers across processes.</p>
+
+<p><strong>Multi-objective?</strong> Not yet. Combine objectives into a
+scalar for now.</p>
+
+<p><strong>Reproducibility?</strong> <code>create_study(seed=...)</code>
+makes the random draws reproducible; agent proposals are inherently
+stochastic. Persist the study JSON — it is the full record of every point
+sampled and its outcome, so any run can be audited after the fact.</p>
+
+<footer>
+<p>MIT licensed. Five-seed MNIST, CIFAR-10, and hard-function results are
+published above. Sources, issues, and contributions:
+<a href="https://github.com/Optim-Agent/optim-agent">GitHub</a>.</p>
+</footer>
+
+</main>
+</body>
+</html>

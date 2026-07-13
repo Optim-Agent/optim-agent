@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="optim-agent">
+<title>optim-agent</title>
+<style>
+.axis{stroke:#d0d7de}.curve{stroke:#0969da}.dot{fill:#9a6700}
+@media(prefers-color-scheme:dark){.axis{stroke:#30363d}.curve{stroke:#58a6ff}.dot{fill:#d29922}}
+</style>
+<g transform="translate(4,10)" fill="none" stroke-linecap="round">
+  <path class="axis" d="M2,44 L54,44" stroke-width="1.6"/>
+  <path class="curve" d="M4,16 C9,9 13,26 19,24 C24,22 27,9 33,13 C38,16 41,41 47,41 C50,41 52,35 54,31" stroke-width="2.8"/>
+  <circle class="dot" cx="46" cy="41" r="4"/>
+</g>
+</svg>

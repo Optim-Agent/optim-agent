@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use optim-agent in your research, please cite it as below."
+title: "optim-agent: LLM agents as a hyperparameter optimizer"
+abstract: >-
+  Agent-driven hyperparameter optimization: LLM coding agents
+  (claude / codex / opencode) used as samplers and pruners, with a
+  drop-in Optuna-style study API.
+authors:
+  - name: "Optim-Agent"
+    email: admin@optim-agent.com
+version: 0.1.0
+license: MIT
+repository-code: "https://github.com/Optim-Agent/optim-agent"
+url: "https://github.com/Optim-Agent/optim-agent"
+keywords:
+  - hyperparameter-optimization
+  - llm
+  - agent
+  - hpo
+  - machine-learning

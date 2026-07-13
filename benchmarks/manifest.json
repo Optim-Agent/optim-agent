@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "suites": [
+    {
+      "id": "mnist",
+      "result_glob": "docs/assets/mnist_curves_*_s*.json",
+      "trials": 10,
+      "seeds": [0, 1, 2, 3, 4],
+      "metric": "sum of incumbent-best test error",
+      "context_policy": "matched context and no-context agent variants"
+    },
+    {
+      "id": "cifar10",
+      "result_glob": "docs/assets/cifar10_curves_*_s*.json",
+      "trials": 10,
+      "seeds": [0, 1, 2, 3, 4],
+      "metric": "sum of incumbent-best test error",
+      "context_policy": "matched context and no-context agent variants"
+    },
+    {
+      "id": "hard-functions",
+      "result_glob": "docs/assets/hard_curves_*_s*.json",
+      "trials": 10,
+      "seeds": [0, 1, 2, 3, 4],
+      "metric": "final incumbent objective value",
+      "context_policy": "no supplied task context"
+    },
+    {
+      "id": "credit-default-benchmark",
+      "result_glob": "docs/assets/credit_default_*_s*.json",
+      "trials": 20,
+      "seeds": [0, 1, 2, 3, 4],
+      "dataset_id": 350,
+      "dataset_sha256": "56c885f84457f6680f8438f02bfcdac9579323d8a94465ee5f26e32baa727602",
+      "model": "gpt-5.5",
+      "metric": "validation incumbent log loss by trial; held-out test log loss for selected configuration",
+      "selected_method": "GPT-5.5-low",
+      "display_method": "GPT-5.5",
+      "selected_by": "lowest final validation log loss among committed contextual agent configurations",
+      "context_policy": "selected contextual agent plus matched no-context"
+    }
+  ]
+}
