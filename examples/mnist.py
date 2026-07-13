@@ -448,8 +448,8 @@ def _objective(epochs, seed, gpus, use_context=True):
     return objective
 
 
-def _sampler(method, seed, effort, timeout, model, history,
-             explicit_reasoning, qualitative_notes):
+def _sampler(method, seed, effort, timeout, model, history=5,
+             explicit_reasoning=True, qualitative_notes=True):
     preset = METHODS[method]
     if preset["backend"] is None:
         return oa.RandomSampler()
