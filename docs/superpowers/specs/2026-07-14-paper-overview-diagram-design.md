@@ -56,13 +56,15 @@ different system boundary.
 - Arrows are thick enough to remain legible at two-column paper width.
 - Typography is sans serif within the asset, with no text smaller than the
   effective AAAI caption size after scaling.
-- Mathematical labels use ASCII-compatible approximations where necessary in
-  SVG and are explained in the caption.
+- Mathematical labels use native TeX notation and match the manuscript's
+  symbols.
 
 ## Asset and Paper Integration
 
-- Create editable source: `paper/src/figures/optim_agent_overview.svg`.
+- Create editable source: `paper/src/figures/optim_agent_overview.tex`.
 - Export vector PDF: `paper/src/figures/optim_agent_overview.pdf`.
+- Compile the asset as an explicitly sized, zero-margin TikZ document because
+  the local TinyTeX installation has TikZ but not `standalone` or `pdfcrop`.
 - Add one `figure*` after the Introduction contribution bullets.
 - Caption the distinction without claiming that model rationales are faithful
   explanations.
@@ -92,8 +94,8 @@ margins, fonts, spacing, table sizes, or the remaining figure scales.
 
 ## Verification
 
-1. Render the standalone SVG and PDF and inspect labels, arrow direction,
-   contrast, and grayscale legibility.
+1. Compile and render the standalone TikZ PDF and inspect labels, arrow
+   direction, contrast, and grayscale legibility.
 2. Compile with pdfTeX after the figure is inserted.
 3. Require exactly seven main pages and References as the first line on page 8.
 4. Require no overfull boxes, undefined references, or missing assets.
