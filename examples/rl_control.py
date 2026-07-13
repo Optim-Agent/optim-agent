@@ -45,22 +45,24 @@ METHODS = ("Random", "TPE", MODEL_LABEL, f"{MODEL_LABEL}-no-context")
 TASK_CONTEXT = (
     "Tune one CPU tabular/discretized Q-learning configuration shared by Gymnasium "
     "Acrobot-v1 and LunarLander-v3. The scalar objective averages their evaluation "
-    "returns, so improve both rather than sacrificing one environment. Acrobot gives "
-    "roughly -1 per step until the terminal height is reached and is capped at 200 "
-    "steps; escaping sooner is better. LunarLander has shaped returns for controlled "
-    "descent, stable contact, fuel use, and crashes. Training is deliberately limited "
-    "to 8-32 episodes, so favor sample-efficient settings and avoid large sparse tables."
+    "returns, so improve both rather than sacrificing one environment. This is tabular "
+    "Q-learning backed by a dictionary, not a neural network: only visited discrete states "
+    "allocate rows. Acrobot gives roughly -1 per step until the terminal height is reached "
+    "and is capped at 200 steps; escaping sooner is better. LunarLander has shaped returns "
+    "for controlled descent, stable contact, fuel use, and crashes. Treat the numeric trial "
+    "history as authoritative; use the descriptions only to explain mechanisms, not to rule "
+    "out high-resolution or aggressive settings that perform well."
 )
 PARAMETER_CONTEXT = {
     "learning_rate": (
-        "Q-learning update step size. With only 8-32 training episodes, very small values "
-        "may learn too slowly; very large values can overwrite useful estimates, especially "
-        "for LunarLander's varied shaped returns."
+        "Q-learning update step size. Larger values adapt quickly from few visits but can "
+        "overwrite estimates; smaller values average repeated visits. Let observed returns "
+        "decide which regime works for each seed."
     ),
     "gamma": (
         "Discount factor. Acrobot needs credit across a long swing-up sequence and LunarLander "
-        "must plan a controlled descent, so prefer long-horizon values unless sparse data makes "
-        "them unstable."
+        "must plan a controlled descent. High values retain long-horizon information, while "
+        "lower values emphasize immediate shaped feedback."
     ),
     "epsilon_decay": (
         "Exploration multiplier applied after every training episode. Values near 1 preserve "
@@ -68,17 +70,17 @@ PARAMETER_CONTEXT = {
         "greedy policy."
     ),
     "min_epsilon": (
-        "Minimum exploration probability. A nontrivial floor can discover swing-up and landing "
-        "maneuvers, but a high floor can prevent reliable evaluation-quality behavior."
+        "Minimum exploration probability during training. A larger floor keeps discovering new "
+        "maneuvers; a smaller floor consolidates the current policy. Evaluation is greedy."
     ),
     "bins": (
-        "Uniform bins per state dimension. Table size grows exponentially: Acrobot has 6 state "
-        "dimensions and LunarLander has 8, so 10-12 bins create extremely sparse tables under "
-        "this training budget; 6-8 bins share experience more aggressively."
+        "Uniform bins per state dimension. A theoretical dense table grows exponentially, but "
+        "this dictionary stores only visited states. Fewer bins share experience broadly; more "
+        "bins preserve control precision, so do not reject 10-12 bins on memory grounds."
     ),
     "train_episodes": (
-        "Training episodes per environment and trial. More episodes usually improve coverage "
-        "and reduce variance but cost CPU; 32 is still a deliberately small RL budget."
+        "Training episodes per environment and trial. More episodes increase state-action coverage "
+        "and cost CPU; fewer episodes can work when updates and exploration are aggressive."
     ),
 }
 

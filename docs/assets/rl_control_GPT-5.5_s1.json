@@ -7,18 +7,18 @@
  "agent_effort": "high",
  "history": 5,
  "parameter_context": {
-  "learning_rate": "Q-learning update step size. With only 8-32 training episodes, very small values may learn too slowly; very large values can overwrite useful estimates, especially for LunarLander's varied shaped returns.",
-  "gamma": "Discount factor. Acrobot needs credit across a long swing-up sequence and LunarLander must plan a controlled descent, so prefer long-horizon values unless sparse data makes them unstable.",
+  "learning_rate": "Q-learning update step size. Larger values adapt quickly from few visits but can overwrite estimates; smaller values average repeated visits. Let observed returns decide which regime works for each seed.",
+  "gamma": "Discount factor. Acrobot needs credit across a long swing-up sequence and LunarLander must plan a controlled descent. High values retain long-horizon information, while lower values emphasize immediate shaped feedback.",
   "epsilon_decay": "Exploration multiplier applied after every training episode. Values near 1 preserve exploration across the tiny episode budget; lower values switch quickly to the current greedy policy.",
-  "min_epsilon": "Minimum exploration probability. A nontrivial floor can discover swing-up and landing maneuvers, but a high floor can prevent reliable evaluation-quality behavior.",
-  "bins": "Uniform bins per state dimension. Table size grows exponentially: Acrobot has 6 state dimensions and LunarLander has 8, so 10-12 bins create extremely sparse tables under this training budget; 6-8 bins share experience more aggressively.",
-  "train_episodes": "Training episodes per environment and trial. More episodes usually improve coverage and reduce variance but cost CPU; 32 is still a deliberately small RL budget."
+  "min_epsilon": "Minimum exploration probability during training. A larger floor keeps discovering new maneuvers; a smaller floor consolidates the current policy. Evaluation is greedy.",
+  "bins": "Uniform bins per state dimension. A theoretical dense table grows exponentially, but this dictionary stores only visited states. Fewer bins share experience broadly; more bins preserve control precision, so do not reject 10-12 bins on memory grounds.",
+  "train_episodes": "Training episodes per environment and trial. More episodes increase state-action coverage and cost CPU; fewer episodes can work when updates and exploration are aggressive."
  },
  "explicit_reasoning": true,
  "qualitative_notes": true,
  "use_context": true,
  "context_policy": "supplied task and parameter context",
- "task_context": "Tune one CPU tabular/discretized Q-learning configuration shared by Gymnasium Acrobot-v1 and LunarLander-v3. The scalar objective averages their evaluation returns, so improve both rather than sacrificing one environment. Acrobot gives roughly -1 per step until the terminal height is reached and is capped at 200 steps; escaping sooner is better. LunarLander has shaped returns for controlled descent, stable contact, fuel use, and crashes. Training is deliberately limited to 8-32 episodes, so favor sample-efficient settings and avoid large sparse tables.",
+ "task_context": "Tune one CPU tabular/discretized Q-learning configuration shared by Gymnasium Acrobot-v1 and LunarLander-v3. The scalar objective averages their evaluation returns, so improve both rather than sacrificing one environment. This is tabular Q-learning backed by a dictionary, not a neural network: only visited discrete states allocate rows. Acrobot gives roughly -1 per step until the terminal height is reached and is capped at 200 steps; escaping sooner is better. LunarLander has shaped returns for controlled descent, stable contact, fuel use, and crashes. Treat the numeric trial history as authoritative; use the descriptions only to explain mechanisms, not to rule out high-resolution or aggressive settings that perform well.",
  "agent_failure_policy": "fail_closed",
  "n_init": 3,
  "seed": 1,
@@ -28,7 +28,7 @@
   "LunarLander-v3"
  ],
  "objective": "mean evaluation return",
- "created_at": "2026-07-13T16:54:50.973318+00:00",
+ "created_at": "2026-07-13T17:38:20.695025+00:00",
  "values": {
   "Acrobot-v1": [
    -200.0,
@@ -57,22 +57,22 @@
    -393.8146318504165,
    -164.64296275361784,
    -208.21003308745327,
-   -194.9616088933785,
-   -130.91112422635203,
-   -81.59839337875515,
-   -117.68660877529851,
-   -290.3697422084826,
-   -172.81791079659874,
-   -258.5803174487496,
-   -133.5373131634148,
-   -156.3786658949063,
-   -310.5984072210894,
-   -260.8924943550909,
-   -260.59681983182804,
-   -144.85494863959926,
-   -128.77286381188839,
-   -170.06570830229475,
-   -256.0792739967101
+   -304.58414881929394,
+   -389.23977388541607,
+   -71.0253232483011,
+   -138.81013062503916,
+   -285.59323203430284,
+   -239.38134421549213,
+   -152.2404859846919,
+   -226.3568869444609,
+   -211.21959140293262,
+   -305.9027323533611,
+   -217.01257573308305,
+   -78.02240130220127,
+   -150.85835055799288,
+   -225.74082959467634,
+   -328.19017417244214,
+   -144.23344631260093
   ]
  },
  "params": [
@@ -109,130 +109,130 @@
    "train_episodes": 16
   },
   {
-   "learning_rate": 0.215,
-   "gamma": 0.973,
-   "epsilon_decay": 0.982,
-   "min_epsilon": 0.028,
-   "bins": 6,
-   "train_episodes": 16
-  },
-  {
-   "learning_rate": 0.064,
-   "gamma": 0.982,
-   "epsilon_decay": 0.983,
-   "min_epsilon": 0.021,
-   "bins": 8,
-   "train_episodes": 32
-  },
-  {
-   "learning_rate": 0.058,
+   "learning_rate": 0.045,
    "gamma": 0.985,
-   "epsilon_decay": 0.984,
+   "epsilon_decay": 0.982,
+   "min_epsilon": 0.02,
+   "bins": 12,
+   "train_episodes": 32
+  },
+  {
+   "learning_rate": 0.0275,
+   "gamma": 0.9745,
+   "epsilon_decay": 0.9735,
    "min_epsilon": 0.024,
-   "bins": 8,
-   "train_episodes": 32
-  },
-  {
-   "learning_rate": 0.044,
-   "gamma": 0.9845,
-   "epsilon_decay": 0.985,
-   "min_epsilon": 0.019,
    "bins": 12,
    "train_episodes": 32
   },
   {
-   "learning_rate": 0.0405,
-   "gamma": 0.9825,
-   "epsilon_decay": 0.9815,
-   "min_epsilon": 0.022,
-   "bins": 12,
-   "train_episodes": 32
-  },
-  {
-   "learning_rate": 0.0295,
-   "gamma": 0.978,
-   "epsilon_decay": 0.977,
-   "min_epsilon": 0.0225,
-   "bins": 12,
-   "train_episodes": 32
-  },
-  {
-   "learning_rate": 0.0305,
-   "gamma": 0.9775,
-   "epsilon_decay": 0.977,
-   "min_epsilon": 0.0245,
-   "bins": 12,
-   "train_episodes": 32
-  },
-  {
-   "learning_rate": 0.035,
-   "gamma": 0.9755,
-   "epsilon_decay": 0.975,
+   "learning_rate": 0.0285,
+   "gamma": 0.9745,
+   "epsilon_decay": 0.974,
    "min_epsilon": 0.025,
    "bins": 12,
    "train_episodes": 32
   },
   {
-   "learning_rate": 0.0348,
-   "gamma": 0.9758,
-   "epsilon_decay": 0.975,
-   "min_epsilon": 0.0255,
+   "learning_rate": 0.0358,
+   "gamma": 0.9763,
+   "epsilon_decay": 0.9756,
+   "min_epsilon": 0.0238,
    "bins": 12,
    "train_episodes": 32
   },
   {
-   "learning_rate": 0.0332,
-   "gamma": 0.9761,
-   "epsilon_decay": 0.9758,
-   "min_epsilon": 0.0232,
+   "learning_rate": 0.0355,
+   "gamma": 0.9762676268036476,
+   "epsilon_decay": 0.9756136872786848,
+   "min_epsilon": 0.02381046513249584,
    "bins": 12,
    "train_episodes": 32
   },
   {
-   "learning_rate": 0.0335,
-   "gamma": 0.9765,
-   "epsilon_decay": 0.976,
-   "min_epsilon": 0.024,
-   "bins": 8,
-   "train_episodes": 32
-  },
-  {
-   "learning_rate": 0.0326,
-   "gamma": 0.9766,
-   "epsilon_decay": 0.9759,
-   "min_epsilon": 0.0242,
+   "learning_rate": 0.0312,
+   "gamma": 0.9762676268036476,
+   "epsilon_decay": 0.9756136872786848,
+   "min_epsilon": 0.02381046513249584,
    "bins": 12,
    "train_episodes": 32
   },
   {
-   "learning_rate": 0.0341,
-   "gamma": 0.9759,
-   "epsilon_decay": 0.9754,
-   "min_epsilon": 0.0247,
+   "learning_rate": 0.0305,
+   "gamma": 0.9762676268036476,
+   "epsilon_decay": 0.9756136872786848,
+   "min_epsilon": 0.02381046513249584,
    "bins": 12,
    "train_episodes": 32
   },
   {
-   "learning_rate": 0.0362,
-   "gamma": 0.9752,
-   "epsilon_decay": 0.9748,
-   "min_epsilon": 0.0265,
+   "learning_rate": 0.03283141308332409,
+   "gamma": 0.9753,
+   "epsilon_decay": 0.9756136872786848,
+   "min_epsilon": 0.02381046513249584,
    "bins": 12,
    "train_episodes": 32
   },
   {
-   "learning_rate": 0.0337,
-   "gamma": 0.97605,
-   "epsilon_decay": 0.97535,
-   "min_epsilon": 0.0244,
+   "learning_rate": 0.03283141308332409,
+   "gamma": 0.9762676268036476,
+   "epsilon_decay": 0.9805,
+   "min_epsilon": 0.02381046513249584,
    "bins": 12,
    "train_episodes": 32
   },
   {
-   "learning_rate": 0.0354,
-   "gamma": 0.97545,
-   "epsilon_decay": 0.97495,
-   "min_epsilon": 0.0256,
+   "learning_rate": 0.03283141308332409,
+   "gamma": 0.9825,
+   "epsilon_decay": 0.9756136872786848,
+   "min_epsilon": 0.02381046513249584,
+   "bins": 12,
+   "train_episodes": 32
+  },
+  {
+   "learning_rate": 0.03283141308332409,
+   "gamma": 0.9788,
+   "epsilon_decay": 0.9756136872786848,
+   "min_epsilon": 0.02381046513249584,
+   "bins": 12,
+   "train_episodes": 32
+  },
+  {
+   "learning_rate": 0.03283141308332409,
+   "gamma": 0.9762676268036476,
+   "epsilon_decay": 0.9705,
+   "min_epsilon": 0.02381046513249584,
+   "bins": 12,
+   "train_episodes": 32
+  },
+  {
+   "learning_rate": 0.03283141308332409,
+   "gamma": 0.9762676268036476,
+   "epsilon_decay": 0.9705,
+   "min_epsilon": 0.02381046513249584,
+   "bins": 12,
+   "train_episodes": 32
+  },
+  {
+   "learning_rate": 0.03283141308332409,
+   "gamma": 0.9762676268036476,
+   "epsilon_decay": 0.9732,
+   "min_epsilon": 0.02381046513249584,
+   "bins": 12,
+   "train_episodes": 32
+  },
+  {
+   "learning_rate": 0.03283141308332409,
+   "gamma": 0.9762676268036476,
+   "epsilon_decay": 0.97305,
+   "min_epsilon": 0.02381046513249584,
+   "bins": 12,
+   "train_episodes": 32
+  },
+  {
+   "learning_rate": 0.03283141308332409,
+   "gamma": 0.9762676268036476,
+   "epsilon_decay": 0.9746,
+   "min_epsilon": 0.02381046513249584,
    "bins": 12,
    "train_episodes": 32
   }
@@ -259,5 +259,5 @@
    "train_episodes": 32
   }
  },
- "elapsed_seconds": 355.3230195000069
+ "elapsed_seconds": 381.4996405830607
 }
