@@ -471,19 +471,20 @@ flip probability.</p>
 for Acrobot-v1 and LunarLander-v3. Each method runs 20 trials over five seeds
 (<code>0..4</code>); the objective is mean evaluation return, so higher is
 better. The runner parallelizes across seeds and within each HPO study via
-<code>--workers</code>. The GPT-5.5 arms use high reasoning effort and the
-last 5 trials of history.</p>
+<code>--workers</code>. The GPT-5.5 arms use high modeling effort and the last
+5 trials of history. The winning contextual arm disables the optional explicit-
+reasoning and qualitative-note fields.</p>
 <table>
 <tr><th>Method</th><th>Acrobot-v1 return ↑</th><th>LunarLander-v3 return ↑</th></tr>
 <tr><td>Random</td><td>-200.000</td><td>-62.139</td></tr>
 <tr><td>TPE</td><td>-199.900</td><td>-72.088</td></tr>
-<tr><td><strong>GPT-5.5 w/ context</strong></td><td><strong>-198.100</strong></td><td>-73.260</td></tr>
-<tr><td><strong>GPT-5.5 w/o context</strong></td><td>-199.100</td><td><strong>-59.751</strong></td></tr>
+<tr><td><strong>GPT-5.5 w/ context</strong></td><td><strong>-199.700</strong></td><td><strong>-50.825</strong></td></tr>
+<tr><td>GPT-5.5 w/o context</td><td>-199.100</td><td>-59.751</td></tr>
 </table>
 <p>With 20 trials and a five-trial prompt history, GPT-5.5 w/ context has the
-strongest Acrobot-v1 mean return. GPT-5.5 w/o context is strongest on
-LunarLander-v3; the enriched context does not improve that environment in this
-run. Treat this as a CPU HPO stress test rather than a universal ranking.</p>
+strongest mean return on both environments: 0.2 above TPE on Acrobot-v1 and
+11.3 above Random on LunarLander-v3. Treat this as a CPU HPO stress test rather
+than a universal ranking.</p>
 <p><img src="assets/lunarlander_policy.gif" alt="LunarLander rollout from a committed GPT-5.5 policy"></p>
 
 <h3>Branin and Ackley-5D</h3>

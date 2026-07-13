@@ -221,19 +221,20 @@ This CPU-only Gymnasium benchmark tunes a discretized Q-learning controller for
 Acrobot-v1 and LunarLander-v3. Each method runs 20 trials over five seeds
 (`0..4`); the objective is mean evaluation return, so higher is better. The
 runner parallelizes across seeds and within each HPO study via `--workers`.
-The GPT-5.5 arms use high reasoning effort and the last 5 trials of history.
+The GPT-5.5 arms use high modeling effort and the last 5 trials of history. The
+winning contextual arm disables the optional explicit-reasoning and qualitative-note fields.
 
 | method              | Acrobot-v1 return ↑ | LunarLander-v3 return ↑ |
 | ------------------- | ------------------: | ----------------------: |
 | Random              |            -200.000 |                 -62.139 |
 | TPE                 |            -199.900 |                 -72.088 |
-| **GPT-5.5 w/ context** |     **-198.100** |                 -73.260 |
-| **GPT-5.5 w/o context** |         -199.100 |             **-59.751** |
+| **GPT-5.5 w/ context** |     **-199.700** |             **-50.825** |
+| GPT-5.5 w/o context   |            -199.100 |                 -59.751 |
 
 With 20 trials and a five-trial prompt history, GPT-5.5 w/ context has the
-strongest Acrobot-v1 mean return. GPT-5.5 w/o context is strongest on
-LunarLander-v3; the enriched context does not improve that environment in this
-run. Treat this as a CPU HPO stress test rather than a universal ranking.
+strongest mean return on both environments: 0.2 above TPE on Acrobot-v1 and
+11.3 above Random on LunarLander-v3. Treat this as a CPU HPO stress test rather
+than a universal ranking.
 
 ![LunarLander rollout from a committed GPT-5.5 policy](docs/assets/lunarlander_policy.gif)
 
