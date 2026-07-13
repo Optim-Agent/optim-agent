@@ -437,6 +437,7 @@ def test_credit_default_archive_and_artifact_validation_reject_corruption(tmp_pa
     } for _ in range(credit.N_TRIALS)]
     run = credit._common_metadata("GPT-5.5-low", 0)
     run.update({
+        "sklearn_version": "test-version",
         "values": [0.65 - 0.005 * trial for trial in range(credit.N_TRIALS)],
         "params": params,
         "best_validation_log_loss": 0.555,
