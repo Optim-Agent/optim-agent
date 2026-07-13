@@ -26,6 +26,18 @@
       "context_policy": "no supplied task context"
     },
     {
+      "id": "rl-control",
+      "result_glob": "docs/assets/rl_control_*_s*.json",
+      "trials": 20,
+      "seeds": [0, 1, 2, 3, 4],
+      "environments": ["Acrobot-v1", "LunarLander-v3"],
+      "model": "gpt-5.5",
+      "agent_effort": "high",
+      "history": 10,
+      "metric": "mean evaluation return; higher is better",
+      "context_policy": "matched context and no-context agent variants"
+    },
+    {
       "id": "credit-default-benchmark",
       "result_glob": "docs/assets/credit_default_*_s*.json",
       "trials": 20,

@@ -16,6 +16,12 @@ parameter names, bounds, and observed trial history only. A model may still
 recognize a standard function from its bounds or values, so these runs measure
 small-budget optimization rather than semantic-context benefit. Classification
 runs provide the explicit with-context versus no-context comparison.
+The RL-control benchmark is CPU-only and uses Gymnasium Acrobot-v1 and
+LunarLander-v3 with a discretized Q-learning controller. It runs Random, TPE,
+GPT-5.5 with context, and GPT-5.5 without context for 20 trials across seeds
+`0..4`. The GPT-5.5 arms use high reasoning effort and the last 10 trials of
+history. It is a lightweight HPO stress test; the current committed result has
+TPE strongest on mean return.
 The credit-default benchmark is CPU-only and uses UCI dataset 350, Default of
 Credit Card Clients (CC BY 4.0, DOI `10.24432/C55S3H`). The official archive
 SHA-256, workbook schema, 60/20/20 stratified split, split seed, search space,
@@ -55,6 +61,11 @@ pytest
 python scripts/verify_classification_cumulative_error.py
 python examples/hard_functions.py selfcheck
 python examples/hard_functions.py plot
+pip install -e ".[rl,examples]"
+python examples/rl_control.py selfcheck
+python examples/rl_control.py summary
+python examples/rl_control.py plot
+python examples/rl_control.py gif
 python examples/credit_card.py selfcheck
 python examples/credit_card.py summary
 python examples/credit_card.py plot

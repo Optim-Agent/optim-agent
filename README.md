@@ -213,6 +213,31 @@ weight decay, label smoothing, three stage widths, three stage depths, and four
 dropout controls. MNIST adds translation and rotation; CIFAR-10 uses crop
 padding and flip probability.
 
+### Tuning Q-learning Controllers: Acrobot-v1 and LunarLander-v3
+
+![CPU-only Gymnasium RL control benchmark](docs/assets/rl_control.png)
+
+This CPU-only Gymnasium benchmark tunes a discretized Q-learning controller for
+Acrobot-v1 and LunarLander-v3. Each method runs 20 trials over five seeds
+(`0..4`); the objective is mean evaluation return, so higher is better. The
+runner parallelizes across seeds and within each HPO study via `--workers`.
+The GPT-5.5 arms use high reasoning effort and the last 10 trials of history.
+
+| method              | Acrobot-v1 return ↑ | LunarLander-v3 return ↑ |
+| ------------------- | ------------------: | ----------------------: |
+| Random              |            -200.000 |                 -62.139 |
+| **TPE**             |            -200.000 |             **-49.584** |
+| GPT-5.5 w/ context  |            -200.000 |                 -57.341 |
+| GPT-5.5 w/o context |            -200.000 |                 -64.359 |
+
+Under this intentionally small CPU budget, Acrobot-v1 is flat at the episode
+cap and TPE is strongest on LunarLander-v3 mean return. GPT-5.5 w/ context
+improves over Random on LunarLander-v3, while the no-context variant trails.
+The benchmark is useful as a lightweight RL HPO stress test rather than a claim
+that agent search wins on every low-budget control problem.
+
+![LunarLander rollout from a committed GPT-5.5 policy](docs/assets/lunarlander_policy.gif)
+
 ### Tuning Gradient Boosting Classifier: Credit-default Probabilities
 
 ![Five-seed CPU-only GPT-5.5 context benchmark for UCI credit-default HGB tuning](docs/assets/credit_card.png)
@@ -265,6 +290,15 @@ python examples/credit_card.py run
 python examples/credit_card.py selfcheck
 python examples/credit_card.py summary
 python examples/credit_card.py plot
+
+# RL control
+pip install -e ".[rl,examples]"
+python examples/rl_control.py preflight
+python examples/rl_control.py run --seeds 0 1 2 3 4 --workers 10
+python examples/rl_control.py selfcheck
+python examples/rl_control.py summary
+python examples/rl_control.py plot
+python examples/rl_control.py gif
 ```
 
 ## Usage Guide

@@ -29,6 +29,20 @@ def test_packaging_declares_development_and_vision_extras():
     assert any(requirement.startswith("torchvision") for requirement in extras["vision"])
 
 
+def test_rl_extra_is_separate_from_default_examples():
+    try:
+        import tomllib
+    except ModuleNotFoundError:  # Python 3.10
+        from setuptools._vendor import tomli as tomllib
+
+    pyproject = tomllib.loads(
+        (Path(__file__).resolve().parent.parent / "pyproject.toml").read_text()
+    )
+    extras = pyproject["project"]["optional-dependencies"]
+    assert "gymnasium[box2d]>=1.0" in extras["rl"]
+    assert "gymnasium[box2d]>=1.0" not in extras["examples"]
+
+
 def test_public_repository_metadata_and_ignore_contract():
     try:
         import tomllib
@@ -178,6 +192,7 @@ def test_readme_positions_optim_agent_as_a_general_system_optimizer():
         "## Optimization Trajectory",
         "### Optimizing Math Functions without Context: Branin-2D and Ackley-5D",
         "### Tuning ResNet-based Image Classifier: MNIST and CIFAR-10",
+        "### Tuning Q-learning Controllers: Acrobot-v1 and LunarLander-v3",
         "### Tuning Gradient Boosting Classifier: Credit-default Probabilities",
         "## Usage Guide",
     )
@@ -194,12 +209,107 @@ def test_benchmark_manifest_records_reproduction_contract():
         "Provenance", "Publication gate", "no supplied task context",
     ))
     assert {suite["id"] for suite in manifest["suites"]} == {
-        "mnist", "cifar10", "hard-functions", "credit-default-benchmark",
+        "mnist", "cifar10", "hard-functions", "rl-control", "credit-default-benchmark",
     }
     for suite in manifest["suites"]:
         assert suite["result_glob"].startswith("docs/assets/")
         assert suite["seeds"]
         assert suite["trials"] > 0
+
+
+def test_rl_control_protocol_is_cpu_only_and_contextual():
+    from examples import rl_control as rl
+
+    assert rl.ENVS == ("Acrobot-v1", "LunarLander-v3")
+    assert rl.SEEDS == (0, 1, 2, 3, 4)
+    assert rl.N_TRIALS == 20
+    assert rl.N_INIT == 3
+    assert rl.MODEL == "gpt-5.5"
+    assert rl.AGENT_EFFORT == "high"
+    assert rl.AGENT_HISTORY == 10
+    assert rl.METHODS == (
+        "Random",
+        "TPE",
+        "GPT-5.5",
+        "GPT-5.5-no-context",
+    )
+    assert rl._method_spec("Random")["backend"] is None
+    assert rl._method_spec("TPE")["backend"] == "tpe"
+    assert rl._method_spec("GPT-5.5")["use_context"] is True
+    assert rl._method_spec("GPT-5.5-no-context")["use_context"] is False
+    assert "Acrobot" in rl.TASK_CONTEXT
+    assert "LunarLander" in rl.TASK_CONTEXT
+    assert rl._incumbent([1.0, 0.0, 2.0]) == [1.0, 1.0, 2.0]
+
+
+def test_rl_control_artifact_validation_rejects_corruption():
+    from examples import rl_control as rl
+
+    params = [{
+        "learning_rate": 0.2,
+        "gamma": 0.98,
+        "epsilon_decay": 0.96,
+        "min_epsilon": 0.05,
+        "bins": 8,
+        "train_episodes": 16,
+    } for _ in range(rl.N_TRIALS)]
+    run = rl._common_metadata("GPT-5.5", 0)
+    run.update({
+        "values": {
+            "Acrobot-v1": [-100.0 + trial for trial in range(rl.N_TRIALS)],
+            "LunarLander-v3": [50.0 + trial for trial in range(rl.N_TRIALS)],
+        },
+        "params": params,
+        "best_values": {
+            "Acrobot-v1": -81.0,
+            "LunarLander-v3": 69.0,
+        },
+        "best_params": {
+            "Acrobot-v1": params[-1],
+            "LunarLander-v3": params[-1],
+        },
+        "elapsed_seconds": 12.0,
+    })
+    rl._validate_artifact(run, "GPT-5.5", 0)
+
+    corrupted = copy.deepcopy(run)
+    corrupted["values"]["Acrobot-v1"][0] = float("nan")
+    with pytest.raises(ValueError, match="RL control artifact"):
+        rl._validate_artifact(corrupted, "GPT-5.5", 0)
+
+    corrupted = copy.deepcopy(run)
+    corrupted["params"][0]["bins"] = 999
+    with pytest.raises(ValueError, match="RL control artifact"):
+        rl._validate_artifact(corrupted, "GPT-5.5", 0)
+
+
+def test_rl_control_publication_contract_is_complete():
+    root = Path(__file__).resolve().parent.parent
+    readme = (root / "README.md").read_text()
+    docs = (root / "docs/index.html").read_text()
+    manifest = json.loads((root / "benchmarks/manifest.json").read_text())
+    assets = root / "docs/assets"
+
+    assert (assets / "rl_control.png").exists()
+    assert (assets / "lunarlander_policy.gif").exists()
+    assert readme.count("rl_control.png") == 1
+    assert docs.count("rl_control.png") == 1
+    assert readme.count("lunarlander_policy.gif") == 1
+    assert docs.count("lunarlander_policy.gif") == 1
+    assert len(list(assets.glob("rl_control_*_s*.json"))) == 20
+    suite = next(suite for suite in manifest["suites"] if suite["id"] == "rl-control")
+    assert suite["result_glob"] == "docs/assets/rl_control_*_s*.json"
+    assert suite["trials"] == 20
+    assert suite["seeds"] == [0, 1, 2, 3, 4]
+    assert suite["environments"] == ["Acrobot-v1", "LunarLander-v3"]
+    assert suite["agent_effort"] == "high"
+    assert suite["history"] == 10
+    assert suite["metric"] == "mean evaluation return; higher is better"
+    for text in (readme, docs):
+        assert "Acrobot-v1" in text
+        assert "LunarLander-v3" in text
+        assert "CPU-only" in text
+
 
 def test_credit_card_protocol_is_pinned_and_cpu_only():
     from examples import credit_card as credit

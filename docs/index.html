@@ -465,6 +465,28 @@ label smoothing, three stage widths, three stage depths, and four dropout
 controls. MNIST adds translation and rotation; CIFAR-10 uses crop padding and
 flip probability.</p>
 
+<h3>Tuning Q-learning Controllers: Acrobot-v1 and LunarLander-v3</h3>
+<p><img src="assets/rl_control.png" alt="CPU-only Gymnasium RL control benchmark over five seeds"></p>
+<p>This CPU-only Gymnasium benchmark tunes a discretized Q-learning controller
+for Acrobot-v1 and LunarLander-v3. Each method runs 20 trials over five seeds
+(<code>0..4</code>); the objective is mean evaluation return, so higher is
+better. The runner parallelizes across seeds and within each HPO study via
+<code>--workers</code>. The GPT-5.5 arms use high reasoning effort and the
+last 10 trials of history.</p>
+<table>
+<tr><th>Method</th><th>Acrobot-v1 return ↑</th><th>LunarLander-v3 return ↑</th></tr>
+<tr><td>Random</td><td>-200.000</td><td>-62.139</td></tr>
+<tr><td><strong>TPE</strong></td><td>-200.000</td><td><strong>-49.584</strong></td></tr>
+<tr><td>GPT-5.5 w/ context</td><td>-200.000</td><td>-57.341</td></tr>
+<tr><td>GPT-5.5 w/o context</td><td>-200.000</td><td>-64.359</td></tr>
+</table>
+<p>Under this intentionally small CPU budget, Acrobot-v1 is flat at the episode
+cap and TPE is strongest on LunarLander-v3 mean return. GPT-5.5 w/ context
+improves over Random on LunarLander-v3, while the no-context variant trails.
+Treat this as a lightweight RL HPO stress test rather than a universal
+optimizer ranking.</p>
+<p><img src="assets/lunarlander_policy.gif" alt="LunarLander rollout from a committed GPT-5.5 policy"></p>
+
 <h3>Branin and Ackley-5D</h3>
 <p>Hard-function agents receive <strong>no supplied task context</strong>: only
 generic <code>x1...x5</code> parameter names, numeric bounds, and trial history.
@@ -547,7 +569,14 @@ python examples/credit_card.py preflight
 python examples/credit_card.py run
 python examples/credit_card.py selfcheck
 python examples/credit_card.py summary
-python examples/credit_card.py plot</code></pre>
+python examples/credit_card.py plot
+pip install -e ".[rl,examples]"
+python examples/rl_control.py preflight
+python examples/rl_control.py run --seeds 0 1 2 3 4 --workers 10
+python examples/rl_control.py selfcheck
+python examples/rl_control.py summary
+python examples/rl_control.py plot
+python examples/rl_control.py gif</code></pre>
 
 <h2 id="api">API reference</h2>
 
