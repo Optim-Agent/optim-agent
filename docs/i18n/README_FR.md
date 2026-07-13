@@ -78,6 +78,9 @@ study = oa.create_study(
         backend="codex",  # ou "claude" / "opencode"
         effort="high",
         context="maximize quality under a strict operating-cost budget",
+        history=5,
+        explicit_reasoning=True,
+        qualitative_notes=True,
     ),
     storage="study.json",
 )
@@ -94,8 +97,8 @@ algorithmique plutôt que comme un simple explorateur de points.
 Le mode package traite l'objectif comme une boîte noire. Avec le
 [`SKILL.md`](../../SKILL.md) à la racine, l'agent de programmation actif lit
 d'abord le projet et comprend les relations entre paramètres, puis pilote la
-même étude avec `study.ask(params)` et `study.tell(trial, value)`. Installez le
-skill directement depuis GitHub dans Codex :
+même étude avec `study.ask(params)` et `study.tell(trial, value)`. Chargez le
+skill directement depuis GitHub dans l'environnement actif de l'agent de programmation :
 
 ```text
 $skill-installer install https://github.com/Optim-Agent/optim-agent

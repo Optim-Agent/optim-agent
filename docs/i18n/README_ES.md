@@ -77,6 +77,9 @@ study = oa.create_study(
         backend="codex",  # también "claude" / "opencode"
         effort="high",
         context="maximize quality under a strict operating-cost budget",
+        history=5,
+        explicit_reasoning=True,
+        qualitative_notes=True,
     ),
     storage="study.json",
 )
@@ -94,7 +97,7 @@ El modo paquete trata el objetivo como una caja negra. Con el
 [`SKILL.md`](../../SKILL.md) de la raíz, el agente de programación activo lee
 primero el proyecto y entiende las relaciones entre parámetros; después dirige
 el mismo estudio mediante `study.ask(params)` y `study.tell(trial, value)`.
-Instala el skill directamente desde GitHub en Codex:
+Carga el skill directamente desde GitHub en el entorno activo del agente de programación:
 
 ```text
 $skill-installer install https://github.com/Optim-Agent/optim-agent

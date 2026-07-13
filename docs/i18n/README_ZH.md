@@ -90,6 +90,9 @@ study = oa.create_study(
         backend="mock",
         effort="medium",
         context="小预算图像分类训练",
+        history=5,
+        explicit_reasoning=True,
+        qualitative_notes=True,
     ),
     storage="study.json",
 )
@@ -107,7 +110,7 @@ print(study.best_value, study.best_params)
 
 包模式把目标函数视为黑盒；根目录中的 [`SKILL.md`](../../SKILL.md) 让当前编程
 智能体先阅读项目代码、理解参数关系，再通过 `study.ask(params)` 和
-`study.tell(trial, value)` 驱动同一个 study。可直接从 GitHub 安装到 Codex：
+`study.tell(trial, value)` 驱动同一个 study。可直接从 GitHub 加载到当前编程智能体环境：
 
 ```text
 $skill-installer install https://github.com/Optim-Agent/optim-agent

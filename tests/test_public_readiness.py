@@ -1,5 +1,8 @@
 import subprocess
 import sys
+import json
+import os
+import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -21,8 +24,11 @@ def test_root_skill_covers_installation_and_study_workflow():
     assert skill_path.exists()
     assert not (ROOT / "skills/optim-agent/SKILL.md").exists()
     skill = skill_path.read_text()
+    normalized_skill = " ".join(skill.split())
     for text in (
         "$skill-installer install https://github.com/Optim-Agent/optim-agent",
+        "Claude Code",
+        "OpenCode/OpenClaw",
         "python -m pip install optim-agent",
         "git+https://github.com/Optim-Agent/optim-agent.git",
         ".optim-agent-runs/",
@@ -33,8 +39,30 @@ def test_root_skill_covers_installation_and_study_workflow():
         'state="pruned"',
     ):
         assert text in skill
+    assert "does not depend on Codex-only APIs" in normalized_skill
     assert "[optim-agent skill](SKILL.md)" in readme
     assert "/blob/main/SKILL.md" in docs
+
+
+def test_quickstart_notebook_cells_execute_offline():
+    notebook = json.loads((ROOT / "tutorials/quickstart.ipynb").read_text())
+    code = "\n\n".join(
+        "".join(cell["source"])
+        for cell in notebook["cells"]
+        if cell["cell_type"] == "code"
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        env = os.environ.copy()
+        env["PYTHONPATH"] = str(ROOT)
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            cwd=tmp,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+    assert result.returncode == 0, result.stderr
+    assert "trials after resume: 15" in result.stdout
 
 
 def test_classification_worker_accepts_random_baseline(monkeypatch, tmp_path):

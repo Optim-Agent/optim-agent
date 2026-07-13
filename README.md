@@ -110,7 +110,7 @@ Optional `context` gives domain meaning to the study and parameters. Provide it
 study-wide on `AgentSampler(context=...)`, per parameter on
 `suggest_*(..., context=...)`, or both.
 
-## Where it applies
+## Where It Applies
 
 | Area | Parameters optim-agent can tune | Example objective |
 |---|---|---|
@@ -124,7 +124,7 @@ study-wide on `AgentSampler(context=...)`, per parameter on
 For reinforcement learning, optim-agent tunes the system around the learning
 loop; it does not replace the policy-learning algorithm.
 
-## Optimization trajectory
+## Optimization Trajectory
 
 ![Agent optimization trajectory compared with TPE](docs/assets/optimization_trajectory.gif)
 
@@ -267,9 +267,9 @@ python examples/credit_card.py summary
 python examples/credit_card.py plot
 ```
 
-## Usage guide
+## Usage Guide
 
-### Sampler prompt controls
+### Sampler Prompt Controls
 
 `effort` is forwarded to the backend CLI's reasoning-effort flag. The harness
 prompt is controlled separately:
@@ -313,7 +313,7 @@ The pruner agent compares the current learning curve against completed trials
 and answers prune/keep; `loose` prunes only clearly underperforming runs,
 while `tight` prunes aggressively. Agent errors never prune a trial.
 
-### Concurrency & distributed studies
+### Concurrency & Distributed Studies
 
 Set `max_concurrency` (default `1`) to evaluate several trials at once, and use
 a SQLite `storage` file (`.db` / `.sqlite`) as the concurrency-safe shared
@@ -342,10 +342,10 @@ best in separate processes with shared SQLite storage. Concurrent workers do
 not see each other's *in-flight* points, so they may occasionally probe nearby
 regions.
 
-### Skill mode (agent reads project code)
+### Skill Mode (Agent Reads Project Code)
 
 The pip package treats the objective as a black box. The
-[optim-agent skill](SKILL.md) goes further: installed into a
+[optim-agent skill](SKILL.md) goes further: loaded in a
 coding-agent session, the agent first *reads the project* to understand each
 parameter's role, then drives the same study loop itself via
 `study.ask(params)` / `study.tell(trial, value)` — with the study JSON keeping
@@ -360,7 +360,7 @@ trial = study.ask({"threshold": 0.72, "budget": 80})
 study.tell(trial, evaluate_system(**trial.params))
 ```
 
-### Offline testing
+### Offline Testing
 
 `AgentSampler(backend="mock")` is a token-free stand-in (hill climbing around
 the best point) for testing integrations before agent calls.

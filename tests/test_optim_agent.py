@@ -174,12 +174,12 @@ def test_readme_positions_optim_agent_as_a_general_system_optimizer():
         "## Why optim-agent",
         "## Install",
         "## Quickstart",
-        "## Where it applies",
-        "## Optimization trajectory",
+        "## Where It Applies",
+        "## Optimization Trajectory",
         "### Optimizing Math Functions without Context: Branin-2D and Ackley-5D",
         "### Tuning ResNet-based Image Classifier: MNIST and CIFAR-10",
         "### Tuning Gradient Boosting Classifier: Credit-default Probabilities",
-        "## Usage guide",
+        "## Usage Guide",
     )
     positions = [readme.index(heading) for heading in headings]
     assert positions == sorted(positions)
@@ -632,6 +632,9 @@ def test_readme_links_all_localized_editions():
             "GPT-5.5 w/ context",
             "GPT-5.5 w/o context",
             "model_reasoning_effort=medium",
+            "history=5",
+            "explicit_reasoning=True",
+            "qualitative_notes=True",
             "$skill-installer install https://github.com/Optim-Agent/optim-agent",
             "../../SKILL.md",
             "python -m pip install optim-agent",

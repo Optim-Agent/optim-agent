@@ -77,6 +77,9 @@ study = oa.create_study(
         backend="codex",  # также "claude" / "opencode"
         effort="high",
         context="maximize quality under a strict operating-cost budget",
+        history=5,
+        explicit_reasoning=True,
+        qualitative_notes=True,
     ),
     storage="study.json",
 )
@@ -93,8 +96,8 @@ print(study.best_value, study.best_params)
 Пакетный режим рассматривает цель как черный ящик. С корневым
 [`SKILL.md`](../../SKILL.md) активный программирующий агент сначала читает
 проект и понимает связи между параметрами, а затем ведет то же исследование
-через `study.ask(params)` и `study.tell(trial, value)`. Установите skill в Codex
-непосредственно с GitHub:
+через `study.ask(params)` и `study.tell(trial, value)`. Загрузите skill
+непосредственно с GitHub в активной среде программирующего агента:
 
 ```text
 $skill-installer install https://github.com/Optim-Agent/optim-agent

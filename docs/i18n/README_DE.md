@@ -78,6 +78,9 @@ study = oa.create_study(
         backend="codex",  # alternativ "claude" / "opencode"
         effort="high",
         context="maximize quality under a strict operating-cost budget",
+        history=5,
+        explicit_reasoning=True,
+        qualitative_notes=True,
     ),
     storage="study.json",
 )
@@ -94,8 +97,8 @@ Algorithmus-Engineer statt wie ein blinder Punktsucher schlussfolgern kann.
 Der Paketmodus behandelt das Ziel als Blackbox. Mit der
 [`SKILL.md`](../../SKILL.md) im Repository-Stamm liest der aktive Coding-Agent
 zuerst das Projekt und versteht die Parameterbeziehungen. Danach steuert er
-dieselbe Studie mit `study.ask(params)` und `study.tell(trial, value)`. Installieren
-Sie den Skill in Codex direkt von GitHub:
+dieselbe Studie mit `study.ask(params)` und `study.tell(trial, value)`. Laden
+Sie den Skill in der aktiven Coding-Agent-Umgebung direkt von GitHub:
 
 ```text
 $skill-installer install https://github.com/Optim-Agent/optim-agent

@@ -76,6 +76,9 @@ study = oa.create_study(
         backend="codex",  # "claude" / "opencode" も利用可能
         effort="high",
         context="maximize quality under a strict operating-cost budget",
+        history=5,
+        explicit_reasoning=True,
+        qualitative_notes=True,
     ),
     storage="study.json",
 )
@@ -92,8 +95,8 @@ print(study.best_value, study.best_params)
 パッケージモードは目的関数をブラックボックスとして扱います。ルートの
 [`SKILL.md`](../../SKILL.md) を使うと、現在のコーディングエージェントが先に
 プロジェクトを読み、パラメータの関係を理解してから `study.ask(params)` と
-`study.tell(trial, value)` で同じ study を進めます。Codex には GitHub から直接
-インストールできます。
+`study.tell(trial, value)` で同じ study を進めます。利用中のコーディングエージェント環境に
+GitHub から直接読み込めます。
 
 ```text
 $skill-installer install https://github.com/Optim-Agent/optim-agent

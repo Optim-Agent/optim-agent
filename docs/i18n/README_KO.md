@@ -76,6 +76,9 @@ study = oa.create_study(
         backend="codex",  # 또는 "claude" / "opencode"
         effort="high",
         context="maximize quality under a strict operating-cost budget",
+        history=5,
+        explicit_reasoning=True,
+        qualitative_notes=True,
     ),
     storage="study.json",
 )
@@ -92,7 +95,7 @@ print(study.best_value, study.best_params)
 패키지 모드는 목적 함수를 블랙박스로 취급합니다. 루트의
 [`SKILL.md`](../../SKILL.md)를 사용하면 현재 코딩 에이전트가 먼저 프로젝트를 읽고
 파라미터 관계를 이해한 뒤 `study.ask(params)`와 `study.tell(trial, value)`로 같은
-study를 진행합니다. Codex에는 GitHub에서 직접 설치할 수 있습니다.
+study를 진행합니다. 사용 중인 코딩 에이전트 환경에서 GitHub로부터 직접 불러올 수 있습니다.
 
 ```text
 $skill-installer install https://github.com/Optim-Agent/optim-agent

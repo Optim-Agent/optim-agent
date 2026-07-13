@@ -5,18 +5,26 @@ description: Use when the user wants to optimize configurable system parameters 
 
 # optim-agent
 
-Act as the sampler. Read the project to understand parameter meaning and
-interactions, propose one configuration, run the real evaluator, and record the
-result through optim-agent's ask/tell API. Let the measured objective, not the
-agent's intuition, decide what works.
+Act as the sampler inside any coding-agent session: Claude Code, Codex,
+OpenCode/OpenClaw, or another agent that can read project files and run shell
+commands. Read the project to understand parameter meaning and interactions,
+propose one configuration, run the real evaluator, and record the result
+through optim-agent's ask/tell API. Let the measured objective, not the agent's
+intuition, decide what works.
 
-## Install
+## Load the workflow
 
-Install this Codex skill directly from GitHub, then start a new thread:
+Use this file as the operating guide for the active coding agent. In Codex, it
+can be installed directly from GitHub:
 
 ```text
 $skill-installer install https://github.com/Optim-Agent/optim-agent
 ```
+
+In Claude Code, OpenCode/OpenClaw, or another coding-agent environment, place
+this repository or `SKILL.md` in the agent-visible workspace and ask the agent
+to follow the optim-agent workflow. The workflow does not depend on Codex-only
+APIs; it needs file access, shell access, and Python.
 
 Ensure the Python package is importable. Choose one source; do not install both:
 
