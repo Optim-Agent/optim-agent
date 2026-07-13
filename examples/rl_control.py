@@ -113,8 +113,8 @@ def _common_metadata(method, seed):
         "agent_effort": AGENT_EFFORT if is_agent else None,
         "history": AGENT_HISTORY if is_agent else None,
         "parameter_context": PARAMETER_CONTEXT if is_agent and spec["use_context"] else None,
-        "explicit_reasoning": True if is_agent else None,
-        "qualitative_notes": True if is_agent else None,
+        "explicit_reasoning": False if is_agent else None,
+        "qualitative_notes": False if is_agent else None,
         "use_context": spec["use_context"] if is_agent else None,
         "context_policy": (
             "supplied task and parameter context"
@@ -372,8 +372,8 @@ def _make_sampler(method, seed, timeout, agent_cwd):
         agent_cwd=agent_cwd,
         fail_closed=True,
         history=AGENT_HISTORY,
-        explicit_reasoning=True,
-        qualitative_notes=True,
+        explicit_reasoning=False,
+        qualitative_notes=False,
     )
 
 
