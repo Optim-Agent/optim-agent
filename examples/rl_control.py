@@ -30,7 +30,7 @@ BACKEND = "codex"
 MODEL = "gpt-5.5"
 MODEL_LABEL = "GPT-5.5"
 AGENT_EFFORT = "high"
-AGENT_HISTORY = 10
+AGENT_HISTORY = 5
 SEEDS = (0, 1, 2, 3, 4)
 N_TRIALS = 20
 N_INIT = 3
@@ -39,22 +39,47 @@ TRAIN_EPISODES = (8, 16, 24, 32)
 EVAL_EPISODES = 2
 MAX_STEPS = 200
 SCHEMA_VERSION = 1
-PROTOCOL_VERSION = "rl-control-qlearning-v1"
+PROTOCOL_VERSION = "rl-control-qlearning-v2"
 OBJECTIVE = "mean evaluation return"
 METHODS = ("Random", "TPE", MODEL_LABEL, f"{MODEL_LABEL}-no-context")
 TASK_CONTEXT = (
-    "Tune a CPU tabular/discretized Q-learning controller on Gymnasium Acrobot-v1 "
-    "and LunarLander-v3. Higher evaluation return is better. Balance learning "
-    "rate, discounting, exploration decay, minimum exploration, discretization "
-    "granularity, and training episodes under a small trial budget."
+    "Tune one CPU tabular/discretized Q-learning configuration shared by Gymnasium "
+    "Acrobot-v1 and LunarLander-v3. The scalar objective averages their evaluation "
+    "returns, so improve both rather than sacrificing one environment. Acrobot gives "
+    "roughly -1 per step until the terminal height is reached and is capped at 200 "
+    "steps; escaping sooner is better. LunarLander has shaped returns for controlled "
+    "descent, stable contact, fuel use, and crashes. Training is deliberately limited "
+    "to 8-32 episodes, so favor sample-efficient settings and avoid large sparse tables."
 )
 PARAMETER_CONTEXT = {
-    "learning_rate": "Q-learning update step size; too high can destabilize values",
-    "gamma": "discount factor for long-horizon control returns",
-    "epsilon_decay": "per-episode exploration decay; lower values exploit sooner",
-    "min_epsilon": "exploration floor during training",
-    "bins": "state discretization bins per dimension; larger tables cost more samples",
-    "train_episodes": "training episodes per trial; more episodes cost CPU but reduce noise",
+    "learning_rate": (
+        "Q-learning update step size. With only 8-32 training episodes, very small values "
+        "may learn too slowly; very large values can overwrite useful estimates, especially "
+        "for LunarLander's varied shaped returns."
+    ),
+    "gamma": (
+        "Discount factor. Acrobot needs credit across a long swing-up sequence and LunarLander "
+        "must plan a controlled descent, so prefer long-horizon values unless sparse data makes "
+        "them unstable."
+    ),
+    "epsilon_decay": (
+        "Exploration multiplier applied after every training episode. Values near 1 preserve "
+        "exploration across the tiny episode budget; lower values switch quickly to the current "
+        "greedy policy."
+    ),
+    "min_epsilon": (
+        "Minimum exploration probability. A nontrivial floor can discover swing-up and landing "
+        "maneuvers, but a high floor can prevent reliable evaluation-quality behavior."
+    ),
+    "bins": (
+        "Uniform bins per state dimension. Table size grows exponentially: Acrobot has 6 state "
+        "dimensions and LunarLander has 8, so 10-12 bins create extremely sparse tables under "
+        "this training budget; 6-8 bins share experience more aggressively."
+    ),
+    "train_episodes": (
+        "Training episodes per environment and trial. More episodes usually improve coverage "
+        "and reduce variance but cost CPU; 32 is still a deliberately small RL budget."
+    ),
 }
 
 
@@ -85,6 +110,7 @@ def _common_metadata(method, seed):
         "model": spec["model"],
         "agent_effort": AGENT_EFFORT if is_agent else None,
         "history": AGENT_HISTORY if is_agent else None,
+        "parameter_context": PARAMETER_CONTEXT if is_agent and spec["use_context"] else None,
         "explicit_reasoning": True if is_agent else None,
         "qualitative_notes": True if is_agent else None,
         "use_context": spec["use_context"] if is_agent else None,
@@ -499,7 +525,7 @@ def plot():
         ax.xaxis.set_major_locator(MaxNLocator(integer=True))
         ax.grid(alpha=0.18)
     axes[0].legend(fontsize=8, ncol=2)
-    fig.suptitle("CPU Gymnasium RL control HPO (5 seeds, 20 trials)")
+    fig.suptitle(f"CPU Gymnasium RL control HPO (5 seeds, {N_TRIALS} trials)")
     fig.tight_layout()
     output = ASSETS / "rl_control.png"
     fig.savefig(output, dpi=150, bbox_inches="tight")

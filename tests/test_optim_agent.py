@@ -226,7 +226,7 @@ def test_rl_control_protocol_is_cpu_only_and_contextual():
     assert rl.N_INIT == 3
     assert rl.MODEL == "gpt-5.5"
     assert rl.AGENT_EFFORT == "high"
-    assert rl.AGENT_HISTORY == 10
+    assert rl.AGENT_HISTORY == 5
     assert rl.METHODS == (
         "Random",
         "TPE",
@@ -239,6 +239,8 @@ def test_rl_control_protocol_is_cpu_only_and_contextual():
     assert rl._method_spec("GPT-5.5-no-context")["use_context"] is False
     assert "Acrobot" in rl.TASK_CONTEXT
     assert "LunarLander" in rl.TASK_CONTEXT
+    assert "exponentially" in rl.PARAMETER_CONTEXT["bins"]
+    assert "tiny episode budget" in rl.PARAMETER_CONTEXT["epsilon_decay"]
     assert rl._incumbent([1.0, 0.0, 2.0]) == [1.0, 1.0, 2.0]
 
 
@@ -261,8 +263,8 @@ def test_rl_control_artifact_validation_rejects_corruption():
         },
         "params": params,
         "best_values": {
-            "Acrobot-v1": -81.0,
-            "LunarLander-v3": 69.0,
+            "Acrobot-v1": -100.0 + rl.N_TRIALS - 1,
+            "LunarLander-v3": 50.0 + rl.N_TRIALS - 1,
         },
         "best_params": {
             "Acrobot-v1": params[-1],
@@ -303,7 +305,7 @@ def test_rl_control_publication_contract_is_complete():
     assert suite["seeds"] == [0, 1, 2, 3, 4]
     assert suite["environments"] == ["Acrobot-v1", "LunarLander-v3"]
     assert suite["agent_effort"] == "high"
-    assert suite["history"] == 10
+    assert suite["history"] == 5
     assert suite["metric"] == "mean evaluation return; higher is better"
     for text in (readme, docs):
         assert "Acrobot-v1" in text

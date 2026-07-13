@@ -19,9 +19,9 @@ runs provide the explicit with-context versus no-context comparison.
 The RL-control benchmark is CPU-only and uses Gymnasium Acrobot-v1 and
 LunarLander-v3 with a discretized Q-learning controller. It runs Random, TPE,
 GPT-5.5 with context, and GPT-5.5 without context for 20 trials across seeds
-`0..4`. The GPT-5.5 arms use high reasoning effort and the last 10 trials of
-history. It is a lightweight HPO stress test; the current committed result has
-TPE strongest on mean return.
+`0..4`. The GPT-5.5 arms use high reasoning effort and the last 5 trials of
+history. It is a lightweight HPO stress test; contextual GPT-5.5 is strongest
+on Acrobot-v1 while the no-context control is strongest on LunarLander-v3.
 The credit-default benchmark is CPU-only and uses UCI dataset 350, Default of
 Credit Card Clients (CC BY 4.0, DOI `10.24432/C55S3H`). The official archive
 SHA-256, workbook schema, 60/20/20 stratified split, split seed, search space,

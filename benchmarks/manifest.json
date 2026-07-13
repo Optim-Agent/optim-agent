@@ -33,7 +33,7 @@
       "environments": ["Acrobot-v1", "LunarLander-v3"],
       "model": "gpt-5.5",
       "agent_effort": "high",
-      "history": 10,
+      "history": 5,
       "metric": "mean evaluation return; higher is better",
       "context_policy": "matched context and no-context agent variants"
     },

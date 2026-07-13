@@ -1,11 +1,12 @@
 {
  "schema_version": 1,
- "protocol": "rl-control-qlearning-v1",
+ "protocol": "rl-control-qlearning-v2",
  "method": "TPE",
  "backend": "tpe",
  "model": null,
  "agent_effort": null,
  "history": null,
+ "parameter_context": null,
  "explicit_reasoning": null,
  "qualitative_notes": null,
  "use_context": null,
@@ -20,7 +21,7 @@
   "LunarLander-v3"
  ],
  "objective": "mean evaluation return",
- "created_at": "2026-07-13T15:58:52.165081+00:00",
+ "created_at": "2026-07-13T16:48:55.642541+00:00",
  "values": {
   "Acrobot-v1": [
    -200.0,
@@ -45,188 +46,188 @@
    -200.0
   ],
   "LunarLander-v3": [
-   -174.1882948551502,
-   -294.40885467717635,
-   -204.4147044828265,
-   -165.28201597598266,
-   -190.4400510910453,
-   -100.91781114363177,
-   -151.92519705237777,
-   -206.88517543047087,
-   -160.53569524946545,
+   -189.84539684313796,
+   -170.61413796087402,
+   -149.87500000684923,
+   -95.32923622709876,
+   -153.23854159444875,
+   -269.484286163171,
+   -368.68616690323887,
+   -315.7981103584583,
+   -268.35431010138916,
    -95.13477458055348,
-   -178.99835572629848,
-   -231.42426382225122,
-   -280.4903723049425,
-   -321.26204963546576,
-   -125.17621465513565,
-   -170.52404104436218,
-   -174.46710287308474,
-   -186.3468559458625,
-   -215.3947915206411,
-   -260.1876796233373
+   -190.04229796399306,
+   -147.01102122142174,
+   -138.54391573430442,
+   -425.5675318629543,
+   -156.51165406449053,
+   -113.26831473976212,
+   -107.45401315053726,
+   -348.3537152641559,
+   -144.0202681365725,
+   -237.41228516763138
   ]
  },
  "params": [
   {
-   "learning_rate": 0.09434087259204837,
-   "gamma": 0.9663369660987408,
-   "epsilon_decay": 0.9772652486642538,
-   "min_epsilon": 0.05272758713142012,
-   "bins": 6,
+   "learning_rate": 0.7496542587757753,
+   "gamma": 0.8745148241329136,
+   "epsilon_decay": 0.9197160637601475,
+   "min_epsilon": 0.06887202977520264,
+   "bins": 10,
    "train_episodes": 32
   },
   {
-   "learning_rate": 0.040363845199776725,
-   "gamma": 0.8528478485903349,
-   "epsilon_decay": 0.9152938587464254,
-   "min_epsilon": 0.01364644802835524,
+   "learning_rate": 0.2062163231975732,
+   "gamma": 0.8827936088132149,
+   "epsilon_decay": 0.9197576727511498,
+   "min_epsilon": 0.014773965220691755,
+   "bins": 10,
+   "train_episodes": 8
+  },
+  {
+   "learning_rate": 0.05423631897422568,
+   "gamma": 0.98650624748672,
+   "epsilon_decay": 0.9787630280786667,
+   "min_epsilon": 0.011761868365319797,
+   "bins": 10,
+   "train_episodes": 8
+  },
+  {
+   "learning_rate": 0.02081647733780115,
+   "gamma": 0.9929610908122463,
+   "epsilon_decay": 0.9960614208786149,
+   "min_epsilon": 0.010756033517733568,
    "bins": 8,
-   "train_episodes": 32
+   "train_episodes": 16
   },
   {
-   "learning_rate": 0.04273836591117235,
-   "gamma": 0.9516257390125312,
-   "epsilon_decay": 0.913462519607295,
-   "min_epsilon": 0.05079055015235056,
+   "learning_rate": 0.022928615543918632,
+   "gamma": 0.9962134890438066,
+   "epsilon_decay": 0.989304603541453,
+   "min_epsilon": 0.010367071758713464,
    "bins": 6,
    "train_episodes": 16
   },
   {
-   "learning_rate": 0.4835991994935061,
-   "gamma": 0.996441550735065,
-   "epsilon_decay": 0.9977573545161306,
-   "min_epsilon": 0.27132357929584017,
-   "bins": 10,
-   "train_episodes": 24
-  },
-  {
-   "learning_rate": 0.486137314426632,
-   "gamma": 0.9927987324537697,
-   "epsilon_decay": 0.9954940230595857,
-   "min_epsilon": 0.29418807409673314,
-   "bins": 10,
-   "train_episodes": 24
-  },
-  {
-   "learning_rate": 0.767622848531632,
-   "gamma": 0.9001994864270662,
-   "epsilon_decay": 0.9505882007559959,
-   "min_epsilon": 0.24315137870354075,
-   "bins": 12,
-   "train_episodes": 24
-  },
-  {
-   "learning_rate": 0.7871058019985308,
-   "gamma": 0.8990318272940556,
-   "epsilon_decay": 0.9538654798367836,
-   "min_epsilon": 0.2711665086396143,
-   "bins": 10,
-   "train_episodes": 24
-  },
-  {
-   "learning_rate": 0.19385926148649826,
-   "gamma": 0.898446892664693,
-   "epsilon_decay": 0.9445035931720106,
-   "min_epsilon": 0.11066776092704546,
-   "bins": 12,
+   "learning_rate": 0.03554409083067583,
+   "gamma": 0.9946664944612461,
+   "epsilon_decay": 0.9851485566992225,
+   "min_epsilon": 0.16137202448578192,
+   "bins": 8,
    "train_episodes": 8
   },
   {
-   "learning_rate": 0.18141598365124698,
-   "gamma": 0.8947898795829599,
-   "epsilon_decay": 0.9408114994576637,
-   "min_epsilon": 0.11445725457417376,
-   "bins": 12,
-   "train_episodes": 8
-  },
-  {
-   "learning_rate": 0.09338595340579087,
-   "gamma": 0.8526691083134748,
-   "epsilon_decay": 0.9644291581985986,
-   "min_epsilon": 0.017707400451751745,
-   "bins": 12,
-   "train_episodes": 16
-  },
-  {
-   "learning_rate": 0.08649405598163168,
-   "gamma": 0.8536016631169351,
-   "epsilon_decay": 0.965683314493959,
-   "min_epsilon": 0.017945818001150273,
-   "bins": 12,
-   "train_episodes": 16
-  },
-  {
-   "learning_rate": 0.020408194380378858,
-   "gamma": 0.9280028388597654,
-   "epsilon_decay": 0.9259126890915994,
-   "min_epsilon": 0.11618163454700223,
+   "learning_rate": 0.021710839584482517,
+   "gamma": 0.9398044513431257,
+   "epsilon_decay": 0.9552862019125762,
+   "min_epsilon": 0.18705321594884966,
    "bins": 8,
    "train_episodes": 24
   },
   {
-   "learning_rate": 0.0231784295570664,
-   "gamma": 0.8759364181503426,
-   "epsilon_decay": 0.9325175546038939,
-   "min_epsilon": 0.026432984320468148,
+   "learning_rate": 0.12507604434812206,
+   "gamma": 0.9438992106952244,
+   "epsilon_decay": 0.9532561578696199,
+   "min_epsilon": 0.03658646442952232,
+   "bins": 8,
+   "train_episodes": 16
+  },
+  {
+   "learning_rate": 0.08859037081232858,
+   "gamma": 0.9132051029054125,
+   "epsilon_decay": 0.968420386153716,
+   "min_epsilon": 0.03232806427016249,
    "bins": 12,
    "train_episodes": 16
   },
   {
-   "learning_rate": 0.2540067244239561,
-   "gamma": 0.924700364674784,
-   "epsilon_decay": 0.9664754568996682,
-   "min_epsilon": 0.02753930034006274,
+   "learning_rate": 0.1256657019962135,
+   "gamma": 0.9081824808015183,
+   "epsilon_decay": 0.9674557897488936,
+   "min_epsilon": 0.030565017516561578,
    "bins": 12,
    "train_episodes": 16
   },
   {
-   "learning_rate": 0.2431408051565043,
-   "gamma": 0.9224963741590689,
-   "epsilon_decay": 0.966242528886007,
-   "min_epsilon": 0.02693694778915828,
-   "bins": 12,
-   "train_episodes": 16
-  },
-  {
-   "learning_rate": 0.08101904319108293,
-   "gamma": 0.8766258983333162,
-   "epsilon_decay": 0.9836869628381473,
-   "min_epsilon": 0.010716164002936925,
+   "learning_rate": 0.2954798248090684,
+   "gamma": 0.850197023050733,
+   "epsilon_decay": 0.93516267745855,
+   "min_epsilon": 0.08627844049148448,
    "bins": 12,
    "train_episodes": 24
   },
   {
-   "learning_rate": 0.07409992309315504,
-   "gamma": 0.8701659675536743,
-   "epsilon_decay": 0.9780020321914774,
-   "min_epsilon": 0.011805804878945924,
+   "learning_rate": 0.3179392914812491,
+   "gamma": 0.8551274029362063,
+   "epsilon_decay": 0.9368725620505143,
+   "min_epsilon": 0.0807056732129263,
    "bins": 12,
    "train_episodes": 24
   },
   {
-   "learning_rate": 0.056657914180460935,
-   "gamma": 0.8785169071812902,
-   "epsilon_decay": 0.9549659376725999,
-   "min_epsilon": 0.1679310931199327,
+   "learning_rate": 0.062253503598205404,
+   "gamma": 0.9121420828253451,
+   "epsilon_decay": 0.9972873817779689,
+   "min_epsilon": 0.02376071226594393,
    "bins": 12,
+   "train_episodes": 16
+  },
+  {
+   "learning_rate": 0.06145953578145356,
+   "gamma": 0.9121955882563243,
+   "epsilon_decay": 0.9980401227940485,
+   "min_epsilon": 0.02201340701654015,
+   "bins": 6,
+   "train_episodes": 16
+  },
+  {
+   "learning_rate": 0.5950215082828513,
+   "gamma": 0.9607524363261949,
+   "epsilon_decay": 0.9681388489087741,
+   "min_epsilon": 0.020000115265079242,
+   "bins": 6,
+   "train_episodes": 16
+  },
+  {
+   "learning_rate": 0.1471478191517064,
+   "gamma": 0.9672711432025087,
+   "epsilon_decay": 0.9020441427351509,
+   "min_epsilon": 0.04535309767809794,
+   "bins": 8,
    "train_episodes": 32
   },
   {
-   "learning_rate": 0.12795555296207295,
-   "gamma": 0.9132995191421643,
-   "epsilon_decay": 0.9571766544321703,
-   "min_epsilon": 0.07110109831252777,
-   "bins": 6,
-   "train_episodes": 8
+   "learning_rate": 0.16163027792662601,
+   "gamma": 0.9655924739984768,
+   "epsilon_decay": 0.9006154603689446,
+   "min_epsilon": 0.04469423686266979,
+   "bins": 8,
+   "train_episodes": 32
   },
   {
-   "learning_rate": 0.12238636601973074,
-   "gamma": 0.914266307948711,
-   "epsilon_decay": 0.9337622463265046,
-   "min_epsilon": 0.03913222384026784,
+   "learning_rate": 0.03457287258287642,
+   "gamma": 0.884996684451665,
+   "epsilon_decay": 0.9696536625225542,
+   "min_epsilon": 0.016059817363953646,
+   "bins": 12,
+   "train_episodes": 16
+  },
+  {
+   "learning_rate": 0.03522249320479304,
+   "gamma": 0.8935626721849337,
+   "epsilon_decay": 0.9675462230541935,
+   "min_epsilon": 0.2898777891661651,
+   "bins": 12,
+   "train_episodes": 16
+  },
+  {
+   "learning_rate": 0.42238956328933097,
+   "gamma": 0.932658795549763,
+   "epsilon_decay": 0.9784690935432874,
+   "min_epsilon": 0.12235535762158142,
    "bins": 8,
-   "train_episodes": 8
+   "train_episodes": 16
   }
  ],
  "best_values": {
@@ -235,21 +236,21 @@
  },
  "best_params": {
   "Acrobot-v1": {
-   "learning_rate": 0.09434087259204837,
-   "gamma": 0.9663369660987408,
-   "epsilon_decay": 0.9772652486642538,
-   "min_epsilon": 0.05272758713142012,
-   "bins": 6,
+   "learning_rate": 0.7496542587757753,
+   "gamma": 0.8745148241329136,
+   "epsilon_decay": 0.9197160637601475,
+   "min_epsilon": 0.06887202977520264,
+   "bins": 10,
    "train_episodes": 32
   },
   "LunarLander-v3": {
-   "learning_rate": 0.09338595340579087,
-   "gamma": 0.8526691083134748,
-   "epsilon_decay": 0.9644291581985986,
-   "min_epsilon": 0.017707400451751745,
+   "learning_rate": 0.1256657019962135,
+   "gamma": 0.9081824808015183,
+   "epsilon_decay": 0.9674557897488936,
+   "min_epsilon": 0.030565017516561578,
    "bins": 12,
    "train_episodes": 16
   }
  },
- "elapsed_seconds": 27.790167000028305
+ "elapsed_seconds": 27.64638275001198
 }
