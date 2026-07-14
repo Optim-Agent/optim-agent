@@ -14,18 +14,33 @@ GitHub repository without duplicating the root `SKILL.md` workflow.
 - homepage: `https://optim-agent.github.io/optim-agent/`
 - license: `MIT`
 
-## Claude Wrapper
+## Marketplace Layout
 
 Add:
 
 ```text
-.claude-plugin/plugin.json
 .claude-plugin/marketplace.json
+.agents/plugins/marketplace.json
+plugins/optim-agent/
+├── .claude-plugin/plugin.json
+├── .codex-plugin/plugin.json
+├── SKILL.md
+└── skills/
+    └── optim-agent/
+        └── SKILL.md
 ```
 
-Claude reads the existing repository-root `SKILL.md`. The plugin manifest does
-not declare a copied skills directory. The marketplace contains one available
-plugin named `optim-agent` whose source is the repository root.
+Both marketplace manifests contain one available plugin named `optim-agent`
+whose source is `./plugins/optim-agent`. This standard marketplace layout is
+required because Codex does not discover a plugin when a marketplace entry
+points to the repository root.
+
+## Claude Wrapper
+
+The Claude plugin manifest lives under `plugins/optim-agent/.claude-plugin/`.
+Claude loads `plugins/optim-agent/SKILL.md`, a thin forwarder with valid
+frontmatter that tells the agent to read and follow the canonical
+`../../SKILL.md`.
 
 Expected installation:
 
@@ -36,20 +51,16 @@ claude plugin install optim-agent@optim-agent
 
 ## Codex Wrapper
 
-Add:
-
-```text
-.codex-plugin/plugin.json
-.agents/plugins/marketplace.json
-skills/optim-agent/SKILL.md
-```
-
-The Codex manifest points `skills` to `./skills/`. The nested Skill is a thin
+The Codex manifest points `skills` to `./skills/`. Its nested Skill is a thin
 forwarder with valid frontmatter that tells the agent to read and follow the
-canonical `../../SKILL.md`; it does not repeat the workflow.
+canonical `../../../../SKILL.md`; it does not repeat the workflow.
 
-The Codex marketplace contains one available plugin named `optim-agent` whose
-source is the repository root.
+Expected installation:
+
+```bash
+codex plugin marketplace add Optim-Agent/optim-agent
+codex plugin add optim-agent@optim-agent
+```
 
 ## Documentation
 
@@ -63,8 +74,9 @@ keeping the existing PyPI and direct Skill installation paths.
 - Assert both plugin manifests use version `0.1.1` and developer `Optim-Agent`.
 - Assert both marketplace manifests expose one `optim-agent` entry pointing to
   the repository root.
-- Assert the Codex forwarder references `../../SKILL.md` and does not contain a
-  copy of the root workflow.
+- Assert the Claude and Codex forwarders reference the canonical root
+  `SKILL.md` and do not contain copies of the root workflow.
+- Install both marketplace layouts from an isolated temporary checkout.
 - Run the full repository test suite and `git diff --check`.
 
 ## Constraints
