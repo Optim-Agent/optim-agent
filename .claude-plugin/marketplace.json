@@ -1,6 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "optim-agent",
+  "description": "Official Optim-Agent plugins for agent-guided optimization.",
   "owner": {
     "name": "Optim-Agent"
   },
