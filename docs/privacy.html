@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy - optim-agent</title>
+<meta name="description" content="Privacy policy for optim-agent.">
+<link rel="icon" type="image/svg+xml" href="assets/optim-agent-mark.svg">
+<style>
+:root {
+  --bg: #ffffff; --fg: #1f2328; --muted: #57606a; --border: #d0d7de;
+  --accent: #0969da; --code-bg: #f6f8fa;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1117; --fg: #e6edf3; --muted: #8b949e; --border: #30363d;
+    --accent: #58a6ff; --code-bg: #161b22;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+main { max-width: 760px; margin: 0 auto; padding: 48px 24px 80px; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+h1 { font-size: 34px; margin: 0 0 8px; }
+h2 { font-size: 20px; margin-top: 32px; }
+.muted { color: var(--muted); }
+.note {
+  border-left: 4px solid var(--accent); background: var(--code-bg);
+  padding: 10px 16px; border-radius: 0 6px 6px 0; margin: 20px 0;
+}
+</style>
+</head>
+<body>
+<main>
+<p><a href="./">optim-agent</a></p>
+<h1>Privacy Policy</h1>
+<p class="muted">Last updated: July 15, 2026</p>
+
+<div class="note">
+optim-agent does not collect, store, or transmit personal data, telemetry,
+analytics, or usage logs.
+</div>
+
+<h2>What optim-agent does</h2>
+<p>
+optim-agent is an open-source Python package and Claude Code plugin for
+optimizing configurable systems against measurable objectives. The plugin runs
+locally inside Claude Code and provides workflow instructions for experiments.
+</p>
+
+<h2>Data collection</h2>
+<p>
+optim-agent does not operate a hosted backend and does not receive user data.
+It does not include telemetry, analytics, tracking pixels, advertising code, or
+remote logging.
+</p>
+
+<h2>Local project data</h2>
+<p>
+When a user asks Claude Code to use optim-agent, Claude Code may read local
+project files or run local commands as part of the user-directed optimization
+workflow. Any study files or experiment artifacts are created in the user's
+local workspace unless the user explicitly stores them elsewhere.
+</p>
+
+<h2>Third-party agent services</h2>
+<p>
+optim-agent can be used with Claude Code, Codex, OpenCode, or other agent CLIs.
+Any data sent to those tools is handled by those services according to their own
+privacy policies and account settings. optim-agent itself does not proxy,
+inspect, or store that data.
+</p>
+
+<h2>Contact</h2>
+<p>
+For privacy questions, open an issue at
+<a href="https://github.com/Optim-Agent/optim-agent/issues">github.com/Optim-Agent/optim-agent</a>.
+</p>
+</main>
+</body>
+</html>
