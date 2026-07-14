@@ -164,14 +164,14 @@ Ackley mean.
 
 ![No-context free-model hard-function benchmark](docs/assets/hard_benchmarks_free.png)
 
-| method | mean best Branin ↓ | mean best Ackley-5D ↓ |
-|---|---:|---:|
-| Random | 5.008 | 19.639 |
-| TPE | 11.395 | 18.843 |
-| Big-pickle | 4.734 | 15.951 |
-| DeepSeek-V4-Flash | 4.410 | **4.608** |
-| Nemotron-3-Ultra | 16.051 | 18.459 |
-| **MiMo-v2.5** | **3.682** | 15.597 |
+| method                | mean best Branin ↓ | mean best Ackley-5D ↓ |
+| --------------------- | -----------------: | --------------------: |
+| Random                |              5.008 |                19.639 |
+| TPE                   |             11.395 |                18.843 |
+| Big-pickle            |              4.734 |                15.951 |
+| **DeepSeek-V4-Flash** |              4.410 |             **4.608** |
+| Nemotron-3-Ultra      |             16.051 |                18.459 |
+| **MiMo-v2.5**         |          **3.682** |                15.597 |
 
 OpenCode-hosted models require no paid model API. The free pool rotates; this
 refresh pins `opencode/big-pickle`, `opencode/deepseek-v4-flash-free`,
@@ -237,8 +237,6 @@ With 20 trials and a five-trial prompt history, GPT-5.5 w/ context has the
 strongest mean return on both environments: 0.2 above TPE on Acrobot-v1 and
 11.3 above Random on LunarLander-v3. Treat this as a CPU HPO stress test rather
 than a universal ranking.
-
-![LunarLander rollout from a committed GPT-5.5 policy](docs/assets/lunarlander_policy.gif)
 
 ### Tuning Gradient Boosting Classifier: Credit-default Probabilities
 
