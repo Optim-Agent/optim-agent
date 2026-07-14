@@ -737,6 +737,18 @@ def test_classification_renderer_emits_two_panel_figure():
             assert figure.height >= 500
 
 
+def test_social_preview_is_exact_size_and_three_method_card():
+    from PIL import Image
+    from scripts import render_classification_benchmarks as renderer
+
+    assert renderer.SOCIAL_LABELS == ("Random", "TPE", renderer.mnist.PLOT_AGENT_LABEL)
+    with tempfile.TemporaryDirectory() as tmp:
+        output = Path(tmp) / "social-preview.png"
+        renderer.render_social_preview(output)
+        with Image.open(output) as preview:
+            assert preview.size == (1280, 640)
+
+
 def test_chinese_readme_covers_primary_user_paths():
     root = Path(__file__).resolve().parent.parent
     english = (root / "README.md").read_text()
