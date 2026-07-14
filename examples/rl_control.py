@@ -579,8 +579,8 @@ def gif():
                 frames.append(env.render())
                 key = _discretize(state, bounds, int(params["bins"]))
                 action = int(np.argmax(q.get(key, np.zeros(env.action_space.n))))
-                state, reward, terminated, truncated, _ = env.step(action)
-                total += float(reward)
+                state, signal, terminated, truncated, _ = env.step(action)
+                total += float(signal)
                 done = terminated or truncated
             frames.append(env.render())
             if total > best_return:
