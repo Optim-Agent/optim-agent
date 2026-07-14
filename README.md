@@ -82,7 +82,10 @@ $skill-installer install https://github.com/Optim-Agent/optim-agent
 Install the Python package:
 
 ```bash
+# Stable release from PyPI
 python -m pip install optim-agent
+
+# Latest source from GitHub
 python -m pip install "optim-agent @ git+https://github.com/Optim-Agent/optim-agent.git"
 ```
 
