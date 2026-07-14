@@ -1,7 +1,7 @@
 {
  "schema_version": 1,
- "protocol": "credit-default-context-effort-v1",
- "method": "GPT-5.5-high",
+ "protocol": "credit-default-context-v2",
+ "method": "GPT-5.5",
  "backend": "codex",
  "model": "gpt-5.5",
  "effort": "high",
@@ -52,7 +52,7 @@
    "max_leaf_nodes": 12,
    "max_depth": null,
    "min_samples_leaf": 29,
-   "l2_regularization": 3.3247005935789176e-07,
+   "l2_regularization": 3.3247005935789176e-7,
    "max_bins": 128,
    "positive_class_weight": 1.4991641167513743
   },
@@ -261,5 +261,8 @@
  "test_log_loss": 0.42181137266206187,
  "default_validation_log_loss": 0.4325520462545517,
  "default_test_log_loss": 0.42150762486964916,
- "elapsed_seconds": 451.5388686249498
+ "elapsed_seconds": 451.5388686249498,
+ "history": 20,
+ "explicit_reasoning": true,
+ "qualitative_notes": true
 }

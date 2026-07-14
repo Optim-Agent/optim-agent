@@ -1,7 +1,7 @@
 {
  "schema_version": 1,
- "protocol": "credit-default-context-effort-v1",
- "method": "GPT-5.5-high",
+ "protocol": "credit-default-context-v2",
+ "method": "GPT-5.5",
  "backend": "codex",
  "model": "gpt-5.5",
  "effort": "high",
@@ -52,7 +52,7 @@
    "max_leaf_nodes": 53,
    "max_depth": 8,
    "min_samples_leaf": 42,
-   "l2_regularization": 6.469968967816385e-08,
+   "l2_regularization": 6.469968967816385e-8,
    "max_bins": 32,
    "positive_class_weight": 1.9085347556320875
   },
@@ -62,7 +62,7 @@
    "max_leaf_nodes": 21,
    "max_depth": 5,
    "min_samples_leaf": 23,
-   "l2_regularization": 3.580805761019127e-07,
+   "l2_regularization": 3.580805761019127e-7,
    "max_bins": 32,
    "positive_class_weight": 1.5238216338277635
   },
@@ -72,7 +72,7 @@
    "max_leaf_nodes": 60,
    "max_depth": 5,
    "min_samples_leaf": 110,
-   "l2_regularization": 5.507069560856097e-07,
+   "l2_regularization": 5.507069560856097e-7,
    "max_bins": 128,
    "positive_class_weight": 1.5938599420828141
   },
@@ -164,7 +164,7 @@
    "min_samples_leaf": 200,
    "l2_regularization": 0.2,
    "max_bins": 255,
-   "positive_class_weight": 1.0
+   "positive_class_weight": 1
   },
   {
    "learning_rate": 0.048,
@@ -261,5 +261,8 @@
  "test_log_loss": 0.4222264064129007,
  "default_validation_log_loss": 0.4325520462545517,
  "default_test_log_loss": 0.42150762486964916,
- "elapsed_seconds": 403.20755908393767
+ "elapsed_seconds": 403.20755908393767,
+ "history": 20,
+ "explicit_reasoning": true,
+ "qualitative_notes": true
 }

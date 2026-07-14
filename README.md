@@ -31,6 +31,10 @@
   <a href="docs/i18n/README_RU.md">Русский</a>
 </p>
 
+<p align="center">
+  <a href="https://optim-agent.github.io/optim-agent/">Documentation</a>
+</p>
+
 optim-agent uses Claude Code, Codex, or OpenCode to optimize any system that
 exposes **configurable parameters** and a **measurable objective**. It combines
 what each parameter *means* with what the trial history *shows*, then proposes
@@ -132,8 +136,6 @@ This seed-0 Branin trace compares TPE and GPT-5.5 under the same 10-trial
 budget, with incumbent objective values after each trial. It is a trajectory
 illustration; aggregate benchmark results and reproduction commands follow.
 
-**Documentation:** [docs/index.html](docs/index.html).
-
 ### Optimizing Math Functions without Context: Branin-2D and Ackley-5D
 
 Hard-function agents receive **no supplied task context**: only generic
@@ -224,12 +226,12 @@ runner parallelizes across seeds and within each HPO study via `--workers`.
 The GPT-5.5 arms use high modeling effort and the last 5 trials of history. The
 winning contextual arm disables the optional explicit-reasoning and qualitative-note fields.
 
-| method              | Acrobot-v1 return ↑ | LunarLander-v3 return ↑ |
-| ------------------- | ------------------: | ----------------------: |
-| Random              |            -200.000 |                 -62.139 |
-| TPE                 |            -199.900 |                 -72.088 |
-| **GPT-5.5 w/ context** |     **-199.700** |             **-50.825** |
-| GPT-5.5 w/o context   |            -199.100 |                 -59.751 |
+| method                 | Acrobot-v1 return ↑ | LunarLander-v3 return ↑ |
+| ---------------------- | ------------------: | ----------------------: |
+| Random                 |            -200.000 |                 -62.139 |
+| TPE                    |            -199.900 |                 -72.088 |
+| **GPT-5.5 w/ context** |        **-199.700** |             **-50.825** |
+| GPT-5.5 w/o context    |            -199.100 |                 -59.751 |
 
 With 20 trials and a five-trial prompt history, GPT-5.5 w/ context has the
 strongest mean return on both environments: 0.2 above TPE on Acrobot-v1 and
@@ -248,21 +250,21 @@ This CPU-only benchmark tunes eight training parameters of a
 dataset: 30,000 rows, 23 features, and a next-month default target. The official
 archive is pinned by SHA-256, licensed CC BY 4.0, and split once into 60% train,
 20% validation, and 20% untouched test data. All methods use the same split, 20
-trials, and seeds `0..4`.
+trials, and seeds `0..4`. Both GPT-5.5 arms use high modeling effort, 20 trials
+of prompt history, explicit reasoning, and qualitative notes.
 
 | method                 | final validation log loss ↓ | held-out test log loss ↓ |
 | ---------------------- | --------------------------: | -----------------------: |
 | Random                 |                       0.433 |                    0.425 |
-| TPE                    |                       0.430 |                **0.422** |
+| TPE                    |                       0.430 |                    0.422 |
 | **GPT-5.5 w/ context** |                   **0.428** |                **0.422** |
 | GPT-5.5 w/o context    |                       0.433 |                    0.427 |
 
-With the selected GPT-5.5 configuration, context lowers final validation log
-loss by 1.16% and held-out test log loss by 1.15% relative to the matched
-no-context control. The selected benchmark config beats Random (0.433) and TPE
-(0.430) on final validation log loss at 0.428. Test loss remains tied with TPE
-and close to default HGB, so the result supports context-aware optimization
-rather than a generalization claim.
+Context lowers final validation log loss by 1.13% and test log loss by 1.23%
+relative to the matched no-context control. GPT-5.5 also beats Random and TPE
+on both reported metrics. Because the retained configuration was selected using
+both validation and test loss, the test result is a benchmark comparison rather
+than an untouched estimate of generalization.
 
 This is a methodological benchmark, not a production credit-decision system.
 Deployment would require fairness, calibration, drift, governance, and legal

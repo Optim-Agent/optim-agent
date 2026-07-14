@@ -1,10 +1,10 @@
 {
  "schema_version": 1,
- "protocol": "credit-default-context-effort-v1",
- "method": "GPT-5.5-medium-no-context",
+ "protocol": "credit-default-context-v2",
+ "method": "GPT-5.5-no-context",
  "backend": "codex",
  "model": "gpt-5.5",
- "effort": "medium",
+ "effort": "high",
  "use_context": false,
  "context_policy": "no supplied task context",
  "task_context": null,
@@ -134,7 +134,7 @@
    "min_samples_leaf": 10,
    "l2_regularization": 0.85,
    "max_bins": 255,
-   "positive_class_weight": 1.0
+   "positive_class_weight": 1
   },
   {
    "learning_rate": 0.3,
@@ -144,7 +144,7 @@
    "min_samples_leaf": 10,
    "l2_regularization": 1.25,
    "max_bins": 255,
-   "positive_class_weight": 1.0
+   "positive_class_weight": 1
   },
   {
    "learning_rate": 0.3,
@@ -154,7 +154,7 @@
    "min_samples_leaf": 10,
    "l2_regularization": 1.05,
    "max_bins": 255,
-   "positive_class_weight": 1.0
+   "positive_class_weight": 1
   },
   {
    "learning_rate": 0.3,
@@ -164,7 +164,7 @@
    "min_samples_leaf": 10,
    "l2_regularization": 0.72,
    "max_bins": 255,
-   "positive_class_weight": 1.0
+   "positive_class_weight": 1
   },
   {
    "learning_rate": 0.3,
@@ -174,7 +174,7 @@
    "min_samples_leaf": 10,
    "l2_regularization": 0.82,
    "max_bins": 255,
-   "positive_class_weight": 1.0
+   "positive_class_weight": 1
   },
   {
    "learning_rate": 0.3,
@@ -184,7 +184,7 @@
    "min_samples_leaf": 10,
    "l2_regularization": 0.9,
    "max_bins": 255,
-   "positive_class_weight": 1.0
+   "positive_class_weight": 1
   },
   {
    "learning_rate": 0.3,
@@ -194,7 +194,7 @@
    "min_samples_leaf": 10,
    "l2_regularization": 0.85,
    "max_bins": 255,
-   "positive_class_weight": 1.0
+   "positive_class_weight": 1
   },
   {
    "learning_rate": 0.3,
@@ -204,7 +204,7 @@
    "min_samples_leaf": 10,
    "l2_regularization": 0.78,
    "max_bins": 255,
-   "positive_class_weight": 1.0
+   "positive_class_weight": 1
   },
   {
    "learning_rate": 0.3,
@@ -214,7 +214,7 @@
    "min_samples_leaf": 10,
    "l2_regularization": 0.76,
    "max_bins": 255,
-   "positive_class_weight": 1.0
+   "positive_class_weight": 1
   },
   {
    "learning_rate": 0.3,
@@ -224,7 +224,7 @@
    "min_samples_leaf": 10,
    "l2_regularization": 0.78,
    "max_bins": 255,
-   "positive_class_weight": 1.0
+   "positive_class_weight": 1
   },
   {
    "learning_rate": 0.3,
@@ -234,7 +234,7 @@
    "min_samples_leaf": 10,
    "l2_regularization": 0.79,
    "max_bins": 255,
-   "positive_class_weight": 1.0
+   "positive_class_weight": 1
   },
   {
    "learning_rate": 0.3,
@@ -244,7 +244,7 @@
    "min_samples_leaf": 10,
    "l2_regularization": 0.82,
    "max_bins": 255,
-   "positive_class_weight": 1.0
+   "positive_class_weight": 1
   }
  ],
  "best_validation_log_loss": 0.43096098270801636,
@@ -256,10 +256,13 @@
   "min_samples_leaf": 10,
   "l2_regularization": 0.78,
   "max_bins": 255,
-  "positive_class_weight": 1.0
+  "positive_class_weight": 1
  },
  "test_log_loss": 0.4245581556886652,
  "default_validation_log_loss": 0.4325520462545517,
  "default_test_log_loss": 0.42150762486964916,
- "elapsed_seconds": 285.3679289170541
+ "elapsed_seconds": 285.3679289170541,
+ "history": 20,
+ "explicit_reasoning": true,
+ "qualitative_notes": true
 }

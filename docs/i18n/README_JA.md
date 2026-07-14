@@ -162,16 +162,16 @@ Random、Optuna TPE、**GPT-5.5 w/ context**、**GPT-5.5 w/o context** を 5 シ
 
 ![Five-seed CPU-only GPT-5.5 context benchmark for UCI credit-default HGB tuning](../assets/credit_card.png)
 
-この CPU-only ベンチマークは、UCI **Default of Credit Card Clients**（30,000 行、23 特徴、CC BY 4.0）で `HistGradientBoostingClassifier` の 8 個の学習パラメータを調整します。すべての手法は同じ分割、20 試行、シード `0..4` を使います。
+この CPU-only ベンチマークは、UCI **Default of Credit Card Clients**（30,000 行、23 特徴、CC BY 4.0）で `HistGradientBoostingClassifier` の 8 個の学習パラメータを調整します。すべての手法は同じ分割、20 試行、シード `0..4` を使います。両方の GPT-5.5 条件は high modeling effort、20 件の履歴、明示的 reasoning、qualitative notes を使います。
 
 | 手法 | 最終 validation log loss ↓ | holdout test log loss ↓ |
 |---|---:|---:|
 | Random | 0.433 | 0.425 |
-| TPE | 0.430 | **0.422** |
+| TPE | 0.430 | 0.422 |
 | **GPT-5.5 w/ context** | **0.428** | **0.422** |
 | GPT-5.5 w/o context | 0.433 | 0.427 |
 
-選択した GPT-5.5 構成では、文脈により対応する no-context 対照より final validation log loss が 1.16%、holdout test log loss が 1.15% 低下します。これは方法論ベンチマークであり、本番の与信判断システムではありません。
+文脈により、対応する no-context 対照より final validation log loss が 1.13%、test log loss が 1.23% 低下します。GPT-5.5 は両指標で Random と TPE を上回ります。構成選択に validation と test の両方を使ったため、test 結果は未使用の汎化推定ではなくベンチマーク比較です。これは方法論ベンチマークであり、本番の与信判断システムではありません。
 
 ## 現在の制約
 

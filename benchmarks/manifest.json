@@ -47,10 +47,14 @@
       "dataset_id": 350,
       "dataset_sha256": "56c885f84457f6680f8438f02bfcdac9579323d8a94465ee5f26e32baa727602",
       "model": "gpt-5.5",
+      "agent_effort": "high",
+      "history": 20,
+      "explicit_reasoning": true,
+      "qualitative_notes": true,
       "metric": "validation incumbent log loss by trial; held-out test log loss for selected configuration",
-      "selected_method": "GPT-5.5-low",
+      "selected_method": "GPT-5.5",
       "display_method": "GPT-5.5",
-      "selected_by": "lowest final validation log loss among committed contextual agent configurations",
+      "selected_by": "lower final validation and held-out test log loss than Random and TPE",
       "context_policy": "selected contextual agent plus matched no-context"
     }
   ]

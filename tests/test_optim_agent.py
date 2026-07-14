@@ -244,6 +244,26 @@ def test_rl_control_protocol_is_cpu_only_and_contextual():
     assert rl._incumbent([1.0, 0.0, 2.0]) == [1.0, 1.0, 2.0]
 
 
+def test_rl_control_gif_selects_best_contextual_case():
+    from examples import rl_control as rl
+
+    run, trial, training_seed = rl._best_lunarlander_case()
+    contextual_runs = [rl._load_artifact(rl.MODEL_LABEL, seed) for seed in rl.SEEDS]
+    expected = max(
+        contextual_runs,
+        key=lambda item: item["best_values"]["LunarLander-v3"],
+    )
+    expected_trial = max(
+        range(rl.N_TRIALS),
+        key=expected["values"]["LunarLander-v3"].__getitem__,
+    )
+
+    assert run["method"] == rl.MODEL_LABEL
+    assert run["seed"] == expected["seed"]
+    assert trial == expected_trial
+    assert training_seed == run["seed"] + trial
+
+
 def test_rl_control_artifact_validation_rejects_corruption():
     from examples import rl_control as rl
 
@@ -334,12 +354,14 @@ def test_credit_card_protocol_is_pinned_and_cpu_only():
     assert credit.METHODS == (
         "Random",
         "TPE",
-        "GPT-5.5-low",
-        "GPT-5.5-medium",
-        "GPT-5.5-high",
-        "GPT-5.5-medium-no-context",
+        "GPT-5.5",
+        "GPT-5.5-no-context",
     )
-    assert credit.SELECTED_METHOD == "GPT-5.5-low"
+    assert credit.SELECTED_METHOD == "GPT-5.5"
+    assert credit.AGENT_EFFORT == "high"
+    assert credit.HISTORY == 20
+    assert credit.EXPLICIT_REASONING is True
+    assert credit.QUALITATIVE_NOTES is True
 
 
 def test_credit_default_search_space_removes_all_context_for_control():
@@ -433,18 +455,18 @@ def test_credit_default_split_model_and_method_contract():
     assert model_params["class_weight"] == {0: 1.0, 1: 2.5}
     assert "positive_class_weight" not in model_params
 
-    assert credit._method_spec("GPT-5.5-low") == {
-        "backend": "codex", "model": "gpt-5.5", "effort": "low",
+    assert credit._method_spec("GPT-5.5") == {
+        "backend": "codex", "model": "gpt-5.5", "effort": "high",
         "use_context": True, "n_init": 3,
     }
-    assert credit._method_spec("GPT-5.5-medium-no-context")["use_context"] is False
+    assert credit._method_spec("GPT-5.5-no-context")["use_context"] is False
     assert credit._method_spec("Random")["backend"] is None
     assert credit._method_spec("TPE")["backend"] == "tpe"
     assert "30,000" in credit.TASK_CONTEXT
     assert "log loss" in credit.TASK_CONTEXT
     assert "20-trial" in credit.TASK_CONTEXT
     selected = credit.selected_summary()
-    assert selected["selected_method"] == "GPT-5.5-low"
+    assert selected["selected_method"] == "GPT-5.5"
     assert (
         selected["selected"]["final_validation"]
         < selected["random"]["final_validation"]
@@ -503,21 +525,27 @@ def test_credit_default_evaluation_and_agent_sampler_are_publication_safe(tmp_pa
     assert 0 < metrics["test_log_loss"] < 2
 
     contextual = credit._make_sampler(
-        "GPT-5.5-low", seed=2, timeout=30, agent_cwd=tmp_path,
+        "GPT-5.5", seed=2, timeout=30, agent_cwd=tmp_path,
     )
-    assert contextual.effort == "low"
+    assert contextual.effort == "high"
+    assert contextual.history == 20
+    assert contextual.explicit_reasoning is True
+    assert contextual.qualitative_notes is True
     assert contextual.context == credit.TASK_CONTEXT
     assert contextual.fail_closed is True
     assert contextual.n_init == 3
 
     control = credit._make_sampler(
-        "GPT-5.5-medium-no-context", seed=2, timeout=30, agent_cwd=tmp_path,
+        "GPT-5.5-no-context", seed=2, timeout=30, agent_cwd=tmp_path,
     )
-    assert control.effort == "medium"
+    assert control.effort == "high"
+    assert control.history == 20
+    assert control.explicit_reasoning is True
+    assert control.qualitative_notes is True
     assert control.context is None
     assert control.fail_closed is True
-    assert credit._artifact_path("GPT-5.5-medium-no-context", 4).name == (
-        "credit_default_GPT-5.5-medium-no-context_s4.json"
+    assert credit._artifact_path("GPT-5.5-no-context", 4).name == (
+        "credit_default_GPT-5.5-no-context_s4.json"
     )
 
 
@@ -547,7 +575,7 @@ def test_credit_default_archive_and_artifact_validation_reject_corruption(tmp_pa
         "max_bins": 64,
         "positive_class_weight": 2.5,
     } for _ in range(credit.N_TRIALS)]
-    run = credit._common_metadata("GPT-5.5-low", 0)
+    run = credit._common_metadata("GPT-5.5", 0)
     run.update({
         "sklearn_version": "test-version",
         "values": [0.65 - 0.005 * trial for trial in range(credit.N_TRIALS)],
@@ -559,32 +587,32 @@ def test_credit_default_archive_and_artifact_validation_reject_corruption(tmp_pa
         "default_test_log_loss": 0.67,
         "elapsed_seconds": 10.0,
     })
-    credit._validate_artifact(run, "GPT-5.5-low", 0)
+    credit._validate_artifact(run, "GPT-5.5", 0)
 
     corrupted = copy.deepcopy(run)
     corrupted["dataset_sha256"] = "0" * 64
     with pytest.raises(ValueError, match="credit-default artifact"):
-        credit._validate_artifact(corrupted, "GPT-5.5-low", 0)
+        credit._validate_artifact(corrupted, "GPT-5.5", 0)
 
     corrupted = copy.deepcopy(run)
     corrupted["params"][0]["max_iter"] = 999
     with pytest.raises(ValueError, match="credit-default artifact"):
-        credit._validate_artifact(corrupted, "GPT-5.5-low", 0)
+        credit._validate_artifact(corrupted, "GPT-5.5", 0)
 
     corrupted = copy.deepcopy(run)
     corrupted["values"][0] = float("nan")
     with pytest.raises(ValueError, match="credit-default artifact"):
-        credit._validate_artifact(corrupted, "GPT-5.5-low", 0)
+        credit._validate_artifact(corrupted, "GPT-5.5", 0)
 
     corrupted = copy.deepcopy(run)
     corrupted["best_params"] = {**params[-1], "max_iter": 121}
     with pytest.raises(ValueError, match="credit-default artifact"):
-        credit._validate_artifact(corrupted, "GPT-5.5-low", 0)
+        credit._validate_artifact(corrupted, "GPT-5.5", 0)
 
     corrupted = copy.deepcopy(run)
     corrupted["default_prevalence"] = 0.5
     with pytest.raises(ValueError, match="credit-default artifact"):
-        credit._validate_artifact(corrupted, "GPT-5.5-low", 0)
+        credit._validate_artifact(corrupted, "GPT-5.5", 0)
 
 
 def test_credit_default_random_and_tpe_share_the_recorded_search_space(monkeypatch):
@@ -619,7 +647,7 @@ def test_credit_default_publication_contract_is_complete_in_every_language():
     assert docs.count("credit_card.png") == 1
     assert all(path.read_text().count("credit_card.png") == 1
                for path in translations)
-    assert len(list(assets.glob("credit_default_*_s*.json"))) == 30
+    assert len(list(assets.glob("credit_default_*_s*.json"))) == 20
     suite = next(suite for suite in manifest["suites"]
                  if suite["id"] == "credit-default-benchmark")
     assert suite["result_glob"] == "docs/assets/credit_default_*_s*.json"
@@ -630,12 +658,16 @@ def test_credit_default_publication_contract_is_complete_in_every_language():
     assert suite["context_policy"] == "selected contextual agent plus matched no-context"
     assert suite["selected_method"] == credit.SELECTED_METHOD
     assert suite["display_method"] == "GPT-5.5"
+    assert suite["agent_effort"] == "high"
+    assert suite["history"] == 20
+    assert suite["explicit_reasoning"] is True
+    assert suite["qualitative_notes"] is True
     for text in (readme, docs):
         rendered = " ".join(text.split())
         assert "Default of Credit Card Clients" in rendered
         assert "CC BY 4.0" in rendered
         assert "not a production credit-decision system" in rendered
-        assert "selected benchmark config" in rendered
+        assert "benchmark comparison" in rendered
 
 
 def test_classification_benchmarks_use_one_figure_and_table():

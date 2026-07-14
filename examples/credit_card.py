@@ -56,17 +56,20 @@ N_TRIALS = 20
 N_INIT = 3
 SPLIT_SEED = 20260713
 SEARCH_SPACE_VERSION = "uci-credit-default-hgb-v1"
-PROTOCOL_VERSION = "credit-default-context-effort-v1"
-EFFORTS = ("low", "medium", "high")
-CONTEXT_METHODS = tuple(f"{MODEL_LABEL}-{effort}" for effort in EFFORTS)
-NO_CONTEXT_METHOD = f"{MODEL_LABEL}-medium-no-context"
+PROTOCOL_VERSION = "credit-default-context-v2"
+BASELINE_PROTOCOL_VERSION = "credit-default-context-effort-v1"
+AGENT_EFFORT = "high"
+HISTORY = 20
+EXPLICIT_REASONING = True
+QUALITATIVE_NOTES = True
+NO_CONTEXT_METHOD = f"{MODEL_LABEL}-no-context"
 METHODS = (
     "Random",
     "TPE",
-    *CONTEXT_METHODS,
+    MODEL_LABEL,
     NO_CONTEXT_METHOD,
 )
-SELECTED_METHOD = CONTEXT_METHODS[0]
+SELECTED_METHOD = MODEL_LABEL
 TASK_CONTEXT = (
     "Minimize validation log loss for probability of next-month default on the UCI "
     "Default of Credit Card Clients dataset. It has 30,000 rows, 23 demographic, "
@@ -212,15 +215,12 @@ def _method_spec(method):
             "backend": "tpe", "model": None, "effort": None,
             "use_context": False, "n_init": N_INIT,
         }
-    if method in METHODS:
-        suffix = method.removeprefix("GPT-5.5-")
-        use_context = suffix != "medium-no-context"
-        effort = "medium" if not use_context else suffix
+    if method in (MODEL_LABEL, NO_CONTEXT_METHOD):
         return {
             "backend": BACKEND,
             "model": MODEL,
-            "effort": effort,
-            "use_context": use_context,
+            "effort": AGENT_EFFORT,
+            "use_context": method == MODEL_LABEL,
             "n_init": N_INIT,
         }
     raise ValueError(f"unknown credit-default method: {method}")
@@ -269,7 +269,9 @@ def _evaluate_params(params, split, categorical_features, include_test=False):
     return metrics
 
 
-def _make_sampler(method, seed, timeout, agent_cwd):
+def _make_sampler(method, seed, timeout, agent_cwd, history=HISTORY,
+                  explicit_reasoning=EXPLICIT_REASONING,
+                  qualitative_notes=QUALITATIVE_NOTES):
     spec = _method_spec(method)
     if method == "Random":
         return oa.RandomSampler()
@@ -285,6 +287,9 @@ def _make_sampler(method, seed, timeout, agent_cwd):
         seed=seed,
         agent_cwd=agent_cwd,
         fail_closed=True,
+        history=history,
+        explicit_reasoning=explicit_reasoning,
+        qualitative_notes=qualitative_notes,
     )
 
 
@@ -315,7 +320,9 @@ def _context_policy(method):
     )
 
 
-def _common_metadata(method, seed):
+def _common_metadata(method, seed, history=HISTORY,
+                     explicit_reasoning=EXPLICIT_REASONING,
+                     qualitative_notes=QUALITATIVE_NOTES):
     spec = _method_spec(method)
     try:
         import sklearn
@@ -325,7 +332,10 @@ def _common_metadata(method, seed):
         sklearn_version = sklearn.__version__
     return {
         "schema_version": 1,
-        "protocol": PROTOCOL_VERSION,
+        "protocol": (
+            PROTOCOL_VERSION if spec["backend"] == BACKEND
+            else BASELINE_PROTOCOL_VERSION
+        ),
         "method": method,
         "backend": spec["backend"],
         "model": spec["model"],
@@ -335,6 +345,9 @@ def _common_metadata(method, seed):
         "task_context": TASK_CONTEXT if spec["backend"] == BACKEND and spec["use_context"] else None,
         "agent_failure_policy": "fail_closed" if spec["backend"] == BACKEND else "not applicable",
         "n_init": spec["n_init"],
+        "history": history if spec["backend"] == BACKEND else None,
+        "explicit_reasoning": explicit_reasoning if spec["backend"] == BACKEND else None,
+        "qualitative_notes": qualitative_notes if spec["backend"] == BACKEND else None,
         "seed": seed,
         "trials": N_TRIALS,
         "split_seed": SPLIT_SEED,
@@ -422,7 +435,9 @@ def _validate_artifact(run, method, seed):
     return run
 
 
-def _run_search(method, seed, split, categorical_features, timeout, agent_cwd=None):
+def _run_search(method, seed, split, categorical_features, timeout, agent_cwd=None,
+                history=HISTORY, explicit_reasoning=EXPLICIT_REASONING,
+                qualitative_notes=QUALITATIVE_NOTES):
     spec = _method_spec(method)
 
     def objective(trial):
@@ -445,7 +460,10 @@ def _run_search(method, seed, split, categorical_features, timeout, agent_cwd=No
         )
         return [trial.value for trial in study.trials], [trial.params for trial in study.trials]
 
-    sampler = _make_sampler(method, seed, timeout, agent_cwd)
+    sampler = _make_sampler(
+        method, seed, timeout, agent_cwd, history,
+        explicit_reasoning, qualitative_notes,
+    )
     study = oa.create_study(direction="minimize", sampler=sampler, seed=seed)
     study.optimize(objective, n_trials=N_TRIALS)
     return [trial.value for trial in study.trials], [trial.params for trial in study.trials]
@@ -524,7 +542,9 @@ def _atomic_json(path, payload):
     temporary.replace(path)
 
 
-def run_one(method, seed, timeout, dataset=None):
+def run_one(method, seed, timeout, dataset=None, history=HISTORY,
+            explicit_reasoning=EXPLICIT_REASONING,
+            qualitative_notes=QUALITATIVE_NOTES):
     split, categorical_features, prevalence = dataset or _load_dataset()
     default = _default_reference(split, categorical_features)
     started = time.monotonic()
@@ -541,12 +561,17 @@ def run_one(method, seed, timeout, dataset=None):
             categorical_features,
             timeout,
             agent_cwd=agent_cwd,
+            history=history,
+            explicit_reasoning=explicit_reasoning,
+            qualitative_notes=qualitative_notes,
         )
     best_index = min(range(N_TRIALS), key=values.__getitem__)
     held_out = _evaluate_params(
         params[best_index], split, categorical_features, include_test=True,
     )
-    payload = _common_metadata(method, seed)
+    payload = _common_metadata(
+        method, seed, history, explicit_reasoning, qualitative_notes,
+    )
     payload.update({
         "default_prevalence": prevalence,
         "values": values,
@@ -567,13 +592,18 @@ def run_one(method, seed, timeout, dataset=None):
     )
 
 
-def run_methods(methods, seeds, timeout, workers):
+def run_methods(methods, seeds, timeout, workers, history=HISTORY,
+                explicit_reasoning=EXPLICIT_REASONING,
+                qualitative_notes=QUALITATIVE_NOTES):
     dataset = _load_dataset()
     for method in methods:
         print(f"== {method}: seeds {list(seeds)} ==")
         with ThreadPoolExecutor(max_workers=min(workers, len(seeds))) as pool:
             futures = [
-                pool.submit(run_one, method, seed, timeout, dataset)
+                pool.submit(
+                    run_one, method, seed, timeout, dataset, history,
+                    explicit_reasoning, qualitative_notes,
+                )
                 for seed in seeds
             ]
             for future in futures:
@@ -653,9 +683,7 @@ def plot():
     styles = {
         "Random": dict(color="#7A7A7A", linestyle=(0, (2, 2)), lw=2.5),
         "TPE": dict(color="#111827", linestyle=(0, (6, 2)), lw=2.5),
-        CONTEXT_METHODS[0]: dict(color="#56B4E9", marker="o", lw=1.8),
-        CONTEXT_METHODS[1]: dict(color="#009E73", marker="s", lw=1.8),
-        CONTEXT_METHODS[2]: dict(color="#D55E00", marker="^", lw=1.8),
+        SELECTED_METHOD: dict(color="#D55E00", marker="^", lw=1.8),
         NO_CONTEXT_METHOD: dict(
             color="#CC79A7", marker="D", linestyle=(0, (4, 2)), lw=1.8,
         ),
@@ -698,13 +726,13 @@ def preflight(timeout):
             MODEL,
             prompt,
             timeout,
-            effort="medium",
+            effort=AGENT_EFFORT,
             cwd=agent_cwd,
         )
     data = agent_api.extract_json(reply)
     if not data or data.get("ok") is not True:
         raise RuntimeError(f"preflight failed for {MODEL}: invalid JSON reply")
-    print(f"preflight ok: {MODEL} ({BACKEND}, medium effort)")
+    print(f"preflight ok: {MODEL} ({BACKEND}, {AGENT_EFFORT} effort)")
 
 
 def main():
@@ -716,6 +744,15 @@ def main():
     run_parser.add_argument("--seeds", type=int, nargs="+", default=list(SEEDS))
     run_parser.add_argument("--timeout", type=float, default=600)
     run_parser.add_argument("--workers", type=int, default=5)
+    run_parser.add_argument("--history", type=int, default=HISTORY)
+    run_parser.add_argument(
+        "--explicit-reasoning", action=argparse.BooleanOptionalAction,
+        default=EXPLICIT_REASONING,
+    )
+    run_parser.add_argument(
+        "--qualitative-notes", action=argparse.BooleanOptionalAction,
+        default=QUALITATIVE_NOTES,
+    )
     check = sub.add_parser("preflight")
     check.add_argument("--timeout", type=float, default=120)
     sub.add_parser("selfcheck")
@@ -730,7 +767,10 @@ def main():
             f"test={len(split['x_test'])}, default prevalence={prevalence:.4f}"
         )
     elif args.command == "run":
-        run_methods(args.method, args.seeds, args.timeout, args.workers)
+        run_methods(
+            args.method, args.seeds, args.timeout, args.workers, args.history,
+            args.explicit_reasoning, args.qualitative_notes,
+        )
     elif args.command == "preflight":
         preflight(args.timeout)
     elif args.command == "selfcheck":

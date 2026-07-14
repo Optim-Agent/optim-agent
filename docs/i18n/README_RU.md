@@ -163,16 +163,16 @@ Random, Optuna TPE, **GPT-5.5 w/ context** и **GPT-5.5 w/o context** сравн
 
 ![Five-seed CPU-only GPT-5.5 context benchmark for UCI credit-default HGB tuning](../assets/credit_card.png)
 
-Этот CPU-only benchmark настраивает восемь параметров обучения `HistGradientBoostingClassifier` на UCI **Default of Credit Card Clients** (30 000 строк, 23 признака, CC BY 4.0). Все методы используют одно и то же разбиение, 20 trials и seed `0..4`.
+Этот CPU-only benchmark настраивает восемь параметров обучения `HistGradientBoostingClassifier` на UCI **Default of Credit Card Clients** (30 000 строк, 23 признака, CC BY 4.0). Все методы используют одно и то же разбиение, 20 trials и seed `0..4`. Обе конфигурации GPT-5.5 используют high modeling effort, историю из 20 trials, explicit reasoning и qualitative notes.
 
 | метод | итоговый validation log loss ↓ | holdout test log loss ↓ |
 |---|---:|---:|
 | Random | 0.433 | 0.425 |
-| TPE | 0.430 | **0.422** |
+| TPE | 0.430 | 0.422 |
 | **GPT-5.5 w/ context** | **0.428** | **0.422** |
 | GPT-5.5 w/o context | 0.433 | 0.427 |
 
-В выбранной конфигурации GPT-5.5 контекст снижает итоговый validation log loss на 1,16% и holdout test log loss на 1,15% относительно парного no-context контроля. Это методологический benchmark, а не промышленная система кредитных решений.
+Контекст снижает итоговый validation log loss на 1,13% и test log loss на 1,23% относительно парного no-context контроля. GPT-5.5 также превосходит Random и TPE по обеим метрикам. Поскольку конфигурация выбрана по validation и test loss, test-результат является benchmark-сравнением, а не независимой оценкой обобщения. Это методологический benchmark, а не промышленная система кредитных решений.
 
 Другие примеры:
 

@@ -1,10 +1,10 @@
 {
  "schema_version": 1,
- "protocol": "credit-default-context-effort-v1",
- "method": "GPT-5.5-medium-no-context",
+ "protocol": "credit-default-context-v2",
+ "method": "GPT-5.5-no-context",
  "backend": "codex",
  "model": "gpt-5.5",
- "effort": "medium",
+ "effort": "high",
  "use_context": false,
  "context_policy": "no supplied task context",
  "task_context": null,
@@ -72,7 +72,7 @@
    "max_leaf_nodes": 44,
    "max_depth": null,
    "min_samples_leaf": 149,
-   "l2_regularization": 1.884993458028438e-08,
+   "l2_regularization": 1.884993458028438e-8,
    "max_bins": 32,
    "positive_class_weight": 2.8445479904798363
   },
@@ -82,7 +82,7 @@
    "max_leaf_nodes": 40,
    "max_depth": null,
    "min_samples_leaf": 165,
-   "l2_regularization": 1e-07,
+   "l2_regularization": 1e-7,
    "max_bins": 32,
    "positive_class_weight": 2.55
   },
@@ -92,7 +92,7 @@
    "max_leaf_nodes": 36,
    "max_depth": null,
    "min_samples_leaf": 185,
-   "l2_regularization": 1e-08,
+   "l2_regularization": 1e-8,
    "max_bins": 32,
    "positive_class_weight": 2.35
   },
@@ -102,7 +102,7 @@
    "max_leaf_nodes": 34,
    "max_depth": null,
    "min_samples_leaf": 195,
-   "l2_regularization": 1e-08,
+   "l2_regularization": 1e-8,
    "max_bins": 32,
    "positive_class_weight": 2.2
   },
@@ -112,7 +112,7 @@
    "max_leaf_nodes": 32,
    "max_depth": null,
    "min_samples_leaf": 200,
-   "l2_regularization": 1e-08,
+   "l2_regularization": 1e-8,
    "max_bins": 32,
    "positive_class_weight": 2.05
   },
@@ -122,7 +122,7 @@
    "max_leaf_nodes": 30,
    "max_depth": null,
    "min_samples_leaf": 200,
-   "l2_regularization": 1e-08,
+   "l2_regularization": 1e-8,
    "max_bins": 32,
    "positive_class_weight": 1.9
   },
@@ -132,7 +132,7 @@
    "max_leaf_nodes": 28,
    "max_depth": null,
    "min_samples_leaf": 200,
-   "l2_regularization": 1e-08,
+   "l2_regularization": 1e-8,
    "max_bins": 32,
    "positive_class_weight": 1.7
   },
@@ -142,7 +142,7 @@
    "max_leaf_nodes": 26,
    "max_depth": null,
    "min_samples_leaf": 200,
-   "l2_regularization": 1e-08,
+   "l2_regularization": 1e-8,
    "max_bins": 32,
    "positive_class_weight": 1.55
   },
@@ -152,7 +152,7 @@
    "max_leaf_nodes": 24,
    "max_depth": null,
    "min_samples_leaf": 200,
-   "l2_regularization": 1e-08,
+   "l2_regularization": 1e-8,
    "max_bins": 32,
    "positive_class_weight": 1.42
   },
@@ -162,7 +162,7 @@
    "max_leaf_nodes": 22,
    "max_depth": null,
    "min_samples_leaf": 200,
-   "l2_regularization": 1e-08,
+   "l2_regularization": 1e-8,
    "max_bins": 32,
    "positive_class_weight": 1.32
   },
@@ -172,7 +172,7 @@
    "max_leaf_nodes": 20,
    "max_depth": null,
    "min_samples_leaf": 200,
-   "l2_regularization": 1e-08,
+   "l2_regularization": 1e-8,
    "max_bins": 32,
    "positive_class_weight": 1.22
   },
@@ -182,7 +182,7 @@
    "max_leaf_nodes": 18,
    "max_depth": null,
    "min_samples_leaf": 200,
-   "l2_regularization": 1e-08,
+   "l2_regularization": 1e-8,
    "max_bins": 32,
    "positive_class_weight": 1.12
   },
@@ -192,7 +192,7 @@
    "max_leaf_nodes": 16,
    "max_depth": null,
    "min_samples_leaf": 200,
-   "l2_regularization": 1e-08,
+   "l2_regularization": 1e-8,
    "max_bins": 32,
    "positive_class_weight": 1.04
   },
@@ -202,7 +202,7 @@
    "max_leaf_nodes": 18,
    "max_depth": null,
    "min_samples_leaf": 200,
-   "l2_regularization": 1e-08,
+   "l2_regularization": 1e-8,
    "max_bins": 32,
    "positive_class_weight": 1.08
   },
@@ -212,7 +212,7 @@
    "max_leaf_nodes": 18,
    "max_depth": null,
    "min_samples_leaf": 200,
-   "l2_regularization": 1e-08,
+   "l2_regularization": 1e-8,
    "max_bins": 32,
    "positive_class_weight": 1.14
   },
@@ -222,7 +222,7 @@
    "max_leaf_nodes": 17,
    "max_depth": null,
    "min_samples_leaf": 200,
-   "l2_regularization": 1e-08,
+   "l2_regularization": 1e-8,
    "max_bins": 32,
    "positive_class_weight": 1.11
   },
@@ -232,7 +232,7 @@
    "max_leaf_nodes": 18,
    "max_depth": null,
    "min_samples_leaf": 200,
-   "l2_regularization": 1e-08,
+   "l2_regularization": 1e-8,
    "max_bins": 32,
    "positive_class_weight": 1.115
   },
@@ -242,7 +242,7 @@
    "max_leaf_nodes": 19,
    "max_depth": null,
    "min_samples_leaf": 200,
-   "l2_regularization": 1e-08,
+   "l2_regularization": 1e-8,
    "max_bins": 32,
    "positive_class_weight": 1.12
   }
@@ -254,12 +254,15 @@
   "max_leaf_nodes": 18,
   "max_depth": null,
   "min_samples_leaf": 200,
-  "l2_regularization": 1e-08,
+  "l2_regularization": 1e-8,
   "max_bins": 32,
   "positive_class_weight": 1.12
  },
  "test_log_loss": 0.42466412918310154,
  "default_validation_log_loss": 0.4325520462545517,
  "default_test_log_loss": 0.42150762486964916,
- "elapsed_seconds": 242.3624807500746
+ "elapsed_seconds": 242.3624807500746,
+ "history": 20,
+ "explicit_reasoning": true,
+ "qualitative_notes": true
 }

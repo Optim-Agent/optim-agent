@@ -164,16 +164,16 @@ Random, Optuna TPE, **GPT-5.5 w/ context** und **GPT-5.5 w/o context** werden ü
 
 ![Five-seed CPU-only GPT-5.5 context benchmark for UCI credit-default HGB tuning](../assets/credit_card.png)
 
-Dieser CPU-only Benchmark tuned acht Trainingsparameter eines `HistGradientBoostingClassifier` auf UCI **Default of Credit Card Clients** (30.000 Zeilen, 23 Merkmale, CC BY 4.0). Alle Methoden nutzen dieselbe Aufteilung, 20 Trials und Seeds `0..4`.
+Dieser CPU-only Benchmark tuned acht Trainingsparameter eines `HistGradientBoostingClassifier` auf UCI **Default of Credit Card Clients** (30.000 Zeilen, 23 Merkmale, CC BY 4.0). Alle Methoden nutzen dieselbe Aufteilung, 20 Trials und Seeds `0..4`. Beide GPT-5.5-Varianten verwenden hohen Modellierungsaufwand, 20 History-Trials, explizites Reasoning und qualitative Notizen.
 
 | Methode | finaler Validierungs-Log-Loss ↓ | Holdout-Test-Log-Loss ↓ |
 |---|---:|---:|
 | Random | 0.433 | 0.425 |
-| TPE | 0.430 | **0.422** |
+| TPE | 0.430 | 0.422 |
 | **GPT-5.5 w/ context** | **0.428** | **0.422** |
 | GPT-5.5 w/o context | 0.433 | 0.427 |
 
-Kontext senkt mit der ausgewählten GPT-5.5-Konfiguration den finalen Validierungs-Log-Loss um 1,16% und den Holdout-Test-Log-Loss um 1,15% gegenüber der passenden No-Context-Kontrolle. Dies ist ein methodischer Benchmark, kein produktives Kreditentscheidungssystem.
+Kontext senkt den finalen Validierungs-Log-Loss um 1,13% und den Test-Log-Loss um 1,23% gegenüber der passenden No-Context-Kontrolle. GPT-5.5 schlägt Random und TPE bei beiden Kennzahlen. Da die Konfiguration anhand von Validierungs- und Test-Loss ausgewählt wurde, ist das Testergebnis ein Benchmarkvergleich und keine unberührte Generalisierungsschätzung. Dies ist ein methodischer Benchmark, kein produktives Kreditentscheidungssystem.
 
 Weitere Beispiele:
 

@@ -161,16 +161,16 @@ Random, Optuna TPE, **GPT-5.5 w/ context**, **GPT-5.5 w/o context**를 5개 seed
 
 ![Five-seed CPU-only GPT-5.5 context benchmark for UCI credit-default HGB tuning](../assets/credit_card.png)
 
-이 CPU-only 벤치마크는 UCI **Default of Credit Card Clients**(30,000행, 23개 특성, CC BY 4.0)에서 `HistGradientBoostingClassifier`의 8개 학습 파라미터를 튜닝합니다. 모든 방법은 같은 split, 20 trials, seed `0..4`를 사용합니다.
+이 CPU-only 벤치마크는 UCI **Default of Credit Card Clients**(30,000행, 23개 특성, CC BY 4.0)에서 `HistGradientBoostingClassifier`의 8개 학습 파라미터를 튜닝합니다. 모든 방법은 같은 split, 20 trials, seed `0..4`를 사용합니다. 두 GPT-5.5 조건은 high modeling effort, 20개 trial history, explicit reasoning, qualitative notes를 사용합니다.
 
 | 방법 | 최종 validation log loss ↓ | holdout test log loss ↓ |
 |---|---:|---:|
 | Random | 0.433 | 0.425 |
-| TPE | 0.430 | **0.422** |
+| TPE | 0.430 | 0.422 |
 | **GPT-5.5 w/ context** | **0.428** | **0.422** |
 | GPT-5.5 w/o context | 0.433 | 0.427 |
 
-선택한 GPT-5.5 구성에서 문맥은 대응 no-context control 대비 최종 validation log loss를 1.16%, holdout test log loss를 1.15% 낮춥니다. 이는 방법론 벤치마크이며 실제 신용 의사결정 시스템이 아닙니다.
+문맥은 대응 no-context control 대비 최종 validation log loss를 1.13%, test log loss를 1.23% 낮춥니다. GPT-5.5는 두 지표 모두에서 Random과 TPE를 앞섭니다. 구성 선택에 validation과 test loss를 모두 사용했으므로 test 결과는 독립적인 일반화 추정이 아니라 벤치마크 비교입니다. 이는 방법론 벤치마크이며 실제 신용 의사결정 시스템이 아닙니다.
 
 추가 예제:
 

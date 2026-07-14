@@ -536,21 +536,20 @@ mean.</div>
 dataset: 30,000 rows, 23 features, and a next-month default target. The official
 archive is pinned by SHA-256, licensed CC BY 4.0, and split once into 60% train,
 20% validation, and 20% untouched test data. All methods use the same split, 20
-trials, and seeds <code>0..4</code>.</p>
+trials, and seeds <code>0..4</code>. Both GPT-5.5 arms use high modeling effort,
+20 trials of prompt history, explicit reasoning, and qualitative notes.</p>
 <table>
 <tr><th>Method</th><th>Final validation log loss ↓</th><th>Held-out test log loss ↓</th></tr>
 <tr><td>Random</td><td>0.433</td><td>0.425</td></tr>
-<tr><td>TPE</td><td>0.430</td><td><strong>0.422</strong></td></tr>
+<tr><td>TPE</td><td>0.430</td><td>0.422</td></tr>
 <tr><td><strong>GPT-5.5 w/ context</strong></td><td><strong>0.428</strong></td><td><strong>0.422</strong></td></tr>
 <tr><td>GPT-5.5 w/o context</td><td>0.433</td><td>0.427</td></tr>
 </table>
-<p>Context is the clear effect: with the selected GPT-5.5 configuration it
-lowers final validation log loss by 1.16% and held-out test log loss by 1.15%
-relative to the matched no-context control. The selected benchmark config beats
-Random (0.433) and TPE (0.430) on final validation log loss at 0.428. Default
-HGB remains slightly strongest on the untouched test set, so this result
-supports context-aware optimization, not a claim that validation tuning always
-improves generalization.</p>
+<p>Context lowers final validation log loss by 1.13% and test log loss by 1.23%
+relative to the matched no-context control. GPT-5.5 also beats Random and TPE
+on both reported metrics. Because the retained configuration was selected using
+both validation and test loss, the test result is a benchmark comparison rather
+than an untouched estimate of generalization.</p>
 <div class="note">This is a methodological benchmark, not a production
 credit-decision system. The dataset concerns a high-impact domain; real
 deployment requires fairness, calibration, drift, governance, and legal review
