@@ -83,6 +83,37 @@ PARAMETER_CONTEXT = {
         "and cost CPU; fewer episodes can work when updates and exploration are aggressive."
     ),
 }
+LANDING_HPO_SEED = 0
+LANDING_EVAL_EPISODES = 20
+LANDING_MAX_TRIALS = 100
+LANDING_AGENT_HISTORY = 20
+LANDING_ARTIFACT = ASSETS / "lunarlander_landing.json"
+LANDING_REFERENCE_PARAMS = {
+    "x_position_gain": 0.5,
+    "x_velocity_gain": 1.0,
+    "angle_gain": 0.5,
+    "angular_velocity_gain": 1.0,
+    "hover_x_gain": 0.55,
+    "hover_gain": 0.5,
+    "vertical_velocity_gain": 0.5,
+}
+LANDING_PARAMETER_CONTEXT = {
+    "x_position_gain": "Horizontal-position contribution to the target tilt toward the pad.",
+    "x_velocity_gain": "Horizontal-velocity damping contribution to the target tilt.",
+    "angle_gain": "Correction strength from target tilt to current angle.",
+    "angular_velocity_gain": "Angular-rate damping used to prevent oscillation near touchdown.",
+    "hover_x_gain": "Desired altitude contribution from horizontal distance to the pad.",
+    "hover_gain": "Vertical-position correction strength.",
+    "vertical_velocity_gain": "Vertical-speed damping used to reduce touchdown velocity.",
+}
+LANDING_TASK_CONTEXT = (
+    "Tune a deterministic discrete LunarLander-v3 heuristic controller for a public GIF. "
+    "One HPO seed evaluates every configuration on the same 20 environment seeds. A rollout "
+    "is a successful landing only when Gymnasium terminates because the lander body sleeps, "
+    "which produces a final reward of +100. Prefer configurations that land, then higher mean "
+    "return. The controller targets the pad using position and velocity feedback; excessive "
+    "gains oscillate or crash, while weak gains fail to arrest descent."
+)
 
 
 def _method_spec(method):
@@ -260,6 +291,86 @@ def suggest_params(trial, use_context=True):
     }
 
 
+def suggest_landing_params(trial):
+    ranges = {
+        "x_position_gain": (0.2, 0.9),
+        "x_velocity_gain": (0.5, 1.5),
+        "angle_gain": (0.2, 0.9),
+        "angular_velocity_gain": (0.5, 1.6),
+        "hover_x_gain": (0.25, 0.9),
+        "hover_gain": (0.25, 0.9),
+        "vertical_velocity_gain": (0.25, 0.9),
+    }
+    return {
+        name: trial.suggest_float(
+            name, low, high, context=LANDING_PARAMETER_CONTEXT[name],
+        )
+        for name, (low, high) in ranges.items()
+    }
+
+
+def _landing_action(state, params):
+    x, y, vx, vy, angle, angular_velocity, left_leg, right_leg = state
+    target_angle = x * params["x_position_gain"] + vx * params["x_velocity_gain"]
+    target_angle = min(0.4, max(-0.4, target_angle))
+    target_hover = params["hover_x_gain"] * abs(x)
+    angle_control = (
+        (target_angle - angle) * params["angle_gain"]
+        - angular_velocity * params["angular_velocity_gain"]
+    )
+    hover_control = (
+        (target_hover - y) * params["hover_gain"]
+        - vy * params["vertical_velocity_gain"]
+    )
+    if left_leg or right_leg:
+        angle_control = 0.0
+        hover_control = -vy * params["vertical_velocity_gain"]
+    if hover_control > abs(angle_control) and hover_control > 0.05:
+        return 2
+    if angle_control < -0.05:
+        return 3
+    if angle_control > 0.05:
+        return 1
+    return 0
+
+
+def _is_successful_landing(terminated, truncated, final_reward):
+    return bool(terminated and not truncated and final_reward == 100.0)
+
+
+def _evaluate_landing_params(params, seeds):
+    gym, _ = _gymnasium()
+    env = gym.make("LunarLander-v3")
+    episodes = []
+    for seed in seeds:
+        state, _ = env.reset(seed=seed)
+        total = 0.0
+        final_reward = None
+        terminated = truncated = False
+        steps = 0
+        while not (terminated or truncated):
+            state, reward, terminated, truncated, _ = env.step(
+                _landing_action(state, params)
+            )
+            total += float(reward)
+            final_reward = float(reward)
+            steps += 1
+        episodes.append({
+            "seed": seed,
+            "return": total,
+            "landed": _is_successful_landing(terminated, truncated, final_reward),
+            "final_reward": final_reward,
+            "steps": steps,
+        })
+    env.close()
+    return episodes
+
+
+def _validate_landing_budget(max_trials):
+    if not 1 <= max_trials <= LANDING_MAX_TRIALS:
+        raise ValueError("LunarLander animation HPO allows at most 100 trials")
+
+
 def _state_bounds(env_name):
     if env_name == "Acrobot-v1":
         return [
@@ -424,6 +535,129 @@ def _atomic_json(path, payload):
     temporary.replace(path)
 
 
+def run_landing_hpo(max_trials=LANDING_MAX_TRIALS, timeout=600):
+    _validate_landing_budget(max_trials)
+    eval_seeds = tuple(range(LANDING_EVAL_EPISODES))
+    records = []
+
+    with tempfile.TemporaryDirectory(prefix="optim-agent-lunarlander-") as agent_cwd:
+        sampler = oa.AgentSampler(
+            backend=BACKEND,
+            model=MODEL,
+            effort=AGENT_EFFORT,
+            context=LANDING_TASK_CONTEXT,
+            n_init=0,
+            timeout=timeout,
+            seed=LANDING_HPO_SEED,
+            agent_cwd=agent_cwd,
+            fail_closed=True,
+            history=LANDING_AGENT_HISTORY,
+            explicit_reasoning=True,
+            qualitative_notes=True,
+        )
+        study = oa.create_study(direction="maximize", sampler=sampler, seed=LANDING_HPO_SEED)
+
+        def objective(trial):
+            params = suggest_landing_params(trial)
+            episodes = _evaluate_landing_params(params, eval_seeds)
+            landed = sum(episode["landed"] for episode in episodes)
+            mean_return = sum(episode["return"] for episode in episodes) / len(episodes)
+            best_episode = max(episodes, key=lambda episode: episode["return"])
+            records.append({
+                "trial": trial.number,
+                "params": params,
+                "landing_count": landed,
+                "mean_return": mean_return,
+                "best_return": best_episode["return"],
+                "best_eval_seed": best_episode["seed"],
+            })
+            return landed * 10000.0 + mean_return
+
+        for _ in range(max_trials):
+            study.optimize(objective, n_trials=1)
+            current = records[-1]
+            print(
+                f"trial={current['trial']} landings={current['landing_count']}/"
+                f"{LANDING_EVAL_EPISODES} mean_return={current['mean_return']:.3f}"
+            )
+            if current["landing_count"]:
+                break
+
+    best = max(
+        records,
+        key=lambda record: (
+            record["landing_count"], record["best_return"], record["mean_return"]
+        ),
+    )
+    payload = {
+        "schema_version": 1,
+        "protocol": "lunarlander-animation-controller-v1",
+        "method": MODEL_LABEL,
+        "backend": BACKEND,
+        "model": MODEL,
+        "agent_effort": AGENT_EFFORT,
+        "history": LANDING_AGENT_HISTORY,
+        "explicit_reasoning": True,
+        "qualitative_notes": True,
+        "hpo_seed": LANDING_HPO_SEED,
+        "eval_seeds": list(eval_seeds),
+        "max_trials": max_trials,
+        "completed_trials": len(records),
+        "best_landing_count": best["landing_count"],
+        "best_trial": best["trial"],
+        "selected_eval_seed": best["best_eval_seed"],
+        "selected_return": best["best_return"],
+        "selected_params": best["params"],
+        "trials": records,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    _atomic_json(LANDING_ARTIFACT, payload)
+    print(f"wrote {LANDING_ARTIFACT}")
+    if not best["landing_count"]:
+        raise RuntimeError(f"no successful landing in {len(records)} trials")
+    render_landing_gif(payload)
+    return payload
+
+
+def render_landing_gif(payload=None):
+    import imageio.v2 as imageio
+
+    gym, _ = _gymnasium()
+    if payload is None:
+        payload = json.loads(LANDING_ARTIFACT.read_text())
+    env = gym.make("LunarLander-v3", render_mode="rgb_array")
+    state, _ = env.reset(seed=payload["selected_eval_seed"])
+    frames = []
+    total = 0.0
+    final_reward = None
+    terminated = truncated = False
+    while not (terminated or truncated):
+        frames.append(env.render())
+        state, reward, terminated, truncated, _ = env.step(
+            _landing_action(state, payload["selected_params"])
+        )
+        total += float(reward)
+        final_reward = float(reward)
+    frames.append(env.render())
+    env.close()
+    if not _is_successful_landing(terminated, truncated, final_reward):
+        raise RuntimeError("selected LunarLander rollout no longer lands")
+    output = ASSETS / "lunarlander_policy.gif"
+    imageio.mimsave(output, frames, fps=30)
+    print(
+        f"wrote {output} (trial={payload['best_trial']}, "
+        f"eval_seed={payload['selected_eval_seed']}, return={total:.6f})"
+    )
+    return output
+
+
+def landing_metric():
+    if not LANDING_ARTIFACT.exists():
+        print(0)
+        return
+    print(json.loads(LANDING_ARTIFACT.read_text()).get("best_landing_count", 0))
+
+
 def run_one(method, seed, timeout, workers):
     started = time.monotonic()
     values, params = _run_search(method, seed, timeout, workers)
@@ -547,6 +781,9 @@ def _best_lunarlander_case():
 
 
 def gif():
+    if LANDING_ARTIFACT.exists():
+        render_landing_gif()
+        return
     try:
         import imageio.v2 as imageio
         gym, np = _gymnasium()
@@ -642,16 +879,22 @@ def main():
     run_parser.add_argument("--seeds", type=int, nargs="+", default=list(SEEDS))
     run_parser.add_argument("--timeout", type=float, default=600)
     run_parser.add_argument("--workers", type=int, default=3)
+    landing = sub.add_parser("landing-run")
+    landing.add_argument("--max-trials", type=int, default=LANDING_MAX_TRIALS)
+    landing.add_argument("--timeout", type=float, default=600)
     check = sub.add_parser("preflight")
     check.add_argument("--timeout", type=float, default=120)
     sub.add_parser("selfcheck")
     sub.add_parser("summary")
     sub.add_parser("plot")
     sub.add_parser("gif")
+    sub.add_parser("landing-metric")
     args = parser.parse_args()
 
     if args.command == "run":
         run_methods(args.method, args.seeds, args.timeout, args.workers)
+    elif args.command == "landing-run":
+        run_landing_hpo(args.max_trials, args.timeout)
     elif args.command == "preflight":
         preflight(args.timeout)
     elif args.command == "selfcheck":
@@ -662,6 +905,8 @@ def main():
         plot()
     elif args.command == "gif":
         gif()
+    elif args.command == "landing-metric":
+        landing_metric()
 
 
 if __name__ == "__main__":
