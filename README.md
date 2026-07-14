@@ -16,7 +16,9 @@
   <a href="https://pypi.org/project/optim-agent/"><img alt="PyPI" src="https://img.shields.io/pypi/v/optim-agent"></a>
   <a href="https://pypi.org/project/optim-agent/"><img alt="Python versions" src="https://img.shields.io/pypi/pyversions/optim-agent"></a>
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/pypi/l/optim-agent"></a>
-  <img alt="Zero runtime deps" src="https://img.shields.io/badge/runtime%20deps-0-brightgreen">
+  <a href="https://optim-agent.github.io/optim-agent/"><img alt="Docs" src="https://img.shields.io/badge/docs-online-blue"></a>
+  <a href="https://code.claude.com/docs/en/skills"><img alt="Claude Skill" src="https://img.shields.io/badge/Claude-Skill-D97757?logo=claude&logoColor=white"></a>
+  <a href="https://developers.openai.com/codex/skills"><img alt="Codex Skill" src="https://img.shields.io/badge/Codex-Skill-blue?logo=openai&logoColor=white"></a>
 </p>
 
 <p align="center">
@@ -29,10 +31,6 @@
   <a href="docs/i18n/README_ES.md">Español</a> |
   <a href="docs/i18n/README_PT.md">Português</a> |
   <a href="docs/i18n/README_RU.md">Русский</a>
-</p>
-
-<p align="center">
-  <a href="https://optim-agent.github.io/optim-agent/">Documentation</a>
 </p>
 
 optim-agent lets Claude Code / Codex / OpenCode tune real system parameters by
