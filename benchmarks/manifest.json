@@ -54,7 +54,7 @@
       "metric": "validation incumbent log loss by trial; held-out test log loss for selected configuration",
       "selected_method": "GPT-5.5",
       "display_method": "GPT-5.5",
-      "selected_by": "lower final validation and held-out test log loss than Random and TPE",
+      "selected_by": "lower final validation and held-out test log loss than Random, TPE, and GP-BO",
       "context_policy": "selected contextual agent plus matched no-context"
     }
   ]

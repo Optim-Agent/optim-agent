@@ -271,14 +271,15 @@ of prompt history, explicit reasoning, and qualitative notes.
 | ---------------------- | --------------------------: | -----------------------: |
 | Random                 |                       0.433 |                    0.425 |
 | TPE                    |                       0.430 |                    0.422 |
+| GP-BO                  |                       0.430 |                    0.423 |
 | **GPT-5.5 w/ context** |                   **0.428** |                **0.422** |
 | GPT-5.5 w/o context    |                       0.433 |                    0.427 |
 
 Context lowers final validation log loss by 1.13% and test log loss by 1.23%
-relative to the matched no-context control. GPT-5.5 also beats Random and TPE
-on both reported metrics. Because the retained configuration was selected using
-both validation and test loss, the test result is a benchmark comparison rather
-than an untouched estimate of generalization.
+relative to the matched no-context control. GPT-5.5 also has lower mean
+validation and test loss than Random, TPE, and GP-BO. Because the retained
+configuration was selected using both validation and test loss, the test result
+is a benchmark comparison rather than an untouched estimate of generalization.
 
 This is a methodological benchmark, not a production credit-decision system.
 Deployment would require fairness, calibration, drift, governance, and legal

@@ -29,7 +29,7 @@ and 20-trial budget are pinned. All five optimizer seeds see the same train and
 validation data; the held-out test split is evaluated only for each run's
 validation-selected configuration.
 
-Random, TPE, selected contextual GPT-5.5, and matched GPT-5.5/no-context
+Random, TPE, GP-BO, selected contextual GPT-5.5, and matched GPT-5.5/no-context
 artifacts must all be present. Agent runs are fail-closed. The primary
 trajectory metric is validation incumbent log loss; held-out test log loss is a
 secondary generalization check. This is not a production credit-decision system

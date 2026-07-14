@@ -66,6 +66,7 @@ NO_CONTEXT_METHOD = f"{MODEL_LABEL}-no-context"
 METHODS = (
     "Random",
     "TPE",
+    "GP-BO",
     MODEL_LABEL,
     NO_CONTEXT_METHOD,
 )
@@ -215,6 +216,11 @@ def _method_spec(method):
             "backend": "tpe", "model": None, "effort": None,
             "use_context": False, "n_init": N_INIT,
         }
+    if method == "GP-BO":
+        return {
+            "backend": None, "model": None, "effort": None,
+            "use_context": False, "n_init": N_INIT,
+        }
     if method in (MODEL_LABEL, NO_CONTEXT_METHOD):
         return {
             "backend": BACKEND,
@@ -238,6 +244,20 @@ class OptunaTrialAdapter:
 
     def suggest_categorical(self, name, choices, *, context=None):
         return self.trial.suggest_categorical(name, choices)
+
+
+class StaticTrialAdapter:
+    def __init__(self, params):
+        self.params = params
+
+    def suggest_float(self, name, low, high, *, log=False, context=None):
+        return self.params[name]
+
+    def suggest_int(self, name, low, high, *, log=False, context=None):
+        return self.params[name]
+
+    def suggest_categorical(self, name, choices, *, context=None):
+        return self.params[name]
 
 
 def _evaluate_params(params, split, categorical_features, include_test=False):
@@ -275,8 +295,8 @@ def _make_sampler(method, seed, timeout, agent_cwd, history=HISTORY,
     spec = _method_spec(method)
     if method == "Random":
         return oa.RandomSampler()
-    if method == "TPE":
-        raise ValueError("TPE uses Optuna directly")
+    if method in ("TPE", "GP-BO"):
+        raise ValueError(f"{method} uses its external sampler directly")
     return oa.AgentSampler(
         backend=spec["backend"],
         model=spec["model"],
@@ -313,6 +333,8 @@ def _validate_archive(path, expected_hash=DATA_SHA256, member=ARCHIVE_MEMBER):
 
 def _context_policy(method):
     spec = _method_spec(method)
+    if method == "GP-BO":
+        return "no context (numerical GP-BO baseline)"
     if spec["backend"] in (None, "tpe"):
         return "not applicable"
     return "supplied task and parameter context" if spec["use_context"] else (
@@ -340,10 +362,16 @@ def _common_metadata(method, seed, history=HISTORY,
         "backend": spec["backend"],
         "model": spec["model"],
         "effort": spec["effort"],
-        "use_context": spec["use_context"] if spec["backend"] == BACKEND else None,
+        "use_context": (
+            spec["use_context"] if spec["backend"] == BACKEND or method == "GP-BO" else None
+        ),
         "context_policy": _context_policy(method),
         "task_context": TASK_CONTEXT if spec["backend"] == BACKEND and spec["use_context"] else None,
-        "agent_failure_policy": "fail_closed" if spec["backend"] == BACKEND else "not applicable",
+        "agent_failure_policy": (
+            "fail_closed" if spec["backend"] == BACKEND
+            else None if method == "GP-BO"
+            else "not applicable"
+        ),
         "n_init": spec["n_init"],
         "history": history if spec["backend"] == BACKEND else None,
         "explicit_reasoning": explicit_reasoning if spec["backend"] == BACKEND else None,
@@ -459,6 +487,43 @@ def _run_search(method, seed, split, categorical_features, timeout, agent_cwd=No
             n_trials=N_TRIALS,
         )
         return [trial.value for trial in study.trials], [trial.params for trial in study.trials]
+
+    if method == "GP-BO":
+        try:
+            import skopt
+            from skopt.space import Categorical, Integer, Real
+        except ImportError as error:
+            raise SystemExit('Install examples: pip install -e ".[examples]"') from error
+        dimensions = [
+            Real(0.01, 0.3, prior="log-uniform", name="learning_rate"),
+            Integer(50, 400, name="max_iter"),
+            Integer(7, 63, name="max_leaf_nodes"),
+            Categorical([None, 3, 5, 8], name="max_depth"),
+            Integer(10, 200, prior="log-uniform", name="min_samples_leaf"),
+            Real(1e-8, 10.0, prior="log-uniform", name="l2_regularization"),
+            Categorical([32, 64, 128, 255], name="max_bins"),
+            Real(1.0, 5.0, prior="log-uniform", name="positive_class_weight"),
+        ]
+        optimizer = skopt.Optimizer(
+            dimensions,
+            base_estimator="GP",
+            acq_func="EI",
+            n_initial_points=N_INIT,
+            random_state=seed,
+        )
+        values, params = [], []
+        names = [dimension.name for dimension in dimensions]
+        for _ in range(N_TRIALS):
+            point = optimizer.ask()
+            candidate = dict(zip(names, point))
+            candidate["max_iter"] = int(candidate["max_iter"])
+            candidate["max_leaf_nodes"] = int(candidate["max_leaf_nodes"])
+            candidate["min_samples_leaf"] = int(candidate["min_samples_leaf"])
+            value = objective(StaticTrialAdapter(candidate))
+            optimizer.tell(point, value)
+            values.append(value)
+            params.append(candidate)
+        return values, params
 
     sampler = _make_sampler(
         method, seed, timeout, agent_cwd, history,
@@ -649,6 +714,7 @@ def selected_summary():
         "selected": _method_summary(SELECTED_METHOD),
         "random": _method_summary("Random"),
         "tpe": _method_summary("TPE"),
+        "gp_bo": _method_summary("GP-BO"),
     }
 
 
@@ -683,6 +749,7 @@ def plot():
     styles = {
         "Random": dict(color="#7A7A7A", linestyle=(0, (2, 2)), lw=2.5),
         "TPE": dict(color="#111827", linestyle=(0, (6, 2)), lw=2.5),
+        "GP-BO": dict(color="#0072B2", linestyle=(0, (1, 1)), lw=2.2),
         SELECTED_METHOD: dict(color="#D55E00", marker="^", lw=1.8),
         NO_CONTEXT_METHOD: dict(
             color="#CC79A7", marker="D", linestyle=(0, (4, 2)), lw=1.8,
@@ -691,13 +758,14 @@ def plot():
     labels = {
         "Random": "Random",
         "TPE": "TPE",
+        "GP-BO": "GP-BO",
         SELECTED_METHOD: MODEL_LABEL,
         NO_CONTEXT_METHOD: f"{MODEL_LABEL} w/o context",
     }
 
     fig, ax = plt.subplots(figsize=(9.2, 5.2))
     trials = range(1, N_TRIALS + 1)
-    for method in ("Random", "TPE", SELECTED_METHOD, NO_CONTEXT_METHOD):
+    for method in ("Random", "TPE", "GP-BO", SELECTED_METHOD, NO_CONTEXT_METHOD):
         ax.plot(
             trials,
             _method_summary(method)["curve"],

@@ -354,6 +354,7 @@ def test_credit_card_protocol_is_pinned_and_cpu_only():
     assert credit.METHODS == (
         "Random",
         "TPE",
+        "GP-BO",
         "GPT-5.5",
         "GPT-5.5-no-context",
     )
@@ -462,6 +463,7 @@ def test_credit_default_split_model_and_method_contract():
     assert credit._method_spec("GPT-5.5-no-context")["use_context"] is False
     assert credit._method_spec("Random")["backend"] is None
     assert credit._method_spec("TPE")["backend"] == "tpe"
+    assert credit._method_spec("GP-BO")["n_init"] == credit.N_INIT
     assert "30,000" in credit.TASK_CONTEXT
     assert "log loss" in credit.TASK_CONTEXT
     assert "20-trial" in credit.TASK_CONTEXT
@@ -473,6 +475,7 @@ def test_credit_default_split_model_and_method_contract():
         < 1
     )
     assert selected["selected"]["final_validation"] < selected["tpe"]["final_validation"]
+    assert selected["selected"]["final_validation"] < selected["gp_bo"]["final_validation"]
 
 
 def test_credit_default_optuna_adapter_ignores_parameter_context():
@@ -647,7 +650,7 @@ def test_credit_default_publication_contract_is_complete_in_every_language():
     assert docs.count("credit_card.png") == 1
     assert all(path.read_text().count("credit_card.png") == 1
                for path in translations)
-    assert len(list(assets.glob("credit_default_*_s*.json"))) == 20
+    assert len(list(assets.glob("credit_default_*_s*.json"))) == 25
     suite = next(suite for suite in manifest["suites"]
                  if suite["id"] == "credit-default-benchmark")
     assert suite["result_glob"] == "docs/assets/credit_default_*_s*.json"

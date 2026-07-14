@@ -34,7 +34,7 @@ Issues = "https://github.com/Optim-Agent/optim-agent/issues"
 Changelog = "https://github.com/Optim-Agent/optim-agent/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
-examples = ["numpy", "matplotlib", "optuna"]  # optuna only for the TPE benchmark baseline
+examples = ["numpy", "matplotlib", "optuna", "scikit-optimize"]
 rl = ["gymnasium[box2d]>=1.0", "imageio>=2.31"]
 dev = [
     "build>=1.2",

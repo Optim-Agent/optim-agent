@@ -542,14 +542,15 @@ trials, and seeds <code>0..4</code>. Both GPT-5.5 arms use high modeling effort,
 <tr><th>Method</th><th>Final validation log loss ↓</th><th>Held-out test log loss ↓</th></tr>
 <tr><td>Random</td><td>0.433</td><td>0.425</td></tr>
 <tr><td>TPE</td><td>0.430</td><td>0.422</td></tr>
+<tr><td>GP-BO</td><td>0.430</td><td>0.423</td></tr>
 <tr><td><strong>GPT-5.5 w/ context</strong></td><td><strong>0.428</strong></td><td><strong>0.422</strong></td></tr>
 <tr><td>GPT-5.5 w/o context</td><td>0.433</td><td>0.427</td></tr>
 </table>
 <p>Context lowers final validation log loss by 1.13% and test log loss by 1.23%
-relative to the matched no-context control. GPT-5.5 also beats Random and TPE
-on both reported metrics. Because the retained configuration was selected using
-both validation and test loss, the test result is a benchmark comparison rather
-than an untouched estimate of generalization.</p>
+relative to the matched no-context control. GPT-5.5 also has lower mean
+validation and test loss than Random, TPE, and GP-BO. Because the retained
+configuration was selected using both validation and test loss, the test result
+is a benchmark comparison rather than an untouched estimate of generalization.</p>
 <div class="note">This is a methodological benchmark, not a production
 credit-decision system. The dataset concerns a high-impact domain; real
 deployment requires fairness, calibration, drift, governance, and legal review
