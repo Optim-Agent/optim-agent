@@ -1,0 +1,15 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "optim-agent",
+  "owner": {
+    "name": "Optim-Agent"
+  },
+  "plugins": [
+    {
+      "name": "optim-agent",
+      "source": "./plugins/optim-agent",
+      "description": "Optimize configurable systems against measurable objectives.",
+      "version": "0.1.1"
+    }
+  ]
+}

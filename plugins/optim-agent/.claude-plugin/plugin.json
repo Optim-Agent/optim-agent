@@ -1,0 +1,17 @@
+{
+  "name": "optim-agent",
+  "description": "Optimize configurable systems against measurable objectives.",
+  "version": "0.1.1",
+  "author": {
+    "name": "Optim-Agent",
+    "url": "https://github.com/Optim-Agent"
+  },
+  "homepage": "https://optim-agent.github.io/optim-agent/",
+  "repository": "https://github.com/Optim-Agent/optim-agent",
+  "license": "MIT",
+  "keywords": [
+    "optimization",
+    "hpo",
+    "agent-skills"
+  ]
+}
