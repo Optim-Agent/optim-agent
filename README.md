@@ -238,6 +238,8 @@ strongest mean return on both environments: 0.2 above TPE on Acrobot-v1 and
 11.3 above Random on LunarLander-v3. Treat this as a CPU HPO stress test rather
 than a universal ranking.
 
+![LunarLander rollout from a committed GPT-5.5 policy](docs/assets/lunarlander_policy.gif)
+
 ### Tuning Gradient Boosting Classifier: Credit-default Probabilities
 
 ![Five-seed CPU-only GPT-5.5 context benchmark for UCI credit-default HGB tuning](docs/assets/credit_card.png)
