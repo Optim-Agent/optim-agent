@@ -54,3 +54,16 @@ def test_plugin_skills_forward_to_the_canonical_workflow():
         assert "## Workflow" not in forwarder
         assert "## Recovery" not in forwarder
         assert forwarder != canonical
+
+
+def test_readme_documents_claude_and_codex_plugin_installs():
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+
+    commands = (
+        "claude plugin marketplace add Optim-Agent/optim-agent",
+        "claude plugin install optim-agent@optim-agent",
+        "codex plugin marketplace add Optim-Agent/optim-agent",
+        "codex plugin add optim-agent@optim-agent",
+    )
+    for command in commands:
+        assert command in readme

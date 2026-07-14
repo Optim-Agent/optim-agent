@@ -391,6 +391,20 @@ history across sessions.
 $skill-installer install https://github.com/Optim-Agent/optim-agent
 ```
 
+Claude Code plugin:
+
+```bash
+claude plugin marketplace add Optim-Agent/optim-agent
+claude plugin install optim-agent@optim-agent
+```
+
+Codex plugin:
+
+```bash
+codex plugin marketplace add Optim-Agent/optim-agent
+codex plugin add optim-agent@optim-agent
+```
+
 ```python
 trial = study.ask({"threshold": 0.72, "budget": 80})
 study.tell(trial, evaluate_system(**trial.params))
