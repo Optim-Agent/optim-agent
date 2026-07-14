@@ -35,12 +35,14 @@
   <a href="https://optim-agent.github.io/optim-agent/">Documentation</a>
 </p>
 
-optim-agent uses Claude Code, Codex, or OpenCode to optimize any system that
-exposes **configurable parameters** and a **measurable objective**. It combines
-what each parameter *means* with what the trial history *shows*, then proposes
-the next configuration to evaluate. Objective evaluations remain authoritative:
-optim-agent proposes values, validates them against the declared space, records
-outcomes, and falls back to safe sampling when an agent reply is invalid.
+optim-agent lets Claude Code / Codex / OpenCode tune real system parameters by
+reading your code, proposing trials, and recording measured objective results.
+Use it when your system exposes configurable parameters and a measurable objective.
+It combines what each parameter *means* with what the trial history *shows*,
+then proposes the next configuration to evaluate. Objective evaluations remain
+authoritative: optim-agent proposes values, validates them against the declared
+space, records outcomes, and falls back to safe sampling when an agent reply is
+invalid.
 
 <p align="center">
   <img alt="optim-agent tuning loop" src="docs/assets/optim-agent-overview.png" width="900">
@@ -50,7 +52,8 @@ outcomes, and falls back to safe sampling when an agent reply is invalid.
 |---|---|---|
 | Training, architecture, and RL experiments | Inference, latency, cost, control, and decision rules | Quant signals, simulations, and scientific workflows |
 
-<p align="center"><a href="#install"><code>pip install optim-agent</code></a></p>
+<p align="center"><a href="#install"><code>$skill-installer install https://github.com/Optim-Agent/optim-agent</code></a></p>
+<p align="center"><a href="#install"><code>python -m pip install optim-agent</code></a></p>
 
 ## Why optim-agent
 
@@ -70,14 +73,16 @@ outcomes, and falls back to safe sampling when an agent reply is invalid.
 
 ## Install
 
-Install from PyPI or GitHub:
+Install the Codex skill:
+
+```text
+$skill-installer install https://github.com/Optim-Agent/optim-agent
+```
+
+Install the Python package:
 
 ```bash
-# Stable release from PyPI
 python -m pip install optim-agent
-
-# Latest source from GitHub
-python -m pip install "optim-agent @ git+https://github.com/Optim-Agent/optim-agent.git"
 ```
 
 Requires one authenticated agent CLI on `PATH`:
