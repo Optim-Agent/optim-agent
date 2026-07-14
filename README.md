@@ -83,6 +83,7 @@ Install the Python package:
 
 ```bash
 python -m pip install optim-agent
+python -m pip install "optim-agent @ git+https://github.com/Optim-Agent/optim-agent.git"
 ```
 
 Requires one authenticated agent CLI on `PATH`:
