@@ -42,6 +42,10 @@ the next configuration to evaluate. Objective evaluations remain authoritative:
 optim-agent proposes values, validates them against the declared space, records
 outcomes, and falls back to safe sampling when an agent reply is invalid.
 
+<p align="center">
+  <img alt="optim-agent tuning loop" src="docs/assets/optim-agent-overview.png" width="900">
+</p>
+
 | Models | Systems | Research |
 |---|---|---|
 | Training, architecture, and RL experiments | Inference, latency, cost, control, and decision rules | Quant signals, simulations, and scientific workflows |
