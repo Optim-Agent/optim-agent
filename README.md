@@ -238,6 +238,13 @@ strongest mean return on both environments: 0.2 above TPE on Acrobot-v1 and
 11.3 above Random on LunarLander-v3. Treat this as a CPU HPO stress test rather
 than a universal ranking.
 
+For the animation, optim-agent tunes seven gains of a deterministic
+LunarLander controller using one HPO seed. Each trial runs on the same 20
+rollout seeds, prioritizing the number of successful landings and then mean
+return. A landing succeeds when Gymnasium terminates with the lander at rest
+and a final signal of +100. The selected trial landed in all 20 rollouts; the
+GIF shows its highest-return rollout.
+
 ![LunarLander rollout from a committed GPT-5.5 policy](docs/assets/lunarlander_policy.gif)
 
 ### Tuning Gradient Boosting Classifier: Credit-default Probabilities
