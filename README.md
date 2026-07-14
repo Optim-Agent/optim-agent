@@ -52,6 +52,7 @@ invalid.
 |---|---|---|
 | Training, architecture, and RL experiments | Inference, latency, cost, control, and decision rules | Quant signals, simulations, and scientific workflows |
 
+<p align="center"><a href="#install"><code>claude plugin marketplace add Optim-Agent/optim-agent && claude plugin install optim-agent@optim-agent</code></a></p>
 <p align="center"><a href="#install"><code>$skill-installer install https://github.com/Optim-Agent/optim-agent</code></a></p>
 <p align="center"><a href="#install"><code>python -m pip install optim-agent</code></a></p>
 
