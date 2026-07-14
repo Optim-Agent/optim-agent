@@ -535,6 +535,17 @@ def plot():
     print(f"wrote {output}")
 
 
+def _best_lunarlander_case():
+    runs = [_load_artifact(MODEL_LABEL, seed) for seed in SEEDS]
+    run = max(
+        runs,
+        key=lambda item: item["best_values"]["LunarLander-v3"],
+    )
+    values = run["values"]["LunarLander-v3"]
+    trial = max(range(N_TRIALS), key=values.__getitem__)
+    return run, trial, run["seed"] + trial
+
+
 def gif():
     try:
         import imageio.v2 as imageio
@@ -543,28 +554,48 @@ def gif():
         print(f"skipping LunarLander GIF: {error}")
         return
     try:
-        agent_methods = (MODEL_LABEL, f"{MODEL_LABEL}-no-context")
-        best_run = max(
-            (_load_artifact(method, seed) for method in agent_methods for seed in SEEDS),
-            key=lambda run: run["best_values"]["LunarLander-v3"],
-        )
-        best = best_run["best_params"]["LunarLander-v3"]
-        _, q = _evaluate_env("LunarLander-v3", best, 999)
+        run, trial, training_seed = _best_lunarlander_case()
+        params = run["params"][trial]
+        replayed_mean, q = _evaluate_env("LunarLander-v3", params, training_seed)
+        expected_mean = run["values"]["LunarLander-v3"][trial]
+        if not math.isclose(replayed_mean, expected_mean, rel_tol=0.0, abs_tol=1e-9):
+            raise ValueError(
+                f"LunarLander replay drift: expected {expected_mean}, "
+                f"got {replayed_mean}"
+            )
+
         env = gym.make("LunarLander-v3", render_mode="rgb_array")
         bounds = _state_bounds("LunarLander-v3")
-        state, _ = env.reset(seed=999)
-        frames = []
-        done = False
-        while not done and len(frames) < 600:
+        best_return = -math.inf
+        best_frames = None
+        best_eval_seed = None
+        for episode in range(EVAL_EPISODES):
+            eval_seed = training_seed * 2000 + episode
+            state, _ = env.reset(seed=eval_seed)
+            frames = []
+            total = 0.0
+            done = False
+            while not done and len(frames) < MAX_STEPS:
+                frames.append(env.render())
+                key = _discretize(state, bounds, int(params["bins"]))
+                action = int(np.argmax(q.get(key, np.zeros(env.action_space.n))))
+                state, reward, terminated, truncated, _ = env.step(action)
+                total += float(reward)
+                done = terminated or truncated
             frames.append(env.render())
-            key = _discretize(state, bounds, int(best["bins"]))
-            action = int(np.argmax(q.get(key, np.zeros(env.action_space.n))))
-            state, _, terminated, truncated, _ = env.step(action)
-            done = terminated or truncated
+            if total > best_return:
+                best_return = total
+                best_frames = frames
+                best_eval_seed = eval_seed
         env.close()
+
         output = ASSETS / "lunarlander_policy.gif"
-        imageio.mimsave(output, frames, fps=30)
-        print(f"wrote {output}")
+        imageio.mimsave(output, best_frames, fps=30)
+        print(
+            f"wrote {output} (method={run['method']}, hpo_seed={run['seed']}, "
+            f"trial={trial}, training_seed={training_seed}, "
+            f"eval_seed={best_eval_seed}, return={best_return:.6f})"
+        )
     except Exception as error:
         print(f"skipping LunarLander GIF: {error}")
 
