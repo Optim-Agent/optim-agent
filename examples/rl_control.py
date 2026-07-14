@@ -110,7 +110,7 @@ LANDING_TASK_CONTEXT = (
     "Tune a deterministic discrete LunarLander-v3 heuristic controller for a public GIF. "
     "One HPO seed evaluates every configuration on the same 20 environment seeds. A rollout "
     "is a successful landing only when Gymnasium terminates because the lander body sleeps, "
-    "which produces a final reward of +100. Prefer configurations that land, then higher mean "
+    "which produces a final signal of +100. Prefer configurations that land, then higher mean "
     "return. The controller targets the pad using position and velocity feedback; excessive "
     "gains oscillate or crash, while weak gains fail to arrest descent."
 )
@@ -334,8 +334,8 @@ def _landing_action(state, params):
     return 0
 
 
-def _is_successful_landing(terminated, truncated, final_reward):
-    return bool(terminated and not truncated and final_reward == 100.0)
+def _is_successful_landing(terminated, truncated, final_signal):
+    return bool(terminated and not truncated and final_signal == 100.0)
 
 
 def _evaluate_landing_params(params, seeds):
@@ -345,21 +345,21 @@ def _evaluate_landing_params(params, seeds):
     for seed in seeds:
         state, _ = env.reset(seed=seed)
         total = 0.0
-        final_reward = None
+        final_signal = None
         terminated = truncated = False
         steps = 0
         while not (terminated or truncated):
-            state, reward, terminated, truncated, _ = env.step(
+            state, signal, terminated, truncated, _ = env.step(
                 _landing_action(state, params)
             )
-            total += float(reward)
-            final_reward = float(reward)
+            total += float(signal)
+            final_signal = float(signal)
             steps += 1
         episodes.append({
             "seed": seed,
             "return": total,
-            "landed": _is_successful_landing(terminated, truncated, final_reward),
-            "final_reward": final_reward,
+            "landed": _is_successful_landing(terminated, truncated, final_signal),
+            "final_signal": final_signal,
             "steps": steps,
         })
     env.close()
@@ -629,18 +629,18 @@ def render_landing_gif(payload=None):
     state, _ = env.reset(seed=payload["selected_eval_seed"])
     frames = []
     total = 0.0
-    final_reward = None
+    final_signal = None
     terminated = truncated = False
     while not (terminated or truncated):
         frames.append(env.render())
-        state, reward, terminated, truncated, _ = env.step(
+        state, signal, terminated, truncated, _ = env.step(
             _landing_action(state, payload["selected_params"])
         )
-        total += float(reward)
-        final_reward = float(reward)
+        total += float(signal)
+        final_signal = float(signal)
     frames.append(env.render())
     env.close()
-    if not _is_successful_landing(terminated, truncated, final_reward):
+    if not _is_successful_landing(terminated, truncated, final_signal):
         raise RuntimeError("selected LunarLander rollout no longer lands")
     output = ASSETS / "lunarlander_policy.gif"
     imageio.mimsave(output, frames, fps=30)

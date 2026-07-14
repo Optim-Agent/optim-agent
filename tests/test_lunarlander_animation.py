@@ -20,4 +20,4 @@ def test_reference_landing_controller_lands():
     episode = rl._evaluate_landing_params(rl.LANDING_REFERENCE_PARAMS, (0,))[0]
 
     assert episode["landed"] is True
-    assert episode["final_reward"] == 100.0
+    assert episode["final_signal"] == 100.0

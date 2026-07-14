@@ -1,0 +1,68 @@
+{
+ "schema_version": 1,
+ "protocol": "lunarlander-animation-controller-v1",
+ "method": "GPT-5.5",
+ "backend": "codex",
+ "model": "gpt-5.5",
+ "agent_effort": "high",
+ "history": 20,
+ "explicit_reasoning": true,
+ "qualitative_notes": true,
+ "hpo_seed": 0,
+ "eval_seeds": [
+  0,
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+  10,
+  11,
+  12,
+  13,
+  14,
+  15,
+  16,
+  17,
+  18,
+  19
+ ],
+ "max_trials": 100,
+ "completed_trials": 1,
+ "best_landing_count": 20,
+ "best_trial": 0,
+ "selected_eval_seed": 0,
+ "selected_return": 291.82988306302553,
+ "selected_params": {
+  "x_position_gain": 0.7910952960675337,
+  "x_velocity_gain": 1.2579544029403025,
+  "angle_gain": 0.4944001065815915,
+  "angular_velocity_gain": 0.7848084253222597,
+  "hover_x_gain": 0.5823285688895956,
+  "hover_gain": 0.5132071893427693,
+  "vertical_velocity_gain": 0.7594690828726022
+ },
+ "trials": [
+  {
+   "trial": 0,
+   "params": {
+    "x_position_gain": 0.7910952960675337,
+    "x_velocity_gain": 1.2579544029403025,
+    "angle_gain": 0.4944001065815915,
+    "angular_velocity_gain": 0.7848084253222597,
+    "hover_x_gain": 0.5823285688895956,
+    "hover_gain": 0.5132071893427693,
+    "vertical_velocity_gain": 0.7594690828726022
+   },
+   "landing_count": 20,
+   "mean_return": 268.5378664609855,
+   "best_return": 291.82988306302553,
+   "best_eval_seed": 0
+  }
+ ],
+ "created_at": "2026-07-14T10:58:44.401367+00:00"
+}
