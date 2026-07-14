@@ -59,6 +59,9 @@ outcomes, and falls back to safe sampling when an agent reply is invalid.
   anonymous coordinate.
 - **Small-budget leverage** - useful when evaluations are expensive and classical
   surrogates are still data-starved.
+- **Agent CLI upside** - proposal quality can improve as the underlying coding
+  agents improve, such as moving from GPT-5.5 to GPT-5.6, without changing your
+  optimization code.
 - **Auditable decisions** - JSON/SQLite studies retain configurations,
   outcomes, states, context, and optional agent rationale.
 - **Bounded execution** - the agent only proposes values; optim-agent validates
