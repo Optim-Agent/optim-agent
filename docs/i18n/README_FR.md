@@ -13,6 +13,15 @@
 </p>
 
 <p align="center">
+  <a href="https://pypi.org/project/optim-agent/"><img alt="PyPI" src="https://img.shields.io/pypi/v/optim-agent"></a>
+  <a href="https://pypi.org/project/optim-agent/"><img alt="Python versions" src="https://img.shields.io/pypi/pyversions/optim-agent"></a>
+  <a href="../../LICENSE"><img alt="License: MIT" src="https://img.shields.io/pypi/l/optim-agent"></a>
+  <a href="https://optim-agent.github.io/optim-agent/"><img alt="Docs" src="https://img.shields.io/badge/docs-online-blue"></a>
+  <a href="https://code.claude.com/docs/en/skills"><img alt="Claude Skill" src="https://img.shields.io/badge/Claude-Skill-D97757?logo=claude&logoColor=white"></a>
+  <a href="https://developers.openai.com/codex/skills"><img alt="Codex Skill" src="https://img.shields.io/badge/Codex-Skill-blue?logo=openai&logoColor=white"></a>
+</p>
+
+<p align="center">
   <a href="../../README.md">English</a> |
   <a href="README_ZH.md">简体中文</a> |
   <a href="README_JA.md">日本語</a> |
@@ -24,12 +33,15 @@
   <a href="README_RU.md">Русский</a>
 </p>
 
-optim-agent utilise Claude Code, Codex ou OpenCode pour optimiser tout système
-qui expose des **paramètres configurables** et un **objectif mesurable**. Il
-combine le sens de chaque paramètre avec l'historique des essais, puis propose
-la prochaine configuration à évaluer. Votre fonction objectif reste l'unique
-arbitre ; les réponses invalides sont contrôlées et remplacées par un
-échantillonnage sûr.
+optim-agent permet à Claude Code / Codex / OpenCode d'ajuster des paramètres
+système réels en lisant votre code, en proposant des essais et en enregistrant
+les résultats objectifs mesurés. Utilisez-le lorsque votre système expose des
+paramètres configurables et un objectif mesurable. Il combine le sens de chaque
+paramètre avec ce que montre l'historique des essais, puis propose la prochaine
+configuration à évaluer. Les évaluations de l'objectif restent souveraines :
+optim-agent propose des valeurs, les valide par rapport à l'espace déclaré,
+enregistre les résultats et revient à un échantillonnage sûr lorsqu'une réponse
+d'agent est invalide.
 
 ## Pourquoi optim-agent
 
@@ -44,7 +56,19 @@ arbitre ; les réponses invalides sont contrôlées et remplacées par un
 
 ## Installation
 
-Choisissez soit la version stable de PyPI, soit la dernière version source de GitHub :
+Installez le skill Codex :
+
+```text
+$skill-installer install https://github.com/Optim-Agent/optim-agent
+```
+
+Installez le plugin Claude Code :
+
+```bash
+claude plugin marketplace add Optim-Agent/optim-agent && claude plugin install optim-agent@optim-agent
+```
+
+Installez le package Python :
 
 ```bash
 # Version stable sur PyPI

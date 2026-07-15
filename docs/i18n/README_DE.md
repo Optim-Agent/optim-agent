@@ -13,6 +13,15 @@
 </p>
 
 <p align="center">
+  <a href="https://pypi.org/project/optim-agent/"><img alt="PyPI" src="https://img.shields.io/pypi/v/optim-agent"></a>
+  <a href="https://pypi.org/project/optim-agent/"><img alt="Python versions" src="https://img.shields.io/pypi/pyversions/optim-agent"></a>
+  <a href="../../LICENSE"><img alt="License: MIT" src="https://img.shields.io/pypi/l/optim-agent"></a>
+  <a href="https://optim-agent.github.io/optim-agent/"><img alt="Docs" src="https://img.shields.io/badge/docs-online-blue"></a>
+  <a href="https://code.claude.com/docs/en/skills"><img alt="Claude Skill" src="https://img.shields.io/badge/Claude-Skill-D97757?logo=claude&logoColor=white"></a>
+  <a href="https://developers.openai.com/codex/skills"><img alt="Codex Skill" src="https://img.shields.io/badge/Codex-Skill-blue?logo=openai&logoColor=white"></a>
+</p>
+
+<p align="center">
   <a href="../../README.md">English</a> |
   <a href="README_ZH.md">简体中文</a> |
   <a href="README_JA.md">日本語</a> |
@@ -24,12 +33,15 @@
   <a href="README_RU.md">Русский</a>
 </p>
 
-optim-agent nutzt Claude Code, Codex oder OpenCode, um jedes System mit
-**konfigurierbaren Parametern** und einem **messbaren Ziel** zu optimieren. Das
-Werkzeug verbindet die Bedeutung der Parameter mit dem bisherigen
-Versuchsverlauf und schlägt die nächste auszuwertende Konfiguration vor. Ihre
-Zielfunktion bleibt entscheidend; ungültige Antworten werden geprüft und durch
-sicheres Sampling ersetzt.
+optim-agent lässt Claude Code / Codex / OpenCode echte Systemparameter
+abstimmen, indem es Ihren Code liest, Trials vorschlägt und gemessene
+Zielergebnisse aufzeichnet. Nutzen Sie es, wenn Ihr System konfigurierbare
+Parameter und ein messbares Ziel bereitstellt. Es verbindet die Bedeutung jedes
+Parameters mit dem bisherigen Versuchsverlauf und schlägt die nächste
+auszuwertende Konfiguration vor. Zielauswertungen bleiben maßgeblich:
+optim-agent schlägt Werte vor, validiert sie gegen den deklarierten Suchraum,
+zeichnet Ergebnisse auf und fällt bei ungültigen Agentenantworten auf sicheres
+Sampling zurück.
 
 ## Warum optim-agent
 
@@ -44,7 +56,19 @@ sicheres Sampling ersetzt.
 
 ## Installation
 
-Wählen Sie entweder die stabile PyPI-Version oder den neuesten GitHub-Stand:
+Installieren Sie den Codex-Skill:
+
+```text
+$skill-installer install https://github.com/Optim-Agent/optim-agent
+```
+
+Installieren Sie das Claude-Code-Plugin:
+
+```bash
+claude plugin marketplace add Optim-Agent/optim-agent && claude plugin install optim-agent@optim-agent
+```
+
+Installieren Sie das Python-Paket:
 
 ```bash
 # Stabile Version von PyPI

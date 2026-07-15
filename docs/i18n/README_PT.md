@@ -13,6 +13,15 @@
 </p>
 
 <p align="center">
+  <a href="https://pypi.org/project/optim-agent/"><img alt="PyPI" src="https://img.shields.io/pypi/v/optim-agent"></a>
+  <a href="https://pypi.org/project/optim-agent/"><img alt="Python versions" src="https://img.shields.io/pypi/pyversions/optim-agent"></a>
+  <a href="../../LICENSE"><img alt="License: MIT" src="https://img.shields.io/pypi/l/optim-agent"></a>
+  <a href="https://optim-agent.github.io/optim-agent/"><img alt="Docs" src="https://img.shields.io/badge/docs-online-blue"></a>
+  <a href="https://code.claude.com/docs/en/skills"><img alt="Claude Skill" src="https://img.shields.io/badge/Claude-Skill-D97757?logo=claude&logoColor=white"></a>
+  <a href="https://developers.openai.com/codex/skills"><img alt="Codex Skill" src="https://img.shields.io/badge/Codex-Skill-blue?logo=openai&logoColor=white"></a>
+</p>
+
+<p align="center">
   <a href="../../README.md">English</a> |
   <a href="README_ZH.md">简体中文</a> |
   <a href="README_JA.md">日本語</a> |
@@ -24,11 +33,14 @@
   <a href="README_RU.md">Русский</a>
 </p>
 
-optim-agent usa Claude Code, Codex ou OpenCode para otimizar qualquer sistema
-que exponha **parâmetros configuráveis** e um **objetivo mensurável**. Ele une o
-significado de cada parâmetro ao histórico de tentativas e propõe a próxima
-configuração a avaliar. Sua função objetivo continua sendo a autoridade:
-respostas inválidas são verificadas e substituídas por amostragem segura.
+optim-agent permite que Claude Code / Codex / OpenCode ajustem parâmetros reais
+do sistema lendo seu código, propondo tentativas e registrando resultados
+objetivos medidos. Use quando seu sistema expõe parâmetros configuráveis e um
+objetivo mensurável. Ele combina o significado de cada parâmetro com o que o
+histórico de tentativas mostra e propõe a próxima configuração a avaliar. As
+avaliações do objetivo continuam sendo a autoridade: optim-agent propõe valores,
+valida-os contra o espaço declarado, registra resultados e recorre a amostragem
+segura quando uma resposta do agente é inválida.
 
 ## Por que usar optim-agent
 
@@ -43,7 +55,19 @@ respostas inválidas são verificadas e substituídas por amostragem segura.
 
 ## Instalação
 
-Escolha a versão estável do PyPI ou o código mais recente do GitHub:
+Instale o skill do Codex:
+
+```text
+$skill-installer install https://github.com/Optim-Agent/optim-agent
+```
+
+Instale o plugin do Claude Code:
+
+```bash
+claude plugin marketplace add Optim-Agent/optim-agent && claude plugin install optim-agent@optim-agent
+```
+
+Instale o pacote Python:
 
 ```bash
 # Versão estável do PyPI
