@@ -755,7 +755,7 @@ def test_chinese_readme_covers_primary_user_paths():
     chinese = (root / "docs/i18n/README_ZH.md").read_text()
 
     assert "docs/i18n/README_ZH.md" in english
-    for term in ("安装", "快速开始", "机器学习", "推理", "基准", "贡献"):
+    for term in ("安装", "快速开始", "模型训练", "推理", "基准", "贡献"):
         assert term in chinese
     for target in (
         "../../README.md", "../../examples/quickstart.py",
@@ -791,7 +791,11 @@ def test_readme_links_all_localized_editions():
         for text in (
             "GPT-5.5 w/ context",
             "GPT-5.5 w/o context",
-            "model_reasoning_effort=medium",
+            "GP-BO",
+            "rl_control.png",
+            "lunarlander_policy.gif",
+            "optim-agent-overview.png",
+            "max_concurrency=8",
             "history=5",
             "explicit_reasoning=True",
             "qualitative_notes=True",
