@@ -164,9 +164,12 @@ trial 履歴だけを与えます。10 trial、5 seed で実行し、Random と 
 | GPT-5.5 | 1.326 | 3.960 |
 | **Opus-4.8** | **0.398** | **0.061** |
 | Sonnet-5 | 3.850 | 0.143 |
+| Kimi-K3 | 2.082 | 0.907 |
+| Minimax-M3 | 0.970 | 0.574 |
 | GLM-5.2 | 3.609 | 15.023 |
 
-固定モデルは `gpt-5.5`、`claude-opus-4-8`、`claude-sonnet-5`、`glm-5.2` です。
+固定モデルは `gpt-5.5`、`claude-opus-4-8`、`claude-sonnet-5`、`kimi-k3`、
+`MiniMax-M3`、`glm-5.2` です。
 Opus-4.8 は Branin で平均的に最適近くまで到達し、5 seed Ackley 平均でも最強です。
 
 #### OpenCode エージェント（無料）
@@ -282,8 +285,14 @@ python scripts/verify_classification_cumulative_error.py run-no-context
 python scripts/verify_classification_cumulative_error.py
 
 # Hard functions
-python examples/hard_functions.py preflight
-python examples/hard_functions.py distributed --trials 10 --seeds 0 1 2 3 4
+python examples/hard_functions.py distributed \
+  --agents Random TPE GPT-5.5 Opus-4.8 Sonnet-5 GLM-5.2 Big-pickle \
+  DeepSeek-V4-Flash Nemotron-3-Ultra MiMo-v2.5 \
+  --trials 10 --seeds 0 1 2 3 4
+cp ~/.claude/settings-kimi.json ~/.claude/settings.json
+python examples/hard_functions.py distributed --agents Kimi-K3 --trials 10 --seeds 0 1 2 3 4
+cp ~/.claude/settings-minimax.json ~/.claude/settings.json
+python examples/hard_functions.py distributed --agents Minimax-M3 --trials 10 --seeds 0 1 2 3 4
 python examples/hard_functions.py plot
 
 # Credit-card HGB

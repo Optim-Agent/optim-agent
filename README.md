@@ -164,17 +164,19 @@ over five seeds; Random and TPE are unchanged baselines.
 
 ![No-context top-tier hard-function benchmark](docs/assets/hard_benchmarks_tier.png)
 
-| method       | mean best Branin ↓ | mean best Ackley-5D ↓ |
-| ------------ | -----------------: | --------------------: |
-| Random       |              5.008 |                19.639 |
-| TPE          |             11.395 |                18.843 |
-| GPT-5.5      |              1.326 |                 3.960 |
-| **Opus-4.8** |          **0.398** |             **0.061** |
-| Sonnet-5     |              3.850 |                 0.143 |
-| GLM-5.2      |              3.609 |                15.023 |
+| method        | mean best Branin ↓ | mean best Ackley-5D ↓ |
+| ------------- | -----------------: | --------------------: |
+| Random        |              5.008 |                19.639 |
+| TPE           |             11.395 |                18.843 |
+| GPT-5.5       |              1.326 |                 3.960 |
+| **Opus-4.8**  |          **0.398** |             **0.061** |
+| Sonnet-5      |              3.850 |                 0.143 |
+| Kimi-K3       |              2.082 |                 0.907 |
+| Minimax-M3    |              0.970 |                 0.574 |
+| GLM-5.2       |              3.609 |                15.023 |
 
-The pinned models are `gpt-5.5`, `claude-opus-4-8`, `claude-sonnet-5`, and
-`glm-5.2`.
+The pinned models are `gpt-5.5`, `claude-opus-4-8`, `claude-sonnet-5`,
+`kimi-k3`, `MiniMax-M3`, and `glm-5.2`.
 Opus-4.8 reaches the Branin optimum on average and has the strongest five-seed
 Ackley mean.
 
@@ -306,8 +308,14 @@ python scripts/verify_classification_cumulative_error.py run-no-context
 python scripts/verify_classification_cumulative_error.py
 
 # Hard functions
-python examples/hard_functions.py preflight
-python examples/hard_functions.py distributed --trials 10 --seeds 0 1 2 3 4
+python examples/hard_functions.py distributed \
+  --agents Random TPE GPT-5.5 Opus-4.8 Sonnet-5 GLM-5.2 Big-pickle \
+  DeepSeek-V4-Flash Nemotron-3-Ultra MiMo-v2.5 \
+  --trials 10 --seeds 0 1 2 3 4
+cp ~/.claude/settings-kimi.json ~/.claude/settings.json
+python examples/hard_functions.py distributed --agents Kimi-K3 --trials 10 --seeds 0 1 2 3 4
+cp ~/.claude/settings-minimax.json ~/.claude/settings.json
+python examples/hard_functions.py distributed --agents Minimax-M3 --trials 10 --seeds 0 1 2 3 4
 python examples/hard_functions.py plot
 
 # Credit-card HGB

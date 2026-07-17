@@ -1596,6 +1596,8 @@ def test_hard_functions_distributed_contract():
         "GPT-5.5": ("codex", "gpt-5.5", "tier"),
         "Opus-4.8": ("claude", "claude-opus-4-8", "tier"),
         "Sonnet-5": ("claude", "claude-sonnet-5", "tier"),
+        "Kimi-K3": ("claude", "kimi-k3", "tier"),
+        "Minimax-M3": ("claude", "MiniMax-M3", "tier"),
         "GLM-5.2": ("opencode", "glm-5.2", "tier"),
         "Big-pickle": ("opencode", "opencode/big-pickle", "free"),
         "DeepSeek-V4-Flash": (
@@ -1698,6 +1700,41 @@ def test_plotters_reject_incomplete_publication_data():
                     raise AssertionError("incomplete publication data was accepted")
         finally:
             mnist.ASSETS, cifar10.ASSETS, hard_functions.ASSETS = old_mnist, old_cifar, old_hard
+
+
+def test_hard_functions_plot_loader_ignores_unknown_local_artifacts():
+    from examples import hard_functions as hard
+
+    def run_doc(label, seed):
+        preset = hard.POOL[label]
+        return {
+            "label": label,
+            "backend": preset["backend"],
+            "model": preset["model"],
+            "effort": hard.AGENT_EFFORT if hard._is_agent(preset) else None,
+            "no_context": True if hard._is_agent(preset) else None,
+            "seed": seed,
+            "trials": 10,
+            "functions": {
+                name: {"values": [1.0] * 10, "params": [{}] * 10}
+                for name in hard.FUNCTIONS
+            },
+        }
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        old_assets = hard.ASSETS
+        hard.ASSETS = root
+        try:
+            for label in hard.POOL:
+                for seed in range(5):
+                    (root / f"hard_curves_{label}_s{seed}.json").write_text(
+                        json.dumps(run_doc(label, seed))
+                    )
+            (root / "hard_curves_GP-BO_s0.json").write_text(json.dumps({"label": "GP-BO"}))
+            assert set(hard._load_plot_runs()) == set(hard.POOL)
+        finally:
+            hard.ASSETS = old_assets
 
 
 if __name__ == "__main__":

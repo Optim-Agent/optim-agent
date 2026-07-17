@@ -503,10 +503,13 @@ effort for 10 trials over five seeds; Random and TPE are unchanged baselines.</p
 <tr><td>GPT-5.5</td><td>1.326</td><td>3.960</td></tr>
 <tr><td><strong>Opus-4.8</strong></td><td><strong>0.398</strong></td><td><strong>0.061</strong></td></tr>
 <tr><td>Sonnet-5</td><td>3.850</td><td>0.143</td></tr>
+<tr><td>Kimi-K3</td><td>2.082</td><td>0.907</td></tr>
+<tr><td>Minimax-M3</td><td>0.970</td><td>0.574</td></tr>
 <tr><td>GLM-5.2</td><td>3.609</td><td>15.023</td></tr>
 </table>
 <p>The pinned models are <code>gpt-5.5</code>, <code>claude-opus-4-8</code>,
-<code>claude-sonnet-5</code>, and <code>glm-5.2</code>. Opus-4.8 reaches the Branin optimum
+<code>claude-sonnet-5</code>, <code>kimi-k3</code>, <code>MiniMax-M3</code>, and
+<code>glm-5.2</code>. Opus-4.8 reaches the Branin optimum
 on average and has the strongest five-seed Ackley mean.</p>
 
 <h4>Free OpenCode agents</h4>
@@ -560,8 +563,14 @@ beyond this experiment.</div>
 <pre><code>pip install -e ".[examples]"
 python scripts/verify_classification_cumulative_error.py run-no-context
 python scripts/verify_classification_cumulative_error.py
-python examples/hard_functions.py preflight
-python examples/hard_functions.py distributed --trials 10 --seeds 0 1 2 3 4
+python examples/hard_functions.py distributed \
+  --agents Random TPE GPT-5.5 Opus-4.8 Sonnet-5 GLM-5.2 Big-pickle \
+  DeepSeek-V4-Flash Nemotron-3-Ultra MiMo-v2.5 \
+  --trials 10 --seeds 0 1 2 3 4
+cp ~/.claude/settings-kimi.json ~/.claude/settings.json
+python examples/hard_functions.py distributed --agents Kimi-K3 --trials 10 --seeds 0 1 2 3 4
+cp ~/.claude/settings-minimax.json ~/.claude/settings.json
+python examples/hard_functions.py distributed --agents Minimax-M3 --trials 10 --seeds 0 1 2 3 4
 python examples/hard_functions.py plot
 pip install -e ".[ml,examples]"
 python examples/credit_card.py download

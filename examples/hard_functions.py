@@ -8,14 +8,19 @@ this is a sample-efficiency race, which is where agent reasoning is meant to
 pay off.
 
 Pools:
-  - tier: GPT-5.5, Opus-4.8, Sonnet-5, and GLM-5.2
+  - tier: GPT-5.5, Opus-4.8, Sonnet-5, Kimi-K3, Minimax-M3, and GLM-5.2
   - free: rotating free OpenCode models for users without paid model APIs
 
 Every agent uses medium effort and receives no task context.
 
-    python examples/hard_functions.py preflight
-    python examples/hard_functions.py distributed --trials 10 --seeds 0 1 2 3 4
-    python examples/hard_functions.py run --agent TPE --trials 10
+    python examples/hard_functions.py distributed \
+      --agents Random TPE GPT-5.5 Opus-4.8 Sonnet-5 GLM-5.2 Big-pickle \
+      DeepSeek-V4-Flash Nemotron-3-Ultra MiMo-v2.5 \
+      --trials 10 --seeds 0 1 2 3 4
+    cp ~/.claude/settings-kimi.json ~/.claude/settings.json
+    python examples/hard_functions.py distributed --agents Kimi-K3 --trials 10 --seeds 0 1 2 3 4
+    cp ~/.claude/settings-minimax.json ~/.claude/settings.json
+    python examples/hard_functions.py distributed --agents Minimax-M3 --trials 10 --seeds 0 1 2 3 4
     python examples/hard_functions.py plot
     python examples/hard_functions.py selfcheck   # verify the function values
 """
@@ -46,6 +51,10 @@ POOL = {
                      color="#8b5cf6", style="solid"),
     "Sonnet-5": dict(backend="claude", model="claude-sonnet-5", group="tier",
                      color="#d97706", style=(0, (3, 1))),
+    "Kimi-K3": dict(backend="claude", model="kimi-k3", group="tier",
+                    color="#dc2626", style=(0, (5, 1, 1, 1))),
+    "Minimax-M3": dict(backend="claude", model="MiniMax-M3", group="tier",
+                       color="#7c3aed", style=(0, (1, 1))),
     "GLM-5.2": dict(backend="opencode", model="glm-5.2", group="tier",
                     color="#2563eb", style=(0, (4, 2, 1, 2))),
     "Big-pickle": dict(backend="opencode", model="opencode/big-pickle", group="free",
@@ -258,9 +267,11 @@ def _load_plot_runs():
     by_label = {}
     for path in sorted(ASSETS.glob("hard_curves_*_s*.json")):
         r = json.loads(path.read_text())
+        if r.get("label") not in POOL:
+            continue
         by_label.setdefault(r["label"], []).append(r)
     if set(by_label) != set(POOL):
-        raise SystemExit(f"hard-function plot requires exactly {tuple(POOL)}")
+        raise SystemExit(f"hard-function plot requires {tuple(POOL)}")
     for label, runs in by_label.items():
         if len(runs) != 5 or {run.get("seed") for run in runs} != set(range(5)):
             raise SystemExit(f"hard-function plot requires seeds 0..4 for {label}")
