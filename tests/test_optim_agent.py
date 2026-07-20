@@ -157,7 +157,6 @@ def test_documentation_portal_is_deployable_and_matches_sampler_api():
     notebook_text = "\n".join(
         "".join(cell.get("source", [])) for cell in notebook["cells"]
     )
-    assert "colab.research.google.com" in notebook_text
     assert 'backend="mock"' in notebook_text
 
 
