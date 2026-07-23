@@ -487,8 +487,8 @@ agent backend usually means one small function in [`optim_agent/agent.py`](optim
 
 <a href="https://www.star-history.com/?repos=Optim-Agent%2Foptim-agent&type=date&legend=top-left">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=Optim-Agent/optim-agent&type=date&theme=dark&legend=top-left&sealed_token=SzlvdNPQXKt7zewkOI7mSrDzXorDxpNV2rUAxSbkPyupsUEwHK6B2Dv5E0Clpt7-1lzcb0zhUEjKnaE6IYmogpHnNe6X7KQb08PhNCkv99rbSTraJwJo1A" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=Optim-Agent/optim-agent&type=date&legend=top-left&sealed_token=SzlvdNPQXKt7zewkOI7mSrDzXorDxpNV2rUAxSbkPyupsUEwHK6B2Dv5E0Clpt7-1lzcb0zhUEjKnaE6IYmogpHnNe6X7KQb08PhNCkv99rbSTraJwJo1A" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=Optim-Agent/optim-agent&type=date&legend=top-left&sealed_token=SzlvdNPQXKt7zewkOI7mSrDzXorDxpNV2rUAxSbkPyupsUEwHK6B2Dv5E0Clpt7-1lzcb0zhUEjKnaE6IYmogpHnNe6X7KQb08PhNCkv99rbSTraJwJo1A" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=Optim-Agent/optim-agent&type=timeline&logscale=&theme=dark&legend=top-left&sealed_token=SzlvdNPQXKt7zewkOI7mSrDzXorDxpNV2rUAxSbkPyupsUEwHK6B2Dv5E0Clpt7-1lzcb0zhUEjKnaE6IYmogpHnNe6X7KQb08PhNCkv99rbSTraJwJo1A" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=Optim-Agent/optim-agent&type=timeline&logscale=&legend=top-left&sealed_token=SzlvdNPQXKt7zewkOI7mSrDzXorDxpNV2rUAxSbkPyupsUEwHK6B2Dv5E0Clpt7-1lzcb0zhUEjKnaE6IYmogpHnNe6X7KQb08PhNCkv99rbSTraJwJo1A" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=Optim-Agent/optim-agent&type=timeline&logscale=&legend=top-left&sealed_token=SzlvdNPQXKt7zewkOI7mSrDzXorDxpNV2rUAxSbkPyupsUEwHK6B2Dv5E0Clpt7-1lzcb0zhUEjKnaE6IYmogpHnNe6X7KQb08PhNCkv99rbSTraJwJo1A" />
  </picture>
 </a>
