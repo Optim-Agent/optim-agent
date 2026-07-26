@@ -52,12 +52,12 @@ def mean_incumbent_curve(method):
 
 plt.rcParams.update({"font.size": 8, "axes.labelsize": 8, "legend.fontsize": 7,
                      "xtick.labelsize": 7.5, "ytick.labelsize": 7.5})
-fig, ax = plt.subplots(figsize=(3.5, 1.72))
+fig, ax = plt.subplots(figsize=(3.5, 1.55))
 trials = range(1, N_TRIALS + 1)
 for method in ("Random", "TPE", "GP-BO", "GPT-5.5", "GPT-5.5-no-context"):
     ax.plot(trials, mean_incumbent_curve(method), ms=3.0, label=labels[method], **styles[method])
 ax.set_xlabel("Trial")
-ax.set_ylabel("Best validation log loss")
+ax.set_ylabel("Validation log loss")
 ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 ax.grid(alpha=0.18)
 ax.legend(ncol=1, frameon=False)
