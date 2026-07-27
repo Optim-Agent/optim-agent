@@ -1,0 +1,105 @@
+{
+  "plan_hash": "375a3cf4c89a0b7fb64e5edc283af9964091d09513262d4c1842c0e45e8f9826",
+  "source_base": "d4d581764ff301e3fe97201943ba7a7b3f8ee86c",
+  "integration_destination": "main",
+  "run_worktree_path": "/tmp/claude-501/optim-plans-run-2e204287307d4263948b3c181f5bdab7",
+  "worker": {
+    "adapter": "claude",
+    "argv": [
+      "/Users/zhuofan/.local/bin/claude",
+      "-p",
+      "You are the optim-plans executor. Your working directory is the controller-owned git worktree of the optim-agent repository; every file you create or modify must be inside this working directory, using relative paths. The approved plan is docs/optim-plans/2026-07-27-summary-agent-and-table-logging/PLAN_v3.md (reviewer context in the same directory), relative to this working directory. Your assigned manifest item id is the value of environment variable OPTIM_PLANS_IDS, and the paths you may create or modify are the os.pathsep-separated list in OPTIM_PLANS_SCOPES (relative to this working directory). Read the plan, implement exactly that one item (its Implementation I-entry, Requirements R-entries, and Acceptance criteria A-entries), and nothing else. Rules: stdlib only, Python >= 3.9 compatible, ruff line-length 100; do not run git commands or commit; do not run ruff or any linter/formatter; do not create cache directories (RUFF_CACHE_DIR, PYTHONDONTWRITEBYTECODE, and PYTEST_ADDOPTS are already set for you); create no files beyond those in OPTIM_PLANS_SCOPES; do not touch any file outside your allowed paths. When done, use the Write tool to write a JSON object to the exact path in environment variable OPTIM_PLANS_RESULT_PATH: {\"nonce\": <env OPTIM_PLANS_WORKER_NONCE>, \"item_id\": <env OPTIM_PLANS_IDS>, \"status\": \"done\", \"evidence\": \"<one sentence on what changed>\"}. Use your Bash tool to read those environment variables (e.g. echo \"$OPTIM_PLANS_RESULT_PATH\"). Writing that result file is mandatory.",
+      "--agents",
+      "{\"optim-plans-executor\":{\"description\":\"Executes approved optim-plans manifest items in a controller-owned worktree.\",\"prompt\":\"Complete only the assigned optim-plans item, stay inside the allowed scopes, and write the required result JSON.\",\"tools\":[\"Read\",\"Edit\",\"Write\",\"Bash\",\"Glob\",\"Grep\"],\"permissionMode\":\"acceptEdits\"}}",
+      "--agent",
+      "optim-plans-executor",
+      "--model",
+      "claude-fable-5",
+      "--setting-sources",
+      "",
+      "--settings",
+      "/Users/zhuofan/ClaudeExp/optim-agent/.git/optim-plans/runs/2e204287307d4263948b3c181f5bdab7/executor-settings.json",
+      "--strict-mcp-config",
+      "--mcp-config",
+      "{\"mcpServers\":{}}",
+      "--plugin-dir",
+      "/Users/zhuofan/ClaudeExp/optim-agent/.git/optim-plans/runs/2e204287307d4263948b3c181f5bdab7/executor-plugin",
+      "--allowedTools",
+      "Read,Edit,Write,Bash,Glob,Grep",
+      "--permission-mode",
+      "acceptEdits",
+      "--no-session-persistence",
+      "--json-schema",
+      "{}"
+    ],
+    "env": {
+      "ANTHROPIC_API_KEY": "",
+      "ANTHROPIC_AUTH_TOKEN": "proxy-managed",
+      "NO_PROXY": "",
+      "no_proxy": "",
+      "CLAUDE_CONFIG_DIR": "/tmp/claude-501/optim-plans-claude-config-2e204287307d4263948b3c181f5bdab7",
+      "RUFF_CACHE_DIR": "/tmp/claude-501/optim-plans-ruff-cache",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTEST_ADDOPTS": "-p no:cacheprovider"
+    },
+    "config_files": [
+      {
+        "path": "/Users/zhuofan/ClaudeExp/optim-agent/.git/optim-plans/runs/2e204287307d4263948b3c181f5bdab7/executor-settings.json",
+        "content": {}
+      },
+      {
+        "path": "/Users/zhuofan/ClaudeExp/optim-agent/.git/optim-plans/runs/2e204287307d4263948b3c181f5bdab7/executor-plugin/.keep",
+        "content": ""
+      }
+    ]
+  },
+  "items": [
+    {
+      "id": "TASK-003",
+      "allowed_paths": ["optim_agent/study.py"],
+      "verification_argv": ["python3", "-m", "pytest", "tests/", "-x", "-q"],
+      "verification_timeout_seconds": 900,
+      "verification": {"env": {"PYTHONDONTWRITEBYTECODE": "1", "PYTEST_ADDOPTS": "-p no:cacheprovider"}}
+    },
+    {
+      "id": "TASK-004",
+      "depends_on": ["TASK-003"],
+      "allowed_paths": ["tests/test_optim_agent.py", "tests/test_reporting.py"],
+      "verification_argv": ["python3", "-m", "pytest", "tests/", "-q"],
+      "verification_timeout_seconds": 900,
+      "verification": {"env": {"PYTHONDONTWRITEBYTECODE": "1", "PYTEST_ADDOPTS": "-p no:cacheprovider"}}
+    },
+    {
+      "id": "TASK-005",
+      "depends_on": ["TASK-004"],
+      "allowed_paths": [
+        "pyproject.toml",
+        "optim_agent/__init__.py",
+        "CHANGELOG.md",
+        "docs/index.html",
+        "plugins/optim-agent/.claude-plugin/plugin.json",
+        "plugins/optim-agent/.codex-plugin/plugin.json",
+        "tests/test_plugin_manifests.py"
+      ],
+      "verification_argv": [
+        "python3",
+        "-c",
+        "import json, pathlib, sys, pytest, optim_agent; assert optim_agent.__version__ == '0.2.0'; assert json.loads(pathlib.Path('plugins/optim-agent/.claude-plugin/plugin.json').read_text())['version'] == '0.2.0'; assert json.loads(pathlib.Path('plugins/optim-agent/.codex-plugin/plugin.json').read_text())['version'] == '0.2.0'; sys.exit(pytest.main(['tests/test_plugin_manifests.py', '-q']))"
+      ],
+      "verification_timeout_seconds": 300,
+      "verification": {"env": {"PYTHONDONTWRITEBYTECODE": "1", "PYTEST_ADDOPTS": "-p no:cacheprovider"}}
+    },
+    {
+      "id": "TASK-006",
+      "depends_on": ["TASK-005"],
+      "allowed_paths": ["README.md", "docs/i18n/"],
+      "verification_argv": [
+        "python3",
+        "-c",
+        "import pathlib; files = ['README.md'] + ['docs/i18n/README_%s.md' % c for c in ['DE','ES','FR','JA','KO','PT','RU','ZH']]; missing = [f for f in files if 'summarize' not in pathlib.Path(f).read_text()]; assert not missing, missing"
+      ],
+      "verification_timeout_seconds": 120,
+      "verification": {"env": {"PYTHONDONTWRITEBYTECODE": "1", "PYTEST_ADDOPTS": "-p no:cacheprovider"}}
+    }
+  ]
+}
