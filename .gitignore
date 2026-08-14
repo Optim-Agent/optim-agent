@@ -12,7 +12,8 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 .ipynb_checkpoints/
-/paper/
+/paper/*
+!/paper/main.pdf
 docs/autoresearch/
 /docs/superpowers/
 /docs/optim-plans/

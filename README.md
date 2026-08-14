@@ -523,6 +523,10 @@ pytest                     # runs tests/test_optim_agent.py
 Please open an issue to discuss larger changes before sending a PR. Adding a new
 agent backend usually means one small function in [`optim_agent/agent.py`](optim_agent/agent.py).
 
+## Paper
+
+The optim-agent paper is available at [`paper/main.pdf`](paper/main.pdf).
+
 ## Acknowledgements
 
 - [Optuna](https://github.com/optuna/optuna) for popularizing the Study/Trial
